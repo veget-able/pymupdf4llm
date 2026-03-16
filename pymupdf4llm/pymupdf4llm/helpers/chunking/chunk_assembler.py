@@ -1,0 +1,252 @@
+"""Steps C+D: Assemble initial chunks and refine via split/merge."""
+
+from .models import SentenceUnit, ProtoChunk
+from .token_utils import TokenCounter
+
+
+class ChunkAssembler:
+    """Assembles SentenceUnits into ProtoChunks based on boundary scores,
+    then refines by splitting oversized and merging undersized chunks.
+    """
+
+    def __init__(
+        self,
+        max_tokens: int = 400,
+        min_tokens: int = 120,
+        threshold: float = 0.5,
+        table_mode: str = "preserve",
+        merge_small_chunks: bool = True,
+        tokenizer=None,
+    ):
+        self.max_tokens = max_tokens
+        self.min_tokens = min_tokens
+        self.threshold = threshold
+        self.table_mode = table_mode
+        self.merge_small = merge_small_chunks
+        self.counter = TokenCounter(tokenizer)
+
+    def assemble(self, sents: list[SentenceUnit], scores: list[float]) -> list[ProtoChunk]:
+        """Form initial chunks from sentences + boundary scores.
+
+        A new chunk starts when:
+        - break_score > threshold, OR
+        - adding the next sentence would exceed max_tokens, OR
+        - the next sentence is a table/figure (structural isolation)
+        """
+        if not sents:
+            return []
+
+        chunks = []
+        current_sents = [sents[0]]
+        current_text = sents[0].text
+        current_tokens = self.counter.count(current_text)
+
+        for i, score in enumerate(scores):
+            next_sent = sents[i + 1]
+
+            # Force break conditions
+            should_break = score > self.threshold
+            combined_text = current_text + "\n" + next_sent.text
+            would_exceed = self.counter.count(combined_text) > self.max_tokens
+            structural_break = self._is_structural_break(current_sents[-1], next_sent)
+
+            if should_break or would_exceed or structural_break:
+                chunks.append(self._make_proto_chunk(len(chunks), current_sents))
+                current_sents = [next_sent]
+                current_text = next_sent.text
+                current_tokens = self.counter.count(current_text)
+            else:
+                current_sents.append(next_sent)
+                current_text = combined_text
+                current_tokens = self.counter.count(current_text)
+
+        # Flush remaining
+        if current_sents:
+            chunks.append(self._make_proto_chunk(len(chunks), current_sents))
+
+        return chunks
+
+    def refine(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
+        """Refine chunks by splitting oversized and merging undersized ones."""
+        # Phase 1: Split oversized chunks
+        split_chunks = []
+        for chunk in chunks:
+            if chunk.token_count > self.max_tokens:
+                split_chunks.extend(self._split_chunk(chunk))
+            else:
+                split_chunks.append(chunk)
+
+        if not self.merge_small:
+            return self._renumber(split_chunks)
+
+        # Phase 2: Merge undersized chunks
+        merged = self._merge_chunks(split_chunks)
+        return self._renumber(merged)
+
+    def _is_structural_break(self, prev: SentenceUnit, next_sent: SentenceUnit) -> bool:
+        """Check if there's a forced structural break between units."""
+        if next_sent.is_header_footer != prev.is_header_footer:
+            return True
+        if next_sent.is_table_content != prev.is_table_content:
+            return True
+        if next_sent.is_figure_related != prev.is_figure_related:
+            return True
+        if next_sent.is_heading_hint:
+            return True
+        return False
+
+    def _make_proto_chunk(self, chunk_id: int, sents: list[SentenceUnit]) -> ProtoChunk:
+        """Create a ProtoChunk from a list of SentenceUnits."""
+        text = "\n".join(s.text for s in sents)
+        token_count = self.counter.count(text)
+        chunk_type = self._infer_chunk_type(sents)
+
+        x0 = min(s.bbox[0] for s in sents)
+        y0 = min(s.bbox[1] for s in sents)
+        x1 = max(s.bbox[2] for s in sents)
+        y1 = max(s.bbox[3] for s in sents)
+
+        box_indices = list(dict.fromkeys(
+            (s.page_no, s.box_index) for s in sents
+        ))
+
+        table_md = None
+        if chunk_type == "table":
+            for s in sents:
+                if s.table_markdown:
+                    table_md = s.table_markdown
+                    break
+
+        return ProtoChunk(
+            chunk_id=chunk_id,
+            sent_ids=[s.sent_id for s in sents],
+            text=text,
+            token_count=token_count,
+            page_start=sents[0].page_no,
+            page_end=sents[-1].page_no,
+            box_indices=box_indices,
+            bbox_union=(x0, y0, x1, y1),
+            chunk_type_hint=chunk_type,
+            heading_path=[],  # filled by serializer
+            table_markdown=table_md,
+            _sentences=list(sents),
+        )
+
+    def _infer_chunk_type(self, sents: list[SentenceUnit]) -> str:
+        """Determine the dominant chunk type from sentence hints."""
+        if any(s.is_header_footer for s in sents):
+            return "header_footer"
+        if any(s.is_table_content for s in sents):
+            return "table"
+        if any(s.is_figure_related for s in sents):
+            return "figure"
+        if all(s.is_list_item for s in sents):
+            return "list"
+        if any(s.is_heading_hint for s in sents) and len(sents) == 1:
+            return "heading"
+        if any(s.is_footnote for s in sents):
+            return "footnote"
+        return "paragraph"
+
+    def _split_chunk(self, chunk: ProtoChunk) -> list[ProtoChunk]:
+        """Split an oversized chunk at sentence boundaries."""
+        sents = chunk._sentences
+        if not sents:
+            return [chunk]
+
+        if chunk.chunk_type_hint == "table" and self.table_mode == "preserve":
+            return [chunk]
+
+        result = []
+        current = []
+        current_text = ""
+
+        for sent in sents:
+            sent_tokens = self.counter.count(sent.text)
+
+            if sent_tokens > self.max_tokens:
+                if current:
+                    result.append(self._make_proto_chunk(0, current))
+                    current = []
+                    current_text = ""
+                result.append(self._make_proto_chunk(0, [sent]))
+                continue
+
+            combined = (current_text + "\n" + sent.text) if current_text else sent.text
+            if self.counter.count(combined) > self.max_tokens and current:
+                result.append(self._make_proto_chunk(0, current))
+                current = [sent]
+                current_text = sent.text
+            else:
+                current.append(sent)
+                current_text = combined
+
+        if current:
+            result.append(self._make_proto_chunk(0, current))
+
+        return result
+
+    def _merge_chunks(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
+        """Merge adjacent undersized chunks if compatible."""
+        if len(chunks) <= 1:
+            return chunks
+
+        merged = [chunks[0]]
+        for i in range(1, len(chunks)):
+            prev = merged[-1]
+            curr = chunks[i]
+
+            can_merge = (
+                prev.token_count < self.min_tokens
+                and self._can_merge_pair(prev, curr)
+            )
+
+            if can_merge:
+                combined_sents = prev._sentences + curr._sentences
+                merged[-1] = self._make_proto_chunk(0, combined_sents)
+            else:
+                merged.append(curr)
+
+        if len(merged) >= 2 and merged[-1].token_count < self.min_tokens:
+            last = merged[-1]
+            prev = merged[-2]
+            if self._can_merge_pair(prev, last):
+                combined = prev._sentences + last._sentences
+                merged[-2] = self._make_proto_chunk(0, combined)
+                merged.pop()
+
+        return merged
+
+    def _can_merge_pair(self, a: ProtoChunk, b: ProtoChunk) -> bool:
+        """Check if two chunks can be merged."""
+        if a.chunk_type_hint == "header_footer" or b.chunk_type_hint == "header_footer":
+            return False
+
+        # Only allow merging same types, or heading+paragraph
+        if a.chunk_type_hint != b.chunk_type_hint:
+            if not (a.chunk_type_hint == "heading" and b.chunk_type_hint == "paragraph"):
+                return False
+
+        if a.token_count + b.token_count > self.max_tokens:
+            return False
+
+        if abs(a.page_end - b.page_start) > 1:
+            return False
+
+        # Don't merge chunks in different columns
+        ax0, _, ax1, _ = a.bbox_union
+        bx0, _, bx1, _ = b.bbox_union
+        min_width = min(ax1 - ax0, bx1 - bx0)
+        if min_width > 0:
+            overlap = max(0.0, min(ax1, bx1) - max(ax0, bx0))
+            if overlap / min_width < 0.3:
+                return False
+
+        return True
+
+    @staticmethod
+    def _renumber(chunks: list[ProtoChunk]) -> list[ProtoChunk]:
+        """Renumber chunk IDs sequentially."""
+        for i, chunk in enumerate(chunks):
+            chunk.chunk_id = i
+        return chunks

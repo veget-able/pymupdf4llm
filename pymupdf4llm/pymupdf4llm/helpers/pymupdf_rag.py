@@ -319,6 +319,12 @@ def to_text(*args, **kwargs):
     )
 
 
+def to_chunk(*args, **kwargs):
+    raise NotImplementedError(
+        "Function 'to_chunk' is only available in PyMuPDF-Layout mode"
+    )
+
+
 def to_markdown(
     doc,
     *,

@@ -230,3 +230,35 @@ def LlamaMarkdownReader(*args, **kwargs):
     from .llama import pdf_markdown_reader
 
     return pdf_markdown_reader.PDFMarkdownReader(*args, **kwargs)
+
+
+def _layout_to_chunk(
+        doc,
+        **kwargs,
+    ):
+    # Split kwargs into parse_document args and to_chunks args
+    parse_keys = {
+        "filename", "image_dpi", "ocr_dpi", "image_format", "image_path",
+        "pages", "show_progress", "embed_images", "write_images",
+        "force_text", "use_ocr", "force_ocr", "ocr_language", "ocr_function",
+    }
+    # Map external names to parse_document names
+    parse_kwargs = {}
+    chunk_kwargs = {}
+    for k, v in kwargs.items():
+        if k == "dpi":
+            parse_kwargs["image_dpi"] = v
+        elif k in parse_keys:
+            parse_kwargs[k] = v
+        else:
+            chunk_kwargs[k] = v
+
+    parsed_doc = pymupdf4llm.helpers.document_layout.parse_document(doc, **parse_kwargs)
+    return parsed_doc.to_chunks(**chunk_kwargs)
+
+
+def to_chunk(*args, **kwargs):
+    if _use_layout:
+        return _layout_to_chunk(*args, **kwargs)
+    else:
+        return pymupdf4llm.helpers.pymupdf_rag.to_chunk(*args, **kwargs)

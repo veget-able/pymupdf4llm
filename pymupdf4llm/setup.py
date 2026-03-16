@@ -55,7 +55,7 @@ setuptools.setup(
     url="https://github.com/pymupdf/pymupdf4llm",
     classifiers=classifiers,
     package_data={
-        "pymupdf4llm": ["helpers/*.py", "llama/*.py", "ocr/*.py"],
+        "pymupdf4llm": ["helpers/*.py", "helpers/chunking/*.py", "llama/*.py", "ocr/*.py"],
     },
     project_urls={
         "Documentation": "https://pymupdf.readthedocs.io/",
