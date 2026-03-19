@@ -148,3 +148,10 @@ for c in chunks:
     # At retrieval time, expand context using neighbors
     neighbor_ids = c.neighbors.prev_chunk_ids + c.neighbors.next_chunk_ids
 ```
+
+## Testing & Visualization
+
+테스트 스위트와 시각화 도구에 대한 자세한 설명은 아래 문서를 참고하세요.
+
+- **테스트 가이드**: [`test/TESTING.md`](test/TESTING.md) — 테스트 구조 (T1–T9), 실행 방법, 시각화 도구 사용법
+- **시각화 도구**: `chunk_visualizer.py` — DocLayNet 라벨 + 청킹 결과 오버레이 GUI
