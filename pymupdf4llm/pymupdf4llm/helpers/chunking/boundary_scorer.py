@@ -62,6 +62,7 @@ class BoundaryScorer:
         # Suppression signals (negative = keep together)
         score -= w.get("w_list", 0) * float(left.is_list_item and right.is_list_item and not box_changed)
         score -= w.get("w_table", 0) * float(left.is_table_content and right.is_table_content)
+        score -= w.get("w_caption", 0) * float(self._is_caption_adjacent(left, right))
 
         # Semantic signal (optional)
         if self.embedder and w.get("w_sem", 0) > 0:
@@ -101,6 +102,35 @@ class BoundaryScorer:
             return 0.0
         # 0.5 → 0.0, 0.0 → 1.0
         return 1.0 - ratio * 2.0
+
+    def _is_caption_adjacent(self, left: SentenceUnit, right: SentenceUnit) -> bool:
+        """Check if a caption is adjacent to its target element."""
+        if left.page_no != right.page_no:
+            return False
+
+        # caption on left, element on right
+        if left.is_caption:
+            if left.caption_target_type == "table" and right.is_table_content:
+                return True
+            if left.caption_target_type == "figure" and right.is_figure_related:
+                return True
+            if left.caption_target_type is None and (
+                right.is_table_content or right.is_figure_related or right.is_list_item
+            ):
+                return True
+
+        # element on left, caption on right
+        if right.is_caption:
+            if right.caption_target_type == "table" and left.is_table_content:
+                return True
+            if right.caption_target_type == "figure" and left.is_figure_related:
+                return True
+            if right.caption_target_type is None and (
+                left.is_table_content or left.is_figure_related or left.is_list_item
+            ):
+                return True
+
+        return False
 
     def _compute_font_jump(self, left: SentenceUnit, right: SentenceUnit) -> float:
         """Font size change signal (0.0-1.0)."""

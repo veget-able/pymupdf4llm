@@ -36,9 +36,14 @@ class SentenceUnit:
     is_figure_related: bool = False
     is_footnote: bool = False
     is_header_footer: bool = False
+    is_caption: bool = False
+    caption_target_type: Optional[str] = None  # "table", "figure", None
 
     # Original table markdown (when is_table_content=True)
     table_markdown: Optional[str] = None
+
+    # Tracks original box indices when multiple HF units are merged
+    _source_box_indices: list = field(default_factory=list, repr=False)
 
 
 @dataclass

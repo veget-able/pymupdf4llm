@@ -28,6 +28,41 @@ _HYPHEN_BREAK = re.compile(r'(\w)-\s*\n\s*(\w)')
 _MULTI_SPACE = re.compile(r'[ \t]+')
 _LINE_BREAK = re.compile(r'\s*\n\s*')
 
+# Page-number pattern for HF merge
+_PAGE_NUMBER_RE = re.compile(
+    r'^(?:\d+|-\s*\d+\s*-|page\s+\d+(?:\s+of\s+\d+)?|[ivxlcdm]+)$',
+    re.IGNORECASE,
+)
+
+# Caption detection patterns
+_CAPTION_PATTERNS = [
+    re.compile(r'^(?:figure|fig\.?\s*)\s*\d+(?:[.\-]\d+)*', re.IGNORECASE),
+    re.compile(r'^(?:table|tbl\.?\s*)\s*\d+(?:[.\-]\d+)*', re.IGNORECASE),
+    re.compile(r'^\(\s*[a-z0-9]\s*\)', re.IGNORECASE),
+    re.compile(r'^(?:source|notes?)\s*:', re.IGNORECASE),
+]
+
+
+def _detect_caption(text: str) -> tuple[bool, Optional[str]]:
+    """Detect if text is a caption and determine target type.
+
+    Returns (is_caption, target_type) where target_type is "figure", "table", or None.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return False, None
+
+    for pat in _CAPTION_PATTERNS:
+        if pat.search(stripped):
+            low = stripped.lower()
+            if low.startswith(("figure", "fig")):
+                return True, "figure"
+            if low.startswith(("table", "tbl")):
+                return True, "table"
+            return True, None
+
+    return False, None
+
 
 def _normalize_text(text: str) -> str:
     """Normalize text for comparison: lowercase, collapse whitespace."""
@@ -120,6 +155,8 @@ def _boxclass_to_hints(boxclass: str, toc=None, page_no=None, text=None):
         "is_figure_related": False,
         "is_footnote": False,
         "is_header_footer": False,
+        "is_caption": False,
+        "caption_target_type": None,
     }
 
     if boxclass == "title":
@@ -139,6 +176,11 @@ def _boxclass_to_hints(boxclass: str, toc=None, page_no=None, text=None):
         hints["is_footnote"] = True
     elif boxclass in ("page-header", "page-footer"):
         hints["is_header_footer"] = True
+    elif boxclass == "caption":
+        hints["is_caption"] = True
+        if text:
+            _, target = _detect_caption(text)
+            hints["caption_target_type"] = target
 
     return hints
 
@@ -197,6 +239,10 @@ class SentenceBuilder:
                     units.append(u)
                     sent_id += 1
                     prev_unit = u
+
+        # Merge same-page header/footer units that share a y-band
+        units = self._merge_same_page_hf_units(units)
+        units = self._renumber_sent_ids(units)
 
         for i in range(len(units) - 1):
             if units[i + 1].line_gap_before is not None and units[i].page_no == units[i + 1].page_no:
@@ -283,7 +329,17 @@ class SentenceBuilder:
 
         hints = _boxclass_to_hints(box.boxclass, toc, page.page_number, joined)
 
-        if hints["is_heading_hint"] or hints["is_footnote"] or hints["is_header_footer"]:
+        # Detect captions in non-caption boxclass text boxes
+        if not hints["is_caption"] and box.boxclass not in (
+            "title", "section-header", "table", "table-fallback",
+            "picture", "formula", "footnote", "page-header", "page-footer",
+        ):
+            is_cap, cap_target = _detect_caption(joined)
+            if is_cap:
+                hints["is_caption"] = True
+                hints["caption_target_type"] = cap_target
+
+        if hints["is_heading_hint"] or hints["is_footnote"] or hints["is_header_footer"] or hints["is_caption"]:
             bbox = _compute_bbox_union(textlines)
             return [SentenceUnit(
                 sent_id=sent_id_start,
@@ -373,3 +429,107 @@ class SentenceBuilder:
                     repeated.update(locations)
 
         return repeated
+
+    # ── Header/Footer same-line merge ─────────────────────────────────
+
+    def _merge_same_page_hf_units(self, units: list[SentenceUnit],
+                                   y_tolerance: float = 20.0) -> list[SentenceUnit]:
+        """Merge consecutive same-page, same-boxclass HF units sharing a y-band."""
+        if not units:
+            return units
+
+        result = []
+        i = 0
+        while i < len(units):
+            u = units[i]
+            if not u.is_header_footer:
+                result.append(u)
+                i += 1
+                continue
+
+            # Collect consecutive HF units on the same page with the same boxclass
+            group = [u]
+            j = i + 1
+            while j < len(units):
+                nxt = units[j]
+                if (nxt.is_header_footer
+                        and nxt.page_no == u.page_no
+                        and nxt.boxclass == u.boxclass):
+                    group.append(nxt)
+                    j += 1
+                else:
+                    break
+
+            if len(group) == 1:
+                result.append(u)
+            else:
+                # Group by y-band and merge each band
+                bands = self._group_by_y_band(group, y_tolerance)
+                for band in bands:
+                    result.append(self._merge_hf_group(band))
+            i = j
+
+        return result
+
+    @staticmethod
+    def _group_by_y_band(units: list[SentenceUnit],
+                         y_tolerance: float) -> list[list[SentenceUnit]]:
+        """Group units by y-center proximity (greedy clustering)."""
+        sorted_units = sorted(units, key=lambda u: (u.bbox[1] + u.bbox[3]) / 2)
+        bands: list[list[SentenceUnit]] = []
+        for u in sorted_units:
+            yc = (u.bbox[1] + u.bbox[3]) / 2
+            if bands:
+                last_yc = (bands[-1][-1].bbox[1] + bands[-1][-1].bbox[3]) / 2
+                if abs(yc - last_yc) <= y_tolerance:
+                    bands[-1].append(u)
+                    continue
+            bands.append([u])
+        return bands
+
+    @staticmethod
+    def _merge_hf_group(group: list[SentenceUnit]) -> SentenceUnit:
+        """Merge a group of HF units into a single unit (left-to-right order)."""
+        if len(group) == 1:
+            return group[0]
+
+        sorted_group = sorted(group, key=lambda u: u.bbox[0])  # sort by x0
+        text = " | ".join(u.text for u in sorted_group)
+
+        # Union bbox
+        x0 = min(u.bbox[0] for u in sorted_group)
+        y0 = min(u.bbox[1] for u in sorted_group)
+        x1 = max(u.bbox[2] for u in sorted_group)
+        y1 = max(u.bbox[3] for u in sorted_group)
+
+        # Use font info from the longest-text unit
+        longest = max(sorted_group, key=lambda u: len(u.text))
+
+        # Collect all source box indices
+        source_indices = []
+        for u in sorted_group:
+            source_indices.append(u.box_index)
+            source_indices.extend(getattr(u, '_source_box_indices', []))
+
+        merged = SentenceUnit(
+            sent_id=sorted_group[0].sent_id,
+            text=text,
+            norm_text=_normalize_text(text),
+            page_no=sorted_group[0].page_no,
+            box_index=sorted_group[0].box_index,
+            boxclass=sorted_group[0].boxclass,
+            bbox=(x0, y0, x1, y1),
+            font_size_dominant=longest.font_size_dominant,
+            font_flags_dominant=longest.font_flags_dominant,
+            line_gap_before=sorted_group[0].line_gap_before,
+            is_header_footer=True,
+        )
+        merged._source_box_indices = source_indices
+        return merged
+
+    @staticmethod
+    def _renumber_sent_ids(units: list[SentenceUnit]) -> list[SentenceUnit]:
+        """Renumber sent_ids sequentially from 0."""
+        for i, u in enumerate(units):
+            u.sent_id = i
+        return units

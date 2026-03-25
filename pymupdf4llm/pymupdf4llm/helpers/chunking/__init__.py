@@ -24,6 +24,7 @@ WEIGHTS_LAYOUT = {
     "w_foot": 0.20,
     "w_list": 0.40,
     "w_table": 0.60,
+    "w_caption": 0.80,
 }
 
 # Default weights for layout+semantic mode
@@ -84,7 +85,16 @@ def to_chunk(parsed_doc, **kwargs):
     hf_mode = kwargs.get("header_footer_mode", DEFAULTS["header_footer_mode"])
     if hf_mode == "auto":
         repeated = builder.detect_repeated_headers_footers(parsed_doc)
-        sents = [s for s in sents if (s.page_no, s.box_index) not in repeated]
+
+        def _is_repeated(s, repeated_set):
+            if (s.page_no, s.box_index) in repeated_set:
+                return True
+            for bi in getattr(s, '_source_box_indices', []):
+                if (s.page_no, bi) in repeated_set:
+                    return True
+            return False
+
+        sents = [s for s in sents if not _is_repeated(s, repeated)]
     elif hf_mode == "exclude":
         sents = [s for s in sents if not s.is_header_footer]
 
