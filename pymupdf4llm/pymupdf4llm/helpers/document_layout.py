@@ -1094,6 +1094,32 @@ def parse_document(
         textpage = page.get_textpage(flags=FLAGS, clip=pymupdf.INFINITE_RECT())
         blocks = textpage.extractDICT()["blocks"]
 
+        # Detect pre-existing invisible OCR text.  Scanned documents often
+        # carry an invisible text layer (alpha == 0) produced by a prior OCR
+        # pass.  When no OCR function is available to re-process the page we
+        # must still accept this text – otherwise every span is filtered out
+        # by the ``ignore_invisible`` guard in ``get_raw_lines``.
+        if not page_full_ocred:
+            _has_visible_text = False
+            _has_any_text = False
+            for _b in blocks:
+                if _b["type"] != 0:
+                    continue
+                for _line in _b["lines"]:
+                    for _s in _line["spans"]:
+                        if not _s["text"].strip():
+                            continue
+                        _has_any_text = True
+                        if _s.get("alpha", 1) != 0:
+                            _has_visible_text = True
+                            break
+                    if _has_visible_text:
+                        break
+                if _has_visible_text:
+                    break
+            if _has_any_text and not _has_visible_text:
+                page_full_ocred = True
+
         page.get_layout()
         # Determine if any tables are present. If False, we skip any table-related efforts.
         tables_exist = any(b for b in page.layout_information if b[4] == "table")
