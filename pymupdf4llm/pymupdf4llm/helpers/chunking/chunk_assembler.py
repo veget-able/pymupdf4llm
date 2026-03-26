@@ -27,13 +27,15 @@ class ChunkAssembler:
         self.merge_small = merge_small_chunks
         self.counter = TokenCounter(tokenizer)
 
+    # ── Step C: Initial assembly ─────────────────────────────────────
+
     def assemble(self, sents: list[SentenceUnit], scores: list[float]) -> list[ProtoChunk]:
         """Form initial chunks from sentences + boundary scores.
 
         A new chunk starts when:
         - break_score > threshold, OR
-        - adding the next sentence would exceed max_tokens, OR
-        - the next sentence is a table/figure (structural isolation)
+        - structural break (heading, type transition), OR
+        - adding the next sentence would exceed max_tokens
         """
         if not sents:
             return []
@@ -67,25 +69,34 @@ class ChunkAssembler:
 
         return chunks
 
-    def refine(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
-        """Refine chunks by splitting oversized and merging undersized ones."""
-        # Phase 0: Merge orphan caption chunks into their target element
-        chunks = self._merge_captions(chunks)
+    # ── Step D: Refine ───────────────────────────────────────────────
 
-        # Phase 1: Split oversized chunks
-        split_chunks = []
+    def refine(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
+        """Refine chunks via split and multi-depth merge.
+
+        1. Split  — break oversized chunks at sentence boundaries
+        2. Semantic merge — heading+content, caption+element
+        3. Budget merge  — greedily combine within max_tokens
+        """
+        # Step 1: Split oversized chunks
+        split: list[ProtoChunk] = []
         for chunk in chunks:
             if chunk.token_count > self.max_tokens:
-                split_chunks.extend(self._split_chunk(chunk))
+                split.extend(self._split_chunk(chunk))
             else:
-                split_chunks.append(chunk)
+                split.append(chunk)
 
         if not self.merge_small:
-            return self._renumber(split_chunks)
+            return self._renumber(split)
 
-        # Phase 2: Merge undersized chunks
-        merged = self._merge_chunks(split_chunks)
+        # Step 2: Semantic merge — preserve heading+content and caption+element pairs
+        semantic = self._merge_semantic(split)
+
+        # Step 3: Budget merge — greedily combine within max_tokens
+        merged = self._merge_budget(semantic)
         return self._renumber(merged)
+
+    # ── Structural break (used by assemble) ──────────────────────────
 
     def _is_structural_break(self, prev: SentenceUnit, next_sent: SentenceUnit) -> bool:
         """Check if there's a forced structural break between units."""
@@ -124,6 +135,146 @@ class ChunkAssembler:
         if not ChunkAssembler._has_horizontal_overlap(a.bbox, b.bbox):
             return False
         return caption_matches_element(a, b) or caption_matches_element(b, a)
+
+    # ── Split ────────────────────────────────────────────────────────
+
+    def _split_chunk(self, chunk: ProtoChunk) -> list[ProtoChunk]:
+        """Split an oversized chunk at sentence boundaries."""
+        sents = chunk._sentences
+        if not sents:
+            return [chunk]
+
+        if chunk.chunk_type_hint == "table" and self.table_mode == "preserve":
+            return [chunk]
+
+        result = []
+        current = []
+        current_text = ""
+
+        for sent in sents:
+            sent_tokens = self.counter.count(sent.text)
+
+            if sent_tokens > self.max_tokens:
+                if current:
+                    result.append(self._make_proto_chunk(0, current))
+                    current = []
+                    current_text = ""
+                result.append(self._make_proto_chunk(0, [sent]))
+                continue
+
+            combined = (current_text + "\n" + sent.text) if current_text else sent.text
+            if self.counter.count(combined) > self.max_tokens and current:
+                result.append(self._make_proto_chunk(0, current))
+                current = [sent]
+                current_text = sent.text
+            else:
+                current.append(sent)
+                current_text = combined
+
+        if current:
+            result.append(self._make_proto_chunk(0, current))
+
+        return result
+
+    # ── Semantic merge ───────────────────────────────────────────────
+
+    def _merge_semantic(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
+        """Merge semantic pairs in a single forward pass.
+
+        Pairs: heading + following content, caption + adjacent element.
+        """
+        if len(chunks) <= 1:
+            return chunks
+
+        result: list[ProtoChunk] = []
+        i = 0
+        while i < len(chunks):
+            chunk = chunks[i]
+
+            if i + 1 < len(chunks) and self._is_semantic_pair(chunk, chunks[i + 1]):
+                combined = chunk._sentences + chunks[i + 1]._sentences
+                result.append(self._make_proto_chunk(0, combined))
+                i += 2
+            else:
+                result.append(chunk)
+                i += 1
+
+        return result
+
+    def _is_semantic_pair(self, a: ProtoChunk, b: ProtoChunk) -> bool:
+        """Check if (a, b) form a semantic pair that should stay together."""
+        if a.chunk_type_hint == "header_footer" or b.chunk_type_hint == "header_footer":
+            return False
+        if a.token_count + b.token_count > self.max_tokens:
+            return False
+        if abs(a.page_end - b.page_start) > 1:
+            return False
+        if not self._has_horizontal_overlap(a.bbox_union, b.bbox_union):
+            return False
+
+        # heading + following content (any non-heading type)
+        if a.chunk_type_hint == "heading" and b.chunk_type_hint != "heading":
+            return True
+
+        # caption + element (caption first)
+        a_is_caption = bool(a._sentences) and all(s.is_caption for s in a._sentences)
+        if a_is_caption and b.chunk_type_hint in _ELEMENT_TYPES:
+            return self._caption_target_matches(a, b.chunk_type_hint)
+
+        # element + caption (element first)
+        b_is_caption = bool(b._sentences) and all(s.is_caption for s in b._sentences)
+        if a.chunk_type_hint in _ELEMENT_TYPES and b_is_caption:
+            return self._caption_target_matches(b, a.chunk_type_hint)
+
+        return False
+
+    @staticmethod
+    def _caption_target_matches(caption_chunk: ProtoChunk, element_type: str) -> bool:
+        """Check if caption's target type matches the element type."""
+        target_types = {
+            s.caption_target_type for s in caption_chunk._sentences
+            if s.caption_target_type
+        }
+        if not target_types:
+            return True  # no specific target → match any element
+        return element_type in target_types
+
+    # ── Budget merge ─────────────────────────────────────────────────
+
+    def _merge_budget(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
+        """Greedily merge adjacent chunks that fit within max_tokens."""
+        if len(chunks) <= 1:
+            return chunks
+
+        merged = [chunks[0]]
+        for i in range(1, len(chunks)):
+            prev = merged[-1]
+            curr = chunks[i]
+
+            if self._can_budget_merge(prev, curr):
+                combined_sents = prev._sentences + curr._sentences
+                merged[-1] = self._make_proto_chunk(0, combined_sents)
+            else:
+                merged.append(curr)
+
+        return merged
+
+    def _can_budget_merge(self, a: ProtoChunk, b: ProtoChunk) -> bool:
+        """Check if two adjacent chunks can be merged within budget."""
+        if a.chunk_type_hint == "header_footer" or b.chunk_type_hint == "header_footer":
+            return False
+        # Headings must start a chunk, never trail at the end of the previous one
+        if b.chunk_type_hint == "heading":
+            return False
+        if a.token_count + b.token_count > self.max_tokens:
+            return False
+        if abs(a.page_end - b.page_start) > 1:
+            return False
+        if not self._has_horizontal_overlap(a.bbox_union, b.bbox_union):
+            return False
+        return True
+
+    # ── Helpers ──────────────────────────────────────────────────────
 
     @staticmethod
     def _has_horizontal_overlap(bbox_a: tuple, bbox_b: tuple, min_ratio: float = 0.3) -> bool:
@@ -180,193 +331,6 @@ class ChunkAssembler:
         if any(s.is_footnote for s in sents):
             return "footnote"
         return "paragraph"
-
-    def _split_chunk(self, chunk: ProtoChunk) -> list[ProtoChunk]:
-        """Split an oversized chunk at sentence boundaries."""
-        sents = chunk._sentences
-        if not sents:
-            return [chunk]
-
-        if chunk.chunk_type_hint == "table" and self.table_mode == "preserve":
-            return [chunk]
-
-        result = []
-        current = []
-        current_text = ""
-
-        for sent in sents:
-            sent_tokens = self.counter.count(sent.text)
-
-            if sent_tokens > self.max_tokens:
-                if current:
-                    result.append(self._make_proto_chunk(0, current))
-                    current = []
-                    current_text = ""
-                result.append(self._make_proto_chunk(0, [sent]))
-                continue
-
-            combined = (current_text + "\n" + sent.text) if current_text else sent.text
-            if self.counter.count(combined) > self.max_tokens and current:
-                result.append(self._make_proto_chunk(0, current))
-                current = [sent]
-                current_text = sent.text
-            else:
-                current.append(sent)
-                current_text = combined
-
-        if current:
-            result.append(self._make_proto_chunk(0, current))
-
-        return result
-
-    def _merge_chunks(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
-        """Merge adjacent undersized chunks if compatible."""
-        if len(chunks) <= 1:
-            return chunks
-
-        merged = [chunks[0]]
-        for i in range(1, len(chunks)):
-            prev = merged[-1]
-            curr = chunks[i]
-
-            can_merge = (
-                prev.token_count < self.min_tokens
-                and self._can_merge_pair(prev, curr)
-            )
-
-            if can_merge:
-                combined_sents = prev._sentences + curr._sentences
-                merged[-1] = self._make_proto_chunk(0, combined_sents)
-            else:
-                merged.append(curr)
-
-        if len(merged) >= 2 and merged[-1].token_count < self.min_tokens:
-            last = merged[-1]
-            prev = merged[-2]
-            if self._can_merge_pair(prev, last):
-                combined = prev._sentences + last._sentences
-                merged[-2] = self._make_proto_chunk(0, combined)
-                merged.pop()
-
-        return merged
-
-    def _can_merge_pair(self, a: ProtoChunk, b: ProtoChunk) -> bool:
-        """Check if two chunks can be merged."""
-        if a.chunk_type_hint == "header_footer" or b.chunk_type_hint == "header_footer":
-            return False
-
-        # Only allow merging same types, or heading+following content, or caption+element
-        if a.chunk_type_hint != b.chunk_type_hint:
-            heading_merge = (
-                a.chunk_type_hint == "heading"
-                and b.chunk_type_hint in ("paragraph", "table", "figure", "list")
-            )
-            if not heading_merge:
-                if not self._is_caption_element_merge(a, b):
-                    return False
-
-        if a.token_count + b.token_count > self.max_tokens:
-            return False
-
-        if abs(a.page_end - b.page_start) > 1:
-            return False
-
-        # Don't merge chunks in different columns
-        if not self._has_horizontal_overlap(a.bbox_union, b.bbox_union):
-            return False
-
-        return True
-
-    def _merge_captions(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
-        """Phase 0: Merge orphan caption/heading chunks into adjacent target elements."""
-        if len(chunks) <= 1:
-            return chunks
-
-        merged_indices: set[int] = set()
-        result_map: dict[int, ProtoChunk] = {}  # index -> merged chunk
-
-        for i, chunk in enumerate(chunks):
-            if i in merged_indices:
-                continue
-            if not chunk._sentences:
-                continue
-
-            is_caption_chunk = all(s.is_caption for s in chunk._sentences)
-            is_heading_chunk = chunk.chunk_type_hint == "heading"
-
-            if not is_caption_chunk and not is_heading_chunk:
-                continue
-
-            # Determine target type from caption sentences
-            target_types = set()
-            if is_caption_chunk:
-                for s in chunk._sentences:
-                    if s.caption_target_type:
-                        target_types.add(s.caption_target_type)
-
-            # For headings, only look forward (heading → element)
-            # For captions, look both directions
-            search_dirs = (i + 1,) if is_heading_chunk else (i - 1, i + 1)
-
-            best = None
-            best_idx = None
-            for adj_idx in search_dirs:
-                if adj_idx < 0 or adj_idx >= len(chunks) or adj_idx in merged_indices:
-                    continue
-                adj = chunks[adj_idx]
-                if adj.chunk_type_hint not in _ELEMENT_TYPES:
-                    continue
-                # Same page check
-                if not (chunk.page_start == adj.page_start or chunk.page_end == adj.page_start
-                        or chunk.page_start == adj.page_end):
-                    continue
-                # Horizontal overlap check
-                if not self._has_horizontal_overlap(chunk.bbox_union, adj.bbox_union):
-                    continue
-                # Target type matching (captions only)
-                if target_types:
-                    if adj.chunk_type_hint not in target_types:
-                        continue
-                # Token limit check
-                if chunk.token_count + adj.token_count > self.max_tokens * 1.2:
-                    continue
-                best = adj
-                best_idx = adj_idx
-                break  # prefer first valid match
-
-            if best is not None and best_idx is not None:
-                # Merge: caption/heading text goes before or after element
-                if best_idx > i:
-                    combined_sents = chunk._sentences + best._sentences
-                else:
-                    combined_sents = best._sentences + chunk._sentences
-                merged_chunk = self._make_proto_chunk(0, combined_sents)
-                merged_indices.add(i)
-                merged_indices.add(best_idx)
-                result_map[min(i, best_idx)] = merged_chunk
-
-        # Build result preserving order
-        result = []
-        for i, chunk in enumerate(chunks):
-            if i in merged_indices:
-                if i in result_map:
-                    result.append(result_map[i])
-            else:
-                result.append(chunk)
-
-        return result
-
-    @staticmethod
-    def _is_caption_element_merge(a: ProtoChunk, b: ProtoChunk) -> bool:
-        """Check if one chunk is all-captions and the other is a target element."""
-        a_all_caption = bool(a._sentences) and all(s.is_caption for s in a._sentences)
-        b_all_caption = bool(b._sentences) and all(s.is_caption for s in b._sentences)
-
-        if a_all_caption and b.chunk_type_hint in _ELEMENT_TYPES:
-            return True
-        if b_all_caption and a.chunk_type_hint in _ELEMENT_TYPES:
-            return True
-        return False
 
     @staticmethod
     def _renumber(chunks: list[ProtoChunk]) -> list[ProtoChunk]:
