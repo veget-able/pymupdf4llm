@@ -62,7 +62,6 @@ class ProtoChunk:
 
     # Structure
     chunk_type_hint: Optional[str] = None  # paragraph, table, list, figure, footnote, heading
-    heading_path: list = field(default_factory=list)
     table_markdown: Optional[str] = None
 
     # References to SentenceUnits (kept for split/merge)
@@ -105,3 +104,50 @@ class FinalChunk:
     contextual_text: str = ""
     metadata: ChunkMetadata = field(default_factory=ChunkMetadata)
     neighbors: ChunkNeighbors = field(default_factory=ChunkNeighbors)
+
+
+def caption_matches_element(caption, element) -> bool:
+    """Check if a caption SentenceUnit matches an element SentenceUnit (one direction).
+
+    Returns True if caption targets the element type, or if target_type is None
+    and element is table/figure/list.
+    """
+    if not caption.is_caption:
+        return False
+    if not (element.is_table_content or element.is_figure_related or element.is_list_item):
+        return False
+    if caption.caption_target_type is None:
+        return True
+    if caption.caption_target_type == "table" and element.is_table_content:
+        return True
+    if caption.caption_target_type == "figure" and element.is_figure_related:
+        return True
+    return False
+
+
+def horizontal_overlap_ratio(bbox_a: tuple, bbox_b: tuple) -> float:
+    """Compute horizontal overlap ratio between two bboxes.
+
+    Returns overlap / min_width, or 1.0 if either bbox has zero width.
+    """
+    ax0, _, ax1, _ = bbox_a
+    bx0, _, bx1, _ = bbox_b
+    min_width = min(ax1 - ax0, bx1 - bx0)
+    if min_width <= 0:
+        return 1.0
+    overlap = max(0.0, min(ax1, bx1) - max(ax0, bx0))
+    return overlap / min_width
+
+
+def union_bbox(bboxes) -> tuple:
+    """Compute the union bounding box from an iterable of (x0, y0, x1, y1) tuples."""
+    x0 = y0 = float('inf')
+    x1 = y1 = float('-inf')
+    for bx0, by0, bx1, by1 in bboxes:
+        x0 = min(x0, bx0)
+        y0 = min(y0, by0)
+        x1 = max(x1, bx1)
+        y1 = max(y1, by1)
+    if x0 == float('inf'):
+        return (0, 0, 0, 0)
+    return (x0, y0, x1, y1)

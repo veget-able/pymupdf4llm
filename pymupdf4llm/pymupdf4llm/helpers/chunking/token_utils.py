@@ -1,6 +1,5 @@
 """Token counting utilities for chunk size management."""
 
-import re
 from typing import Callable, Optional
 
 # Approximate tokens per character ratio for fallback estimation
@@ -42,7 +41,3 @@ class TokenCounter:
         if not text:
             return 0
         return self._count_fn(text)
-
-    def count_many(self, texts: list[str]) -> list[int]:
-        """Count tokens for multiple texts."""
-        return [self.count(t) for t in texts]

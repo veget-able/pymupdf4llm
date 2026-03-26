@@ -4,7 +4,7 @@ import re
 from collections import Counter, defaultdict
 from typing import Optional
 
-from .models import SentenceUnit
+from .models import SentenceUnit, union_bbox
 
 # Sentence-ending patterns
 _SENT_END_EN = re.compile(
@@ -27,12 +27,6 @@ _HYPHEN_BREAK = re.compile(r'(\w)-\s*\n\s*(\w)')
 # Whitespace normalization
 _MULTI_SPACE = re.compile(r'[ \t]+')
 _LINE_BREAK = re.compile(r'\s*\n\s*')
-
-# Page-number pattern for HF merge
-_PAGE_NUMBER_RE = re.compile(
-    r'^(?:\d+|-\s*\d+\s*-|page\s+\d+(?:\s+of\s+\d+)?|[ivxlcdm]+)$',
-    re.IGNORECASE,
-)
 
 # Caption detection patterns
 _CAPTION_PATTERNS = [
@@ -75,9 +69,7 @@ def _join_textline_spans(textlines: list[dict]) -> str:
     """Extract plain text from textlines by joining all spans."""
     parts = []
     for tl in textlines:
-        line_text = ""
-        for span in tl.get("spans", []):
-            line_text += span.get("text", "")
+        line_text = "".join(span.get("text", "") for span in tl.get("spans", []))
         parts.append(line_text.strip())
     return "\n".join(parts)
 
@@ -103,86 +95,46 @@ def _get_dominant_font(textlines: list[dict]) -> tuple[float, int]:
 
 def _compute_bbox_union(textlines: list[dict]) -> tuple:
     """Compute the union bounding box of all textlines."""
-    x0 = y0 = float('inf')
-    x1 = y1 = float('-inf')
-
-    for tl in textlines:
-        bbox = tl.get("bbox")
-        if bbox is None:
-            continue
-        try:
-            bx0, by0, bx1, by1 = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
-        except (TypeError, IndexError):
-            continue
-        x0 = min(x0, bx0)
-        y0 = min(y0, by0)
-        x1 = max(x1, bx1)
-        y1 = max(y1, by1)
-
-    if x0 == float('inf'):
-        return (0, 0, 0, 0)
-    return (x0, y0, x1, y1)
-
-
-def _compute_line_gaps(textlines: list[dict]) -> list[Optional[float]]:
-    """Compute vertical gaps between consecutive textlines.
-
-    Returns a list of gaps, one per textline.
-    gaps[0] is None (no previous line), gaps[i] is the gap before textline[i].
-    """
-    gaps = [None]
-    for i in range(1, len(textlines)):
-        prev_bbox = textlines[i - 1].get("bbox")
-        curr_bbox = textlines[i].get("bbox")
-        if prev_bbox is not None and curr_bbox is not None:
+    def _iter_bboxes():
+        for tl in textlines:
+            bbox = tl.get("bbox")
+            if bbox is None:
+                continue
             try:
-                gap = float(curr_bbox[1]) - float(prev_bbox[3])  # curr.y0 - prev.y1
-                gaps.append(gap)
+                yield (float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]))
             except (TypeError, IndexError):
-                gaps.append(None)
-        else:
-            gaps.append(None)
-    return gaps
+                continue
+    return union_bbox(_iter_bboxes())
 
 
 def _boxclass_to_hints(boxclass: str, toc=None, page_no=None, text=None):
-    """Map LayoutBox.boxclass to structure hint flags."""
-    hints = {
-        "is_heading_hint": False,
-        "heading_level_hint": None,
-        "is_list_item": False,
-        "is_table_content": False,
-        "is_figure_related": False,
-        "is_footnote": False,
-        "is_header_footer": False,
-        "is_caption": False,
-        "caption_target_type": None,
-    }
+    """Map LayoutBox.boxclass to structure hint flags.
 
+    Returns only non-default values (SentenceUnit defaults handle the rest).
+    """
     if boxclass == "title":
-        hints["is_heading_hint"] = True
-        hints["heading_level_hint"] = 1
-    elif boxclass == "section-header":
-        hints["is_heading_hint"] = True
+        return {"is_heading_hint": True, "heading_level_hint": 1}
+    if boxclass == "section-header":
         level = _match_toc_level(toc, page_no, text) if toc and text else None
-        hints["heading_level_hint"] = level or 2
-    elif boxclass == "list-item":
-        hints["is_list_item"] = True
-    elif boxclass in ("table", "table-fallback"):
-        hints["is_table_content"] = True
-    elif boxclass in ("picture", "formula"):
-        hints["is_figure_related"] = True
-    elif boxclass == "footnote":
-        hints["is_footnote"] = True
-    elif boxclass in ("page-header", "page-footer"):
-        hints["is_header_footer"] = True
-    elif boxclass == "caption":
-        hints["is_caption"] = True
+        return {"is_heading_hint": True, "heading_level_hint": level or 2}
+    if boxclass == "list-item":
+        return {"is_list_item": True}
+    if boxclass in ("table", "table-fallback"):
+        return {"is_table_content": True}
+    if boxclass in ("picture", "formula"):
+        return {"is_figure_related": True}
+    if boxclass == "footnote":
+        return {"is_footnote": True}
+    if boxclass in ("page-header", "page-footer"):
+        return {"is_header_footer": True}
+    if boxclass == "caption":
+        hints = {"is_caption": True}
         if text:
             _, target = _detect_caption(text)
-            hints["caption_target_type"] = target
-
-    return hints
+            if target is not None:
+                hints["caption_target_type"] = target
+        return hints
+    return {}
 
 
 def _match_toc_level(toc: list, page_no: int, text: str) -> Optional[int]:
@@ -321,16 +273,15 @@ class SentenceBuilder:
             return []
 
         font_size, font_flags = _get_dominant_font(textlines)
-        line_gaps = _compute_line_gaps(textlines)
         first_gap = None
         if prev_unit and prev_unit.page_no == page.page_number:
             if textlines[0].get("bbox") is not None:
-                first_gap = float(textlines[0]["bbox"][1]) - (prev_unit.bbox[3] if prev_unit else 0)
+                first_gap = float(textlines[0]["bbox"][1]) - prev_unit.bbox[3]
 
         hints = _boxclass_to_hints(box.boxclass, toc, page.page_number, joined)
 
         # Detect captions in non-caption boxclass text boxes
-        if not hints["is_caption"] and box.boxclass not in (
+        if not hints.get("is_caption") and box.boxclass not in (
             "title", "section-header", "table", "table-fallback",
             "picture", "formula", "footnote", "page-header", "page-footer",
         ):
@@ -339,29 +290,21 @@ class SentenceBuilder:
                 hints["is_caption"] = True
                 hints["caption_target_type"] = cap_target
 
-        if hints["is_heading_hint"] or hints["is_footnote"] or hints["is_header_footer"] or hints["is_caption"]:
-            bbox = _compute_bbox_union(textlines)
-            return [SentenceUnit(
-                sent_id=sent_id_start,
-                text=joined,
-                norm_text=_normalize_text(joined),
-                page_no=page.page_number,
-                box_index=box_idx,
-                boxclass=box.boxclass,
-                bbox=bbox,
-                font_size_dominant=font_size,
-                font_flags_dominant=font_flags,
-                line_gap_before=first_gap,
-                **hints,
-            )]
+        # Check if this should be kept as a single unit (no sentence splitting)
+        keep_single = (
+            hints.get("is_heading_hint") or hints.get("is_footnote")
+            or hints.get("is_header_footer") or hints.get("is_caption")
+            or hints.get("is_list_item")
+        )
 
-        sentences = self._split_re.split(joined)
-        sentences = [s.strip() for s in sentences if s.strip()]
+        if not keep_single:
+            sentences = self._split_re.split(joined)
+            sentences = [s.strip() for s in sentences if s.strip()]
+            if not sentences:
+                return []
+            keep_single = len(sentences) == 1
 
-        if not sentences:
-            return []
-
-        if len(sentences) == 1 or hints["is_list_item"]:
+        if keep_single:
             bbox = _compute_bbox_union(textlines)
             return [SentenceUnit(
                 sent_id=sent_id_start,
@@ -404,29 +347,22 @@ class SentenceBuilder:
         if not doc.pages or len(doc.pages) < 3:
             return set()
 
-        header_texts = defaultdict(list)  # (y_bucket, text_norm) -> [(page_no, box_idx)]
-        footer_texts = defaultdict(list)
+        hf_texts = defaultdict(list)  # (boxclass, y_bucket, text_norm) -> [(page_no, box_idx)]
 
         for page in doc.pages:
             for box_idx, box in enumerate(page.boxes):
-                if box.boxclass == "page-header" and box.textlines:
+                if box.boxclass in ("page-header", "page-footer") and box.textlines:
                     text = _normalize_text(_join_textline_spans(box.textlines))
                     if text:
                         y_bucket = round(box.y0 / 10) * 10  # bucket by ~10pt
-                        header_texts[(y_bucket, text)].append((page.page_number, box_idx))
-                elif box.boxclass == "page-footer" and box.textlines:
-                    text = _normalize_text(_join_textline_spans(box.textlines))
-                    if text:
-                        y_bucket = round(box.y0 / 10) * 10
-                        footer_texts[(y_bucket, text)].append((page.page_number, box_idx))
+                        hf_texts[(box.boxclass, y_bucket, text)].append((page.page_number, box_idx))
 
         threshold = max(2, len(doc.pages) * 0.5)
         repeated = set()
 
-        for entries in [header_texts, footer_texts]:
-            for _key, locations in entries.items():
-                if len(locations) >= threshold:
-                    repeated.update(locations)
+        for _key, locations in hf_texts.items():
+            if len(locations) >= threshold:
+                repeated.update(locations)
 
         return repeated
 
@@ -496,11 +432,7 @@ class SentenceBuilder:
         sorted_group = sorted(group, key=lambda u: u.bbox[0])  # sort by x0
         text = " | ".join(u.text for u in sorted_group)
 
-        # Union bbox
-        x0 = min(u.bbox[0] for u in sorted_group)
-        y0 = min(u.bbox[1] for u in sorted_group)
-        x1 = max(u.bbox[2] for u in sorted_group)
-        y1 = max(u.bbox[3] for u in sorted_group)
+        bbox = union_bbox(u.bbox for u in sorted_group)
 
         # Use font info from the longest-text unit
         longest = max(sorted_group, key=lambda u: len(u.text))
@@ -509,7 +441,7 @@ class SentenceBuilder:
         source_indices = []
         for u in sorted_group:
             source_indices.append(u.box_index)
-            source_indices.extend(getattr(u, '_source_box_indices', []))
+            source_indices.extend(u._source_box_indices)
 
         merged = SentenceUnit(
             sent_id=sorted_group[0].sent_id,
@@ -518,7 +450,7 @@ class SentenceBuilder:
             page_no=sorted_group[0].page_no,
             box_index=sorted_group[0].box_index,
             boxclass=sorted_group[0].boxclass,
-            bbox=(x0, y0, x1, y1),
+            bbox=bbox,
             font_size_dominant=longest.font_size_dominant,
             font_flags_dominant=longest.font_flags_dominant,
             line_gap_before=sorted_group[0].line_gap_before,

@@ -3,7 +3,7 @@
 import statistics
 from typing import Callable, Optional
 
-from .models import SentenceUnit
+from .models import SentenceUnit, horizontal_overlap_ratio, caption_matches_element
 
 
 class BoundaryScorer:
@@ -16,6 +16,8 @@ class BoundaryScorer:
         self.weights = weights
         self.embedder = embedder
         self._embedding_cache: dict[int, list[float]] = {}
+        self._median_gap: float = 12.0
+        self._median_font: float = 10.0
 
     def score_all(self, sents: list[SentenceUnit]) -> list[float]:
         """Compute break scores for all adjacent pairs.
@@ -86,18 +88,7 @@ class BoundaryScorer:
         if left.page_no != right.page_no:
             return 0.0
 
-        lx0, _, lx1, _ = left.bbox
-        rx0, _, rx1, _ = right.bbox
-
-        lw = lx1 - lx0
-        rw = rx1 - rx0
-        min_width = min(lw, rw)
-        if min_width <= 0:
-            return 0.0
-
-        overlap = max(0.0, min(lx1, rx1) - max(lx0, rx0))
-        ratio = overlap / min_width
-
+        ratio = horizontal_overlap_ratio(left.bbox, right.bbox)
         if ratio >= 0.5:
             return 0.0
         # 0.5 → 0.0, 0.0 → 1.0
@@ -107,30 +98,7 @@ class BoundaryScorer:
         """Check if a caption is adjacent to its target element."""
         if left.page_no != right.page_no:
             return False
-
-        # caption on left, element on right
-        if left.is_caption:
-            if left.caption_target_type == "table" and right.is_table_content:
-                return True
-            if left.caption_target_type == "figure" and right.is_figure_related:
-                return True
-            if left.caption_target_type is None and (
-                right.is_table_content or right.is_figure_related or right.is_list_item
-            ):
-                return True
-
-        # element on left, caption on right
-        if right.is_caption:
-            if right.caption_target_type == "table" and left.is_table_content:
-                return True
-            if right.caption_target_type == "figure" and left.is_figure_related:
-                return True
-            if right.caption_target_type is None and (
-                left.is_table_content or left.is_figure_related or left.is_list_item
-            ):
-                return True
-
-        return False
+        return caption_matches_element(left, right) or caption_matches_element(right, left)
 
     def _compute_font_jump(self, left: SentenceUnit, right: SentenceUnit) -> float:
         """Font size change signal (0.0-1.0)."""

@@ -70,7 +70,6 @@ def to_chunk(parsed_doc, **kwargs):
             stacklevel=2,
         )
         weights = WEIGHTS_LAYOUT
-        embedder = None
 
     # Step A: Box → SentenceUnit
     builder = SentenceBuilder(
@@ -89,7 +88,7 @@ def to_chunk(parsed_doc, **kwargs):
         def _is_repeated(s, repeated_set):
             if (s.page_no, s.box_index) in repeated_set:
                 return True
-            for bi in getattr(s, '_source_box_indices', []):
+            for bi in s._source_box_indices:
                 if (s.page_no, bi) in repeated_set:
                     return True
             return False

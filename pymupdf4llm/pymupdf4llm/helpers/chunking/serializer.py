@@ -1,5 +1,8 @@
 """Step E: Serialize ProtoChunks into FinalChunks with metadata and neighbor info."""
 
+from bisect import bisect_right
+from collections import defaultdict
+
 from .models import ProtoChunk, FinalChunk, ChunkMetadata, ChunkNeighbors
 
 
@@ -10,14 +13,14 @@ class ChunkSerializer:
         self.doc = doc
         self.window_size = window_size
         self.include_contextual = include_contextual
-        self._heading_path_cache = None
 
     def serialize(self, proto_chunks: list[ProtoChunk]) -> list[FinalChunk]:
         """Convert ProtoChunks to FinalChunks."""
         if not proto_chunks:
             return []
 
-        self._build_heading_paths(proto_chunks)
+        self._build_heading_paths()
+        self._build_toc_page_index()
 
         finals = [self._make_final_chunk(pc) for pc in proto_chunks]
 
@@ -30,12 +33,11 @@ class ChunkSerializer:
         """Create a FinalChunk from a ProtoChunk."""
         chunk_id = f"c{pc.chunk_id}"
         heading_path = self._get_heading_path(pc)
-        pc.heading_path = heading_path
 
         toc_items = []
-        if self.doc.toc:
-            pages_in_chunk = set(range(pc.page_start, pc.page_end + 1))
-            toc_items = [t for t in self.doc.toc if t[-1] in pages_in_chunk]
+        if self._toc_page_index:
+            for p in range(pc.page_start, pc.page_end + 1):
+                toc_items.extend(self._toc_page_index[p])
 
         metadata = ChunkMetadata(
             page_start=pc.page_start,
@@ -63,41 +65,61 @@ class ChunkSerializer:
             neighbors=ChunkNeighbors(),
         )
 
-    def _build_heading_paths(self, proto_chunks: list[ProtoChunk]):
-        """Pre-build heading path data from TOC for efficient lookup."""
+    def _build_heading_paths(self):
+        """Pre-build heading path data from TOC for efficient lookup.
+
+        Computes heading paths for all pages in a single O(T) pass,
+        stored as page → heading_path for O(1) lookup per chunk.
+        """
+        self._heading_by_page = {}
+        self._heading_pages = []
         if not self.doc.toc:
-            self._heading_path_cache = {}
             return
 
-        # TOC format: [level, title, page_number, ...]
-        self._toc_sorted = sorted(
+        toc_sorted = sorted(
             [(entry[0], str(entry[1]), entry[2]) for entry in self.doc.toc if len(entry) >= 3],
             key=lambda x: x[2],  # sort by page
         )
+        if not toc_sorted:
+            return
+
+        # Single forward pass: build heading path at each TOC transition page
+        path = {}
+        prev_page = None
+        for level, title, page in toc_sorted:
+            if page != prev_page and prev_page is not None:
+                self._heading_by_page[prev_page] = [path[k] for k in sorted(path.keys())]
+            path[level] = title
+            # Clear deeper levels when a shallower heading appears
+            to_delete = [k for k in path if k > level]
+            for k in to_delete:
+                del path[k]
+            prev_page = page
+        # Store final page
+        if prev_page is not None:
+            self._heading_by_page[prev_page] = [path[k] for k in sorted(path.keys())]
+
+        # Build sorted list of pages with headings for bisect lookup
+        self._heading_pages = sorted(self._heading_by_page.keys())
+
+    def _build_toc_page_index(self):
+        """Pre-build page → TOC items index for O(1) lookup per chunk."""
+        self._toc_page_index = defaultdict(list)
+        if self.doc.toc:
+            for t in self.doc.toc:
+                if len(t) >= 3:
+                    self._toc_page_index[t[2]].append(t)
 
     def _get_heading_path(self, pc: ProtoChunk) -> list[str]:
         """Get the heading hierarchy path for a chunk based on TOC."""
-        if not self.doc.toc or not hasattr(self, '_toc_sorted'):
+        if not self._heading_pages:
             return []
 
-        relevant = [
-            (level, title, page)
-            for level, title, page in self._toc_sorted
-            if page <= pc.page_start
-        ]
-
-        if not relevant:
+        # Find the latest heading page <= pc.page_start
+        idx = bisect_right(self._heading_pages, pc.page_start) - 1
+        if idx < 0:
             return []
-
-        path = {}
-        for level, title, page in relevant:
-            path[level] = title
-            # Clear deeper levels when a shallower heading appears
-            for k in list(path.keys()):
-                if k > level:
-                    del path[k]
-
-        return [path[k] for k in sorted(path.keys())]
+        return list(self._heading_by_page[self._heading_pages[idx]])
 
     def _build_contextual_text(self, pc: ProtoChunk, heading_path: list[str]) -> str:
         """Build context-enriched text for embedding."""
@@ -120,6 +142,12 @@ class ChunkSerializer:
 
     def _link_neighbors(self, finals: list[FinalChunk]):
         """Set prev/next neighbor references using window_size."""
+        # Build page → chunk index for O(n) same-page lookup
+        page_to_chunks = defaultdict(list)
+        for i, fc in enumerate(finals):
+            for p in range(fc.metadata.page_start, fc.metadata.page_end + 1):
+                page_to_chunks[p].append(i)
+
         for i, fc in enumerate(finals):
             start = max(0, i - self.window_size)
             fc.neighbors.prev_chunk_ids = [
@@ -131,36 +159,31 @@ class ChunkSerializer:
                 finals[j].chunk_id for j in range(i + 1, end)
             ]
 
+            # Collect same-page chunks via index
+            same_page = set()
+            for p in range(fc.metadata.page_start, fc.metadata.page_end + 1):
+                for j in page_to_chunks[p]:
+                    if j != i:
+                        same_page.add(j)
             fc.neighbors.same_page_chunk_ids = [
-                finals[j].chunk_id
-                for j in range(len(finals))
-                if j != i and _pages_overlap(
-                    finals[j].metadata.page_start, finals[j].metadata.page_end,
-                    fc.metadata.page_start, fc.metadata.page_end,
-                )
+                finals[j].chunk_id for j in sorted(same_page)
             ]
+
+    _RELATED_FIELD_MAP = {
+        "table": "related_table_chunk_id",
+        "figure": "related_figure_chunk_id",
+    }
 
     def _link_related_elements(self, finals: list[FinalChunk]):
         """Link table/figure chunks to their neighboring text chunks."""
         for i, fc in enumerate(finals):
-            ctype = fc.metadata.chunk_type_hint
-
-            if ctype == "table":
-                for j in _adjacent_indices(i, len(finals), radius=2):
-                    if finals[j].metadata.chunk_type_hint in ("paragraph", "heading"):
-                        finals[j].neighbors.related_table_chunk_id = fc.chunk_id
-                        break
-
-            elif ctype == "figure":
-                for j in _adjacent_indices(i, len(finals), radius=2):
-                    if finals[j].metadata.chunk_type_hint in ("paragraph", "heading"):
-                        finals[j].neighbors.related_figure_chunk_id = fc.chunk_id
-                        break
-
-
-def _pages_overlap(start1, end1, start2, end2) -> bool:
-    """Check if two page ranges overlap."""
-    return start1 <= end2 and start2 <= end1
+            field = self._RELATED_FIELD_MAP.get(fc.metadata.chunk_type_hint)
+            if field is None:
+                continue
+            for j in _adjacent_indices(i, len(finals), radius=2):
+                if finals[j].metadata.chunk_type_hint in ("paragraph", "heading"):
+                    setattr(finals[j].neighbors, field, fc.chunk_id)
+                    break
 
 
 def _adjacent_indices(center: int, total: int, radius: int = 2) -> list[int]:

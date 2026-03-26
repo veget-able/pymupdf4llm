@@ -1,7 +1,9 @@
 """Steps C+D: Assemble initial chunks and refine via split/merge."""
 
-from .models import SentenceUnit, ProtoChunk
+from .models import SentenceUnit, ProtoChunk, union_bbox, horizontal_overlap_ratio, caption_matches_element
 from .token_utils import TokenCounter
+
+_ELEMENT_TYPES = frozenset({"table", "figure", "list"})
 
 
 class ChunkAssembler:
@@ -39,26 +41,25 @@ class ChunkAssembler:
         chunks = []
         current_sents = [sents[0]]
         current_text = sents[0].text
-        current_tokens = self.counter.count(current_text)
 
         for i, score in enumerate(scores):
             next_sent = sents[i + 1]
 
-            # Force break conditions
-            should_break = score > self.threshold
-            combined_text = current_text + "\n" + next_sent.text
-            would_exceed = self.counter.count(combined_text) > self.max_tokens
-            structural_break = self._is_structural_break(current_sents[-1], next_sent)
+            # Break conditions (lazy: skip expensive checks if earlier one triggers)
+            do_break = score > self.threshold
+            if not do_break:
+                do_break = self._is_structural_break(current_sents[-1], next_sent)
+            if not do_break:
+                combined_text = current_text + "\n" + next_sent.text
+                do_break = self.counter.count(combined_text) > self.max_tokens
 
-            if should_break or would_exceed or structural_break:
+            if do_break:
                 chunks.append(self._make_proto_chunk(len(chunks), current_sents))
                 current_sents = [next_sent]
                 current_text = next_sent.text
-                current_tokens = self.counter.count(current_text)
             else:
                 current_sents.append(next_sent)
                 current_text = combined_text
-                current_tokens = self.counter.count(current_text)
 
         # Flush remaining
         if current_sents:
@@ -122,39 +123,12 @@ class ChunkAssembler:
             return False
         if not ChunkAssembler._has_horizontal_overlap(a.bbox, b.bbox):
             return False
-
-        if a.is_caption and (b.is_table_content or b.is_figure_related or b.is_list_item):
-            if a.caption_target_type:
-                if a.caption_target_type == "table" and b.is_table_content:
-                    return True
-                if a.caption_target_type == "figure" and b.is_figure_related:
-                    return True
-                return False
-            return True
-
-        if b.is_caption and (a.is_table_content or a.is_figure_related or a.is_list_item):
-            if b.caption_target_type:
-                if b.caption_target_type == "table" and a.is_table_content:
-                    return True
-                if b.caption_target_type == "figure" and a.is_figure_related:
-                    return True
-                return False
-            return True
-
-        return False
+        return caption_matches_element(a, b) or caption_matches_element(b, a)
 
     @staticmethod
     def _has_horizontal_overlap(bbox_a: tuple, bbox_b: tuple, min_ratio: float = 0.3) -> bool:
         """Check if two bboxes have sufficient horizontal overlap."""
-        ax0, _, ax1, _ = bbox_a
-        bx0, _, bx1, _ = bbox_b
-        aw = ax1 - ax0
-        bw = bx1 - bx0
-        min_width = min(aw, bw)
-        if min_width <= 0:
-            return True  # degenerate bbox, allow merge
-        overlap = max(0.0, min(ax1, bx1) - max(ax0, bx0))
-        return (overlap / min_width) >= min_ratio
+        return horizontal_overlap_ratio(bbox_a, bbox_b) >= min_ratio
 
     def _make_proto_chunk(self, chunk_id: int, sents: list[SentenceUnit]) -> ProtoChunk:
         """Create a ProtoChunk from a list of SentenceUnits."""
@@ -162,10 +136,7 @@ class ChunkAssembler:
         token_count = self.counter.count(text)
         chunk_type = self._infer_chunk_type(sents)
 
-        x0 = min(s.bbox[0] for s in sents)
-        y0 = min(s.bbox[1] for s in sents)
-        x1 = max(s.bbox[2] for s in sents)
-        y1 = max(s.bbox[3] for s in sents)
+        bbox = union_bbox(s.bbox for s in sents)
 
         box_indices = list(dict.fromkeys(
             (s.page_no, s.box_index) for s in sents
@@ -186,9 +157,8 @@ class ChunkAssembler:
             page_start=sents[0].page_no,
             page_end=sents[-1].page_no,
             box_indices=box_indices,
-            bbox_union=(x0, y0, x1, y1),
+            bbox_union=bbox,
             chunk_type_hint=chunk_type,
-            heading_path=[],  # filled by serializer
             table_markdown=table_md,
             _sentences=list(sents),
         )
@@ -302,13 +272,8 @@ class ChunkAssembler:
             return False
 
         # Don't merge chunks in different columns
-        ax0, _, ax1, _ = a.bbox_union
-        bx0, _, bx1, _ = b.bbox_union
-        min_width = min(ax1 - ax0, bx1 - bx0)
-        if min_width > 0:
-            overlap = max(0.0, min(ax1, bx1) - max(ax0, bx0))
-            if overlap / min_width < 0.3:
-                return False
+        if not self._has_horizontal_overlap(a.bbox_union, b.bbox_union):
+            return False
 
         return True
 
@@ -317,7 +282,6 @@ class ChunkAssembler:
         if len(chunks) <= 1:
             return chunks
 
-        _ELEMENT_TYPES = {"table", "figure", "list"}
         merged_indices: set[int] = set()
         result_map: dict[int, ProtoChunk] = {}  # index -> merged chunk
 
@@ -395,7 +359,6 @@ class ChunkAssembler:
     @staticmethod
     def _is_caption_element_merge(a: ProtoChunk, b: ProtoChunk) -> bool:
         """Check if one chunk is all-captions and the other is a target element."""
-        _ELEMENT_TYPES = {"table", "figure", "list"}
         a_all_caption = bool(a._sentences) and all(s.is_caption for s in a._sentences)
         b_all_caption = bool(b._sentences) and all(s.is_caption for s in b._sentences)
 
