@@ -44,7 +44,7 @@ DEFAULTS = {
     "merge_small_chunks": True,
     "include_contextual_text": True,
     "table_mode": "preserve",
-    "header_footer_mode": "auto",
+    "header_footer_mode": "exclude",
     "sentence_splitter": "default",
     "output_format": "dataclass",
 }
