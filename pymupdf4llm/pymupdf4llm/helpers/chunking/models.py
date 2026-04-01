@@ -42,6 +42,9 @@ class SentenceUnit:
     # Original table markdown (when is_table_content=True)
     table_markdown: Optional[str] = None
 
+    # Image bytes (when is_figure_related=True and extract_images=True)
+    image_data: Optional[bytes] = field(default=None, repr=False)
+
     # Tracks original box indices when multiple HF units are merged
     _source_box_indices: list = field(default_factory=list, repr=False)
 

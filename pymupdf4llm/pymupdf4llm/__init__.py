@@ -253,6 +253,10 @@ def _layout_to_chunk(
         else:
             chunk_kwargs[k] = v
 
+    # extract_images in chunking → embed_images in parse_document
+    if chunk_kwargs.get("extract_images") and "embed_images" not in parse_kwargs:
+        parse_kwargs["embed_images"] = True
+
     parsed_doc = pymupdf4llm.helpers.document_layout.parse_document(doc, **parse_kwargs)
     return parsed_doc.to_chunks(**chunk_kwargs)
 

@@ -329,7 +329,7 @@ class ChunkAssembler:
                 if table_md is None and s.table_markdown:
                     table_md = s.table_markdown
             if s.is_figure_related:
-                figures.append({"text": s.text, "bbox": s.bbox})
+                figures.append({"text": s.text, "bbox": s.bbox, "image": s.image_data})
             if s.is_list_item:
                 list_items.append({"text": s.text, "bbox": s.bbox})
 

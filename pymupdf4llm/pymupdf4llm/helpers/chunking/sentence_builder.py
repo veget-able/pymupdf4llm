@@ -241,8 +241,11 @@ class SentenceBuilder:
 
     def _figure_as_unit(self, page, box_idx, box, sent_id_start, toc) -> list[SentenceUnit]:
         """Create a single SentenceUnit for a figure/formula without text."""
-        text = f"[Figure: {int(box.x1 - box.x0)}x{int(box.y1 - box.y0)}]"
+        fig_id = f"p{page.page_number}_b{box_idx}"
+        w, h = int(box.x1 - box.x0), int(box.y1 - box.y0)
+        text = f"[Figure {fig_id}: {w}x{h}]"
         hints = _boxclass_to_hints(box.boxclass, toc, page.page_number, text)
+        image_data = box.image if isinstance(box.image, bytes) else None
         return [SentenceUnit(
             sent_id=sent_id_start,
             text=text,
@@ -251,6 +254,7 @@ class SentenceBuilder:
             box_index=box_idx,
             boxclass=box.boxclass,
             bbox=(box.x0, box.y0, box.x1, box.y1),
+            image_data=image_data,
             **hints,
         )]
 

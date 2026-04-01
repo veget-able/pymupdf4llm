@@ -46,6 +46,7 @@ DEFAULTS = {
     "table_mode": "preserve",
     "header_footer_mode": "exclude",
     "sentence_splitter": "default",
+    "extract_images": False,
     "output_format": "dataclass",
 }
 
