@@ -61,8 +61,14 @@ class ProtoChunk:
     bboxes: list = field(default_factory=list)  # list of (x0, y0, x1, y1)
 
     # Structure
-    chunk_type_hint: Optional[str] = None  # paragraph, table, list, figure, footnote, heading
+    chunk_type_hint: Optional[str] = None  # primary type: paragraph, table, list, figure, ...
+    chunk_types: list = field(default_factory=list)  # all types present, e.g. ["heading", "table"]
     table_markdown: Optional[str] = None
+
+    # Extracted element content (preserved when different types merge)
+    tables: list = field(default_factory=list)   # list of {"markdown": str, "bbox": tuple}
+    figures: list = field(default_factory=list)   # list of {"text": str, "bbox": tuple}
+    list_items: list = field(default_factory=list) # list of {"text": str, "bbox": tuple}
 
     # References to SentenceUnits (kept for split/merge)
     _sentences: list = field(default_factory=list, repr=False)
@@ -77,8 +83,14 @@ class ChunkMetadata:
     sent_ids: list = field(default_factory=list)
     heading_path: list = field(default_factory=list)
     chunk_type_hint: str = "paragraph"
+    chunk_types: list = field(default_factory=list)  # all types present
     is_table_related: bool = False
     bboxes: list = field(default_factory=list)  # list of (x0, y0, x1, y1)
+
+    # Extracted element content within this chunk
+    tables: list = field(default_factory=list)
+    figures: list = field(default_factory=list)
+    list_items: list = field(default_factory=list)
 
     # Compatibility with existing page_chunks format
     file_path: Optional[str] = None

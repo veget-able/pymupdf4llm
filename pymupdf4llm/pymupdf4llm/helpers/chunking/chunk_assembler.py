@@ -309,7 +309,7 @@ class ChunkAssembler:
         """Create a ProtoChunk from a list of SentenceUnits."""
         text = "\n".join(s.text for s in sents)
         token_count = self.counter.count(text)
-        chunk_type = self._infer_chunk_type(sents)
+        primary_type, all_types = self._infer_chunk_types(sents)
 
         bboxes = group_bboxes(s.bbox for s in sents)
 
@@ -317,12 +317,21 @@ class ChunkAssembler:
             (s.page_no, s.box_index) for s in sents
         ))
 
+        # Extract element content
         table_md = None
-        if chunk_type == "table":
-            for s in sents:
-                if s.table_markdown:
+        tables = []
+        figures = []
+        list_items = []
+        for s in sents:
+            if s.is_table_content:
+                entry = {"markdown": s.table_markdown or s.text, "bbox": s.bbox}
+                tables.append(entry)
+                if table_md is None and s.table_markdown:
                     table_md = s.table_markdown
-                    break
+            if s.is_figure_related:
+                figures.append({"text": s.text, "bbox": s.bbox})
+            if s.is_list_item:
+                list_items.append({"text": s.text, "bbox": s.bbox})
 
         return ProtoChunk(
             chunk_id=chunk_id,
@@ -333,28 +342,59 @@ class ChunkAssembler:
             page_end=sents[-1].page_no,
             box_indices=box_indices,
             bboxes=bboxes,
-            chunk_type_hint=chunk_type,
+            chunk_type_hint=primary_type,
+            chunk_types=all_types,
             table_markdown=table_md,
+            tables=tables,
+            figures=figures,
+            list_items=list_items,
             _sentences=list(sents),
         )
 
-    def _infer_chunk_type(self, sents: list[SentenceUnit]) -> str:
-        """Determine the dominant chunk type from sentence hints."""
-        if any(s.is_header_footer for s in sents):
-            return "header_footer"
-        if any(s.is_table_content for s in sents):
-            return "table"
-        if any(s.is_figure_related for s in sents):
-            return "figure"
-        if all(s.is_list_item for s in sents):
-            return "list"
-        if any(s.is_caption for s in sents) and any(s.is_list_item for s in sents):
-            return "list"
-        if any(s.is_heading_hint for s in sents) and len(sents) == 1:
-            return "heading"
-        if any(s.is_footnote for s in sents):
-            return "footnote"
-        return "paragraph"
+    @staticmethod
+    def _infer_chunk_types(sents: list[SentenceUnit]) -> tuple[str, list[str]]:
+        """Collect all content types and determine the primary type.
+
+        Returns (primary_type, all_types) where all_types preserves
+        reading order and primary_type is the dominant element type.
+        """
+        # Collect types in reading order (deduplicated, stable)
+        seen = set()
+        all_types = []
+        for s in sents:
+            t = None
+            if s.is_header_footer:
+                t = "header_footer"
+            elif s.is_table_content:
+                t = "table"
+            elif s.is_figure_related:
+                t = "figure"
+            elif s.is_list_item:
+                t = "list"
+            elif s.is_heading_hint:
+                t = "heading"
+            elif s.is_caption:
+                t = "caption"
+            elif s.is_footnote:
+                t = "footnote"
+            else:
+                t = "paragraph"
+            if t not in seen:
+                seen.add(t)
+                all_types.append(t)
+
+        # Primary type: first element type wins, then heading, then paragraph
+        _ELEMENT_PRIORITY = ("table", "figure", "list")
+        for et in _ELEMENT_PRIORITY:
+            if et in seen:
+                return et, all_types
+        if "header_footer" in seen:
+            return "header_footer", all_types
+        if "heading" in seen and len(sents) == 1:
+            return "heading", all_types
+        if "footnote" in seen:
+            return "footnote", all_types
+        return "paragraph", all_types
 
     @staticmethod
     def _renumber(chunks: list[ProtoChunk]) -> list[ProtoChunk]:

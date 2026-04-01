@@ -46,8 +46,12 @@ class ChunkSerializer:
             sent_ids=pc.sent_ids,
             heading_path=heading_path,
             chunk_type_hint=pc.chunk_type_hint or "paragraph",
+            chunk_types=pc.chunk_types or [pc.chunk_type_hint or "paragraph"],
             is_table_related=(pc.chunk_type_hint == "table"),
             bboxes=pc.bboxes,
+            tables=pc.tables,
+            figures=pc.figures,
+            list_items=pc.list_items,
             file_path=self.doc.filename,
             page_count=self.doc.page_count,
             toc_items=toc_items,
@@ -133,8 +137,9 @@ class ChunkSerializer:
         else:
             parts.append(f"[Pages] {pc.page_start}-{pc.page_end}")
 
-        if pc.chunk_type_hint and pc.chunk_type_hint != "paragraph":
-            parts.append(f"[Type] {pc.chunk_type_hint}")
+        non_para = [t for t in (pc.chunk_types or []) if t != "paragraph"]
+        if non_para:
+            parts.append(f"[Type] {', '.join(non_para)}")
 
         parts.append(f"[Content]\n{pc.text}")
 
