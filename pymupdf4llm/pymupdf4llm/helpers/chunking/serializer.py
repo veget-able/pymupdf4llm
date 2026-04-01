@@ -47,7 +47,7 @@ class ChunkSerializer:
             heading_path=heading_path,
             chunk_type_hint=pc.chunk_type_hint or "paragraph",
             is_table_related=(pc.chunk_type_hint == "table"),
-            bbox_union=pc.bbox_union,
+            bboxes=pc.bboxes,
             file_path=self.doc.filename,
             page_count=self.doc.page_count,
             toc_items=toc_items,

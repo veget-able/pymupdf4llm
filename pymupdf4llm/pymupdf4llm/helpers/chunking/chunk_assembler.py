@@ -1,6 +1,6 @@
 """Steps C+D: Assemble initial chunks and refine via split/merge."""
 
-from .models import SentenceUnit, ProtoChunk, union_bbox, horizontal_overlap_ratio, caption_matches_element
+from .models import SentenceUnit, ProtoChunk, union_bbox, group_bboxes, horizontal_overlap_ratio, caption_matches_element
 from .token_utils import TokenCounter
 
 _ELEMENT_TYPES = frozenset({"table", "figure", "list"})
@@ -182,6 +182,7 @@ class ChunkAssembler:
         """Merge semantic pairs in a single forward pass.
 
         Pairs: heading + following content, caption + adjacent element.
+        Semantic pairs always produce a single union bbox (not a list).
         """
         if len(chunks) <= 1:
             return chunks
@@ -193,7 +194,11 @@ class ChunkAssembler:
 
             if i + 1 < len(chunks) and self._is_semantic_pair(chunk, chunks[i + 1]):
                 combined = chunk._sentences + chunks[i + 1]._sentences
-                result.append(self._make_proto_chunk(0, combined))
+                pc = self._make_proto_chunk(0, combined)
+                # Semantic pairs are tightly related — always union into single bbox
+                if len(pc.bboxes) > 1:
+                    pc.bboxes = [union_bbox(iter(pc.bboxes))]
+                result.append(pc)
                 i += 2
             else:
                 result.append(chunk)
@@ -209,7 +214,7 @@ class ChunkAssembler:
             return False
         if abs(a.page_end - b.page_start) > 1:
             return False
-        if not self._has_horizontal_overlap(a.bbox_union, b.bbox_union):
+        if not self._any_bbox_overlap(a.bboxes, b.bboxes):
             return False
 
         # heading + following content (any non-heading type)
@@ -242,7 +247,12 @@ class ChunkAssembler:
     # ── Budget merge ─────────────────────────────────────────────────
 
     def _merge_budget(self, chunks: list[ProtoChunk]) -> list[ProtoChunk]:
-        """Greedily merge adjacent chunks that fit within max_tokens."""
+        """Greedily merge adjacent chunks that fit within max_tokens.
+
+        Preserves bbox structure from earlier phases: instead of rebuilding
+        bboxes from scratch, concatenates the bbox lists of both chunks.
+        This keeps semantic-merge union bboxes intact.
+        """
         if len(chunks) <= 1:
             return chunks
 
@@ -253,7 +263,12 @@ class ChunkAssembler:
 
             if self._can_budget_merge(prev, curr):
                 combined_sents = prev._sentences + curr._sentences
-                merged[-1] = self._make_proto_chunk(0, combined_sents)
+                pc = self._make_proto_chunk(0, combined_sents)
+                # Re-group at chunk-level bboxes (not sentence-level) so that
+                # semantic-merge unions are preserved as atomic inputs while
+                # compatible bboxes (matching x0+x1 or y0+y1 pair) still merge.
+                pc.bboxes = group_bboxes(iter(prev.bboxes + curr.bboxes))
+                merged[-1] = pc
             else:
                 merged.append(curr)
 
@@ -270,7 +285,7 @@ class ChunkAssembler:
             return False
         if abs(a.page_end - b.page_start) > 1:
             return False
-        if not self._has_horizontal_overlap(a.bbox_union, b.bbox_union):
+        if not self._any_bbox_overlap(a.bboxes, b.bboxes):
             return False
         return True
 
@@ -278,8 +293,17 @@ class ChunkAssembler:
 
     @staticmethod
     def _has_horizontal_overlap(bbox_a: tuple, bbox_b: tuple, min_ratio: float = 0.3) -> bool:
-        """Check if two bboxes have sufficient horizontal overlap."""
+        """Check if two single bboxes have sufficient horizontal overlap."""
         return horizontal_overlap_ratio(bbox_a, bbox_b) >= min_ratio
+
+    @staticmethod
+    def _any_bbox_overlap(bboxes_a: list, bboxes_b: list, min_ratio: float = 0.3) -> bool:
+        """Check if any bbox from list a overlaps horizontally with any from list b."""
+        for ba in bboxes_a:
+            for bb in bboxes_b:
+                if horizontal_overlap_ratio(ba, bb) >= min_ratio:
+                    return True
+        return False
 
     def _make_proto_chunk(self, chunk_id: int, sents: list[SentenceUnit]) -> ProtoChunk:
         """Create a ProtoChunk from a list of SentenceUnits."""
@@ -287,7 +311,7 @@ class ChunkAssembler:
         token_count = self.counter.count(text)
         chunk_type = self._infer_chunk_type(sents)
 
-        bbox = union_bbox(s.bbox for s in sents)
+        bboxes = group_bboxes(s.bbox for s in sents)
 
         box_indices = list(dict.fromkeys(
             (s.page_no, s.box_index) for s in sents
@@ -308,7 +332,7 @@ class ChunkAssembler:
             page_start=sents[0].page_no,
             page_end=sents[-1].page_no,
             box_indices=box_indices,
-            bbox_union=bbox,
+            bboxes=bboxes,
             chunk_type_hint=chunk_type,
             table_markdown=table_md,
             _sentences=list(sents),

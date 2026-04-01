@@ -58,7 +58,7 @@ class ProtoChunk:
     page_start: int = 0
     page_end: int = 0
     box_indices: list = field(default_factory=list)  # [(page_no, box_index), ...]
-    bbox_union: tuple = (0, 0, 0, 0)
+    bboxes: list = field(default_factory=list)  # list of (x0, y0, x1, y1)
 
     # Structure
     chunk_type_hint: Optional[str] = None  # paragraph, table, list, figure, footnote, heading
@@ -78,7 +78,7 @@ class ChunkMetadata:
     heading_path: list = field(default_factory=list)
     chunk_type_hint: str = "paragraph"
     is_table_related: bool = False
-    bbox_union: tuple = (0, 0, 0, 0)
+    bboxes: list = field(default_factory=list)  # list of (x0, y0, x1, y1)
 
     # Compatibility with existing page_chunks format
     file_path: Optional[str] = None
@@ -151,3 +151,45 @@ def union_bbox(bboxes) -> tuple:
     if x0 == float('inf'):
         return (0, 0, 0, 0)
     return (x0, y0, x1, y1)
+
+
+def _has_shared_edge(bbox_a: tuple, bbox_b: tuple, tol: float) -> bool:
+    """Check if two bboxes share a matching edge *pair*.
+
+    Returns True when (x0 AND x1) or (y0 AND y1) both match within *tol*.
+    A single edge match (e.g. only x1) is not enough — it would cause
+    chain-reaction grouping across spatially unrelated boxes.
+    """
+    ax0, ay0, ax1, ay1 = bbox_a
+    bx0, by0, bx1, by1 = bbox_b
+    x_pair = abs(ax0 - bx0) <= tol and abs(ax1 - bx1) <= tol
+    y_pair = abs(ay0 - by0) <= tol and abs(ay1 - by1) <= tol
+    return x_pair or y_pair
+
+
+def group_bboxes(bboxes, tolerance: float = 10.0) -> list[tuple]:
+    """Group sequential bboxes that share a matching edge pair.
+
+    Only the *last* (most recent) group is checked for each incoming box.
+    If it doesn't match, a new group is created.  This respects reading
+    order: once a spatially different region appears (e.g. an indented
+    code block), subsequent boxes continue from that break rather than
+    jumping back to an earlier group.
+
+    *tolerance* defaults to 10 PDF points (~3.5 mm at 72 dpi).
+    """
+    boxes = list(bboxes)
+    if not boxes:
+        return []
+    if len(boxes) == 1:
+        return list(boxes)
+
+    groups: list[list[tuple]] = [[boxes[0]]]
+    for box in boxes[1:]:
+        last_union = union_bbox(iter(groups[-1]))
+        if _has_shared_edge(last_union, box, tolerance):
+            groups[-1].append(box)
+        else:
+            groups.append([box])
+
+    return [union_bbox(iter(g)) for g in groups]
