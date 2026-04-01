@@ -275,17 +275,17 @@ class ChunkAssembler:
         return merged
 
     def _can_budget_merge(self, a: ProtoChunk, b: ProtoChunk) -> bool:
-        """Check if two adjacent chunks can be merged within budget."""
+        """Check if two adjacent chunks can be merged within budget.
+
+        Spatial proximity (bbox overlap, page distance) is intentionally
+        NOT checked here — budget merge is purely about filling token
+        capacity with sequentially adjacent chunks.
+        """
         if a.chunk_type_hint == "header_footer" or b.chunk_type_hint == "header_footer":
             return False
-        # Headings must start a chunk, never trail at the end of the previous one
         if b.chunk_type_hint == "heading":
             return False
         if a.token_count + b.token_count > self.max_tokens:
-            return False
-        if abs(a.page_end - b.page_start) > 1:
-            return False
-        if not self._any_bbox_overlap(a.bboxes, b.bboxes):
             return False
         return True
 
