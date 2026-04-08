@@ -195,9 +195,9 @@ class ChunkAssembler:
             if i + 1 < len(chunks) and self._is_semantic_pair(chunk, chunks[i + 1]):
                 combined = chunk._sentences + chunks[i + 1]._sentences
                 pc = self._make_proto_chunk(0, combined)
-                # Semantic pairs are tightly related — always union into single bbox
+                # Semantic pairs are tightly related — union per page
                 if len(pc.bboxes) > 1:
-                    pc.bboxes = [union_bbox(iter(pc.bboxes))]
+                    pc.bboxes = _union_per_page(pc.bboxes)
                 result.append(pc)
                 i += 2
             else:
@@ -267,7 +267,7 @@ class ChunkAssembler:
                 # Re-group at chunk-level bboxes (not sentence-level) so that
                 # semantic-merge unions are preserved as atomic inputs while
                 # compatible bboxes (matching x0+x1 or y0+y1 pair) still merge.
-                pc.bboxes = group_bboxes(iter(prev.bboxes + curr.bboxes))
+                pc.bboxes = _regroup_page_bboxes(prev.bboxes + curr.bboxes)
                 merged[-1] = pc
             else:
                 merged.append(curr)
@@ -298,10 +298,15 @@ class ChunkAssembler:
 
     @staticmethod
     def _any_bbox_overlap(bboxes_a: list, bboxes_b: list, min_ratio: float = 0.3) -> bool:
-        """Check if any bbox from list a overlaps horizontally with any from list b."""
+        """Check if any bbox from list a overlaps horizontally with any from list b.
+
+        Handles both 4-tuple (x0,y0,x1,y1) and 5-tuple (page,x0,y0,x1,y1).
+        """
         for ba in bboxes_a:
+            ba4 = ba[1:] if len(ba) == 5 else ba
             for bb in bboxes_b:
-                if horizontal_overlap_ratio(ba, bb) >= min_ratio:
+                bb4 = bb[1:] if len(bb) == 5 else bb
+                if horizontal_overlap_ratio(ba4, bb4) >= min_ratio:
                     return True
         return False
 
@@ -311,7 +316,7 @@ class ChunkAssembler:
         token_count = self.counter.count(text)
         primary_type, all_types = self._infer_chunk_types(sents)
 
-        bboxes = group_bboxes(s.bbox for s in sents)
+        bboxes = _group_bboxes_by_page(sents)
 
         box_indices = list(dict.fromkeys(
             (s.page_no, s.box_index) for s in sents
@@ -402,3 +407,55 @@ class ChunkAssembler:
         for i, chunk in enumerate(chunks):
             chunk.chunk_id = i
         return chunks
+
+
+def _group_bboxes_by_page(sents) -> list[tuple]:
+    """Group sentence bboxes by page, then by edge-pair within each page.
+
+    Returns list of (page, x0, y0, x1, y1) 5-tuples.
+    """
+    from collections import defaultdict
+    page_sents = defaultdict(list)
+    for s in sents:
+        page_sents[s.page_no].append(s.bbox)
+
+    result = []
+    for page_no in sorted(page_sents.keys()):
+        grouped = group_bboxes(iter(page_sents[page_no]))
+        for bbox in grouped:
+            result.append((page_no, *bbox))
+    return result
+
+
+def _union_per_page(page_bboxes: list[tuple]) -> list[tuple]:
+    """Union all bboxes on each page into a single bbox per page."""
+    from collections import defaultdict
+    by_page = defaultdict(list)
+    for pb in page_bboxes:
+        page, x0, y0, x1, y1 = pb
+        by_page[page].append((x0, y0, x1, y1))
+
+    result = []
+    for page_no in sorted(by_page.keys()):
+        u = union_bbox(iter(by_page[page_no]))
+        result.append((page_no, *u))
+    return result
+
+
+def _regroup_page_bboxes(page_bboxes: list[tuple]) -> list[tuple]:
+    """Re-group 5-tuple bboxes (page, x0, y0, x1, y1) by page.
+
+    Preserves page info while merging compatible bboxes within each page.
+    """
+    from collections import defaultdict
+    by_page = defaultdict(list)
+    for pb in page_bboxes:
+        page, x0, y0, x1, y1 = pb
+        by_page[page].append((x0, y0, x1, y1))
+
+    result = []
+    for page_no in sorted(by_page.keys()):
+        grouped = group_bboxes(iter(by_page[page_no]))
+        for bbox in grouped:
+            result.append((page_no, *bbox))
+    return result
