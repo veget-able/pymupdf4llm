@@ -84,7 +84,7 @@ class ChunkMetadata:
     page_end: int = 0
     box_indices: list = field(default_factory=list)
     sent_ids: list = field(default_factory=list)
-    heading_path: list = field(default_factory=list)
+    section_hierarchy: list = field(default_factory=list)
     chunk_type_hint: str = "paragraph"
     chunk_types: list = field(default_factory=list)  # all types present
     is_table_related: bool = False
