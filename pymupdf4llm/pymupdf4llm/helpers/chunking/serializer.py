@@ -58,7 +58,7 @@ class ChunkSerializer:
             bboxes=pc.bboxes,
             tables=pc.tables,
             figures=pc.figures,
-            list_items=pc.list_items,
+            lists=pc.lists,
             file_path=self.doc.filename,
             page_count=self.doc.page_count,
             toc_items=toc_items,

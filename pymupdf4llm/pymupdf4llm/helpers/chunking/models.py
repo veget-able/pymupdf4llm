@@ -71,7 +71,7 @@ class ProtoChunk:
     # Extracted element content (preserved when different types merge)
     tables: list = field(default_factory=list)   # list of {"markdown": str, "bbox": tuple}
     figures: list = field(default_factory=list)   # list of {"text": str, "bbox": tuple}
-    list_items: list = field(default_factory=list) # list of {"text": str, "bbox": tuple}
+    lists: list = field(default_factory=list)     # list of {"items": [...], "bbox": tuple}
 
     # References to SentenceUnits (kept for split/merge)
     _sentences: list = field(default_factory=list, repr=False)
@@ -93,7 +93,7 @@ class ChunkMetadata:
     # Extracted element content within this chunk
     tables: list = field(default_factory=list)
     figures: list = field(default_factory=list)
-    list_items: list = field(default_factory=list)
+    lists: list = field(default_factory=list)
 
     # Compatibility with existing page_chunks format
     file_path: Optional[str] = None

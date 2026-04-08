@@ -55,6 +55,11 @@ class ChunkAssembler:
                 combined_text = current_text + "\n" + next_sent.text
                 do_break = self.counter.count(combined_text) > self.max_tokens
 
+            # Never split sentences from the same box — they share a bbox
+            if do_break and (next_sent.box_index == current_sents[-1].box_index
+                             and next_sent.page_no == current_sents[-1].page_no):
+                do_break = False
+
             if do_break:
                 chunks.append(self._make_proto_chunk(len(chunks), current_sents))
                 current_sents = [next_sent]
@@ -139,7 +144,11 @@ class ChunkAssembler:
     # ── Split ────────────────────────────────────────────────────────
 
     def _split_chunk(self, chunk: ProtoChunk) -> list[ProtoChunk]:
-        """Split an oversized chunk at sentence boundaries."""
+        """Split an oversized chunk at sentence boundaries.
+
+        Prefers splitting at box boundaries (where box_index changes)
+        to avoid the same box's bbox appearing in two chunks.
+        """
         sents = chunk._sentences
         if not sents:
             return [chunk]
@@ -164,9 +173,26 @@ class ChunkAssembler:
 
             combined = (current_text + "\n" + sent.text) if current_text else sent.text
             if self.counter.count(combined) > self.max_tokens and current:
-                result.append(self._make_proto_chunk(0, current))
-                current = [sent]
-                current_text = sent.text
+                # Prefer splitting at a box boundary: if the new sentence
+                # shares box_index with the last sentence in current, move
+                # those shared sentences to the next chunk.
+                split_point = len(current)
+                if current and sent.box_index == current[-1].box_index:
+                    # Find where this box_index started in current
+                    bi = sent.box_index
+                    pg = sent.page_no
+                    j = len(current) - 1
+                    while j > 0 and current[j].box_index == bi and current[j].page_no == pg:
+                        j -= 1
+                    if j > 0:  # don't empty the entire current
+                        split_point = j + 1
+
+                keep = current[:split_point]
+                carry = current[split_point:]
+                if keep:
+                    result.append(self._make_proto_chunk(0, keep))
+                current = carry + [sent]
+                current_text = "\n".join(s.text for s in current)
             else:
                 current.append(sent)
                 current_text = combined
@@ -193,13 +219,20 @@ class ChunkAssembler:
             chunk = chunks[i]
 
             if i + 1 < len(chunks) and self._is_semantic_pair(chunk, chunks[i + 1]):
-                combined = chunk._sentences + chunks[i + 1]._sentences
+                # Greedily consume all consecutive semantic partners
+                combined = list(chunk._sentences)
+                j = i + 1
+                while j < len(chunks) and self._is_semantic_pair(
+                    self._make_proto_chunk(0, combined), chunks[j]
+                ):
+                    combined.extend(chunks[j]._sentences)
+                    j += 1
                 pc = self._make_proto_chunk(0, combined)
                 # Semantic pairs are tightly related — union per page
                 if len(pc.bboxes) > 1:
                     pc.bboxes = _union_per_page(pc.bboxes)
                 result.append(pc)
-                i += 2
+                i = j
             else:
                 result.append(chunk)
                 i += 1
@@ -219,6 +252,10 @@ class ChunkAssembler:
 
         # heading + following content (any non-heading type)
         if a.chunk_type_hint == "heading" and b.chunk_type_hint != "heading":
+            return True
+
+        # consecutive list chunks → merge into one logical list
+        if a.chunk_type_hint == "list" and b.chunk_type_hint == "list":
             return True
 
         # caption + element (caption first)
@@ -326,7 +363,6 @@ class ChunkAssembler:
         table_md = None
         tables = []
         figures = []
-        list_items = []
         for s in sents:
             if s.is_table_content:
                 entry = {"markdown": s.table_markdown or s.text, "bbox": s.bbox}
@@ -335,8 +371,9 @@ class ChunkAssembler:
                     table_md = s.table_markdown
             if s.is_figure_related:
                 figures.append({"text": s.text, "bbox": s.bbox, "image": s.image_data})
-            if s.is_list_item:
-                list_items.append({"text": s.text, "bbox": s.bbox})
+
+        # Group consecutive list items into logical lists
+        lists = _group_list_items(sents)
 
         return ProtoChunk(
             chunk_id=chunk_id,
@@ -352,7 +389,7 @@ class ChunkAssembler:
             table_markdown=table_md,
             tables=tables,
             figures=figures,
-            list_items=list_items,
+            lists=lists,
             _sentences=list(sents),
         )
 
@@ -409,21 +446,96 @@ class ChunkAssembler:
         return chunks
 
 
+def _group_list_items(sents) -> list[dict]:
+    """Group consecutive list-item sentences into logical list groups.
+
+    Each group gets a union bbox and an ordered items list.
+    Non-list sentences break the current group, so two separate
+    runs of list-items produce two distinct list groups.
+
+    Returns: [{"items": [{"text": str, "bbox": tuple}], "bbox": (page, x0, y0, x1, y1)}]
+    """
+    groups = []
+    current_items = []
+
+    for s in sents:
+        if s.is_list_item:
+            current_items.append(s)
+        else:
+            if current_items:
+                groups.append(_finalize_list_group(current_items))
+                current_items = []
+
+    if current_items:
+        groups.append(_finalize_list_group(current_items))
+
+    return groups
+
+
+def _finalize_list_group(items) -> dict:
+    """Build a list group dict from consecutive list-item sentences."""
+    entries = [{"text": s.text, "bbox": s.bbox} for s in items]
+    # Union bbox with page (use first item's page)
+    page = items[0].page_no
+    x0 = min(s.bbox[0] for s in items)
+    y0 = min(s.bbox[1] for s in items)
+    x1 = max(s.bbox[2] for s in items)
+    y1 = max(s.bbox[3] for s in items)
+    return {"items": entries, "bbox": (page, x0, y0, x1, y1)}
+
+
 def _group_bboxes_by_page(sents) -> list[tuple]:
     """Group sentence bboxes by page, then by edge-pair within each page.
+
+    Consecutive list-items are pre-merged into a single union bbox before
+    edge-pair grouping, since individual list-item x1 varies by text length
+    while they share the same x0 (indentation level).
 
     Returns list of (page, x0, y0, x1, y1) 5-tuples.
     """
     from collections import defaultdict
-    page_sents = defaultdict(list)
+
+    # Pre-merge consecutive list-items into union bboxes
+    merged_entries = []  # (page_no, bbox)
+    list_run = []
     for s in sents:
-        page_sents[s.page_no].append(s.bbox)
+        if s.is_list_item:
+            list_run.append(s)
+        else:
+            if list_run:
+                merged_entries.extend(_flush_list_run(list_run))
+                list_run = []
+            merged_entries.append((s.page_no, s.bbox))
+    if list_run:
+        merged_entries.extend(_flush_list_run(list_run))
+
+    # Group by page, then edge-pair
+    page_bboxes = defaultdict(list)
+    for page_no, bbox in merged_entries:
+        page_bboxes[page_no].append(bbox)
 
     result = []
-    for page_no in sorted(page_sents.keys()):
-        grouped = group_bboxes(iter(page_sents[page_no]))
+    for page_no in sorted(page_bboxes.keys()):
+        grouped = group_bboxes(iter(page_bboxes[page_no]))
         for bbox in grouped:
             result.append((page_no, *bbox))
+    return result
+
+
+def _flush_list_run(items) -> list[tuple]:
+    """Union consecutive list-item sentences into one bbox per page."""
+    from collections import defaultdict
+    by_page = defaultdict(list)
+    for s in items:
+        by_page[s.page_no].append(s.bbox)
+    result = []
+    for page_no in sorted(by_page.keys()):
+        bboxes = by_page[page_no]
+        x0 = min(b[0] for b in bboxes)
+        y0 = min(b[1] for b in bboxes)
+        x1 = max(b[2] for b in bboxes)
+        y1 = max(b[3] for b in bboxes)
+        result.append((page_no, (x0, y0, x1, y1)))
     return result
 
 
