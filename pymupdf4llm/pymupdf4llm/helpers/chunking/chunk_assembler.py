@@ -322,6 +322,11 @@ class ChunkAssembler:
             return False
         if b.chunk_type_hint == "heading":
             return False
+        # table_mode="isolate": table chunks stay separate in budget merge
+        # (semantic merge heading+table / caption+table is still allowed)
+        if self.table_mode == "isolate":
+            if a.chunk_type_hint == "table" or b.chunk_type_hint == "table":
+                return False
         if a.token_count + b.token_count > self.max_tokens:
             return False
         return True
