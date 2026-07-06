@@ -60,6 +60,10 @@ pip install pymupdf4llm
 
 This automatically installs or upgrades [PyMuPDF](https://pypi.org/project/PyMuPDF/) & [PyMuPDF Layout](https://pypi.org/project/pymupdf-layout/) as a dependency.
 
+When validating local changes that span PyMuPDF and PyMuPDF4LLM, create a clean
+development virtual environment and install both local repositories. Do not
+patch files directly inside an existing ParseBench or production venv.
+
 
 ### Optional: Office document support (PyMuPDF Pro)
 
@@ -123,6 +127,41 @@ Path("output.md").write_bytes(md.encode())
 | **JSON** | `to_json(path)` | Custom pipelines needing bbox + layout metadata |
 | **Plain text** | `to_text(path)` | Search indexing, simple NLP tasks |
 | **LlamaIndex docs** | `LlamaMarkdownReader().load_data(path)` | Direct LlamaIndex integration |
+
+### HTML table output
+
+By default, tables are rendered as GitHub-compatible Markdown. To emit
+reconstructed HTML `<table>` elements instead, use `table_output="html"`:
+
+```python
+import pymupdf4llm
+
+md = pymupdf4llm.to_markdown("document.pdf", table_output="html")
+```
+
+In layout mode this keeps the layout pipeline for reading order, body text, and
+OCR handling, and swaps only table rendering to the HTML table engine. The
+standalone table API is also available:
+
+```python
+from pymupdf4llm.helpers.table_html import to_html
+
+html = to_html("document.pdf", page_index=0)
+```
+
+`to_html()` is a live extraction API. It does not read ParseBench detector
+caches or accept cache replay arguments.
+
+### Layout edge threshold
+
+Layout mode accepts `edge_threshold` for experiments with the layout model's
+grouping confidence:
+
+```python
+md = pymupdf4llm.to_markdown("document.pdf", edge_threshold=0.75)
+```
+
+The default remains the library default unless this option is provided.
 
 ### Extraction capabilities
 
@@ -530,6 +569,5 @@ Contributions are welcome. Please open an issue before submitting large pull req
 If you find this useful, please consider giving it a star — it helps others discover it!
 
 [![Star on GitHub](https://img.shields.io/github/stars/pymupdf/pymupdf4llm.svg?style=for-the-badge&label=Star&logo=github)](https://github.com/pymupdf/pymupdf4llm/)
-
 
 
