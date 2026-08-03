@@ -929,6 +929,11 @@ class LayoutBox:
     # if boxclass == 'table'
     table: Optional[Dict] = None
 
+    # if boxclass == 'picture' and the box is a detected chart:
+    # detection metadata (score, detector bbox), later joined by the
+    # extracted chart table ({'score': .., 'bbox': .., 'markdown': .., 'csv': ..})
+    chart: Optional[Dict] = None
+
     # text line information for text-type boxclasses
     max_fontsize: Optional[int] = None
     header_level: Optional[int] = 0  # one of 1..6 for title/section-header
@@ -950,6 +955,7 @@ class PageLayout:
 @dataclass
 class ParsedDocument:
     filename: Optional[str] = None  # source file name
+    detect_charts: bool = False  # whether chart detection ran
     page_count: int = None
     toc: Optional[List[List]] = None  # e.g. [{'title': 'Intro', 'page': 1}]
     pages: List[PageLayout] = None
@@ -1023,6 +1029,14 @@ class ParsedDocument:
                                 ignore_code=ignore_code or page.full_ocred,
                                 clip=clip,
                             )
+                    # chart boxes render their extracted table, fenced so
+                    # it stays distinguishable from real table boxes
+                    if box.chart and box.chart.get("markdown"):
+                        md_string += (
+                            "<!-- Start of chart table -->\n"
+                            + box.chart["markdown"].rstrip()
+                            + "\n<!-- End of chart table -->\n\n"
+                        )
                     string_lengths.append(len(md_string))
                     continue
                 if btype == "table":
@@ -1287,6 +1301,71 @@ def make_ocr_decision(page, use_ocr):
     return needs_ocr, ocr_spans, only_text
 
 
+def _merge_chart_detections(page, detect_charts, pagelayout):
+    """Run chart detection on the (derotated) page and merge the results.
+
+    Detections matching an existing picture box (IoU >= 0.65) only flag
+    that box via its .chart payload; the others are inserted as new
+    picture boxes at their reading-order position. No box is removed or
+    reclassified, so the layout is unchanged for consumers that ignore
+    charts - a visual-grounding requirement.
+
+    detect_charts is True (use Page.find_charts of pymupdf-layout) or a
+    callable page -> detections; a detection provides bbox and score as
+    attributes, mapping keys, or a plain 4-sequence.
+    """
+    if callable(detect_charts):
+        detections = detect_charts(page)
+    else:
+        find_charts = getattr(page, "find_charts", None)
+        if find_charts is None:
+            raise RuntimeError(
+                "detect_charts requires a PyMuPDF version with"
+                " Page.find_charts() plus the optional 'pymupdf-layout'"
+                " package."
+            )
+        detections = find_charts()
+
+    def _stripe(y0, x0):
+        return (round(y0 / 40.0), x0)
+
+    pictures = [b for b in pagelayout.boxes if b.boxclass == "picture"]
+    for item in detections:
+        rect = getattr(item, "rect", None)
+        if rect is None:
+            rect = getattr(item, "box", None)
+        if rect is None and isinstance(item, dict):
+            rect = item.get("bbox") or item.get("box")
+        if rect is None:
+            rect = item
+        box = [float(rect[0]), float(rect[1]), float(rect[2]), float(rect[3])]
+        score = getattr(item, "score", None)
+        if score is None and isinstance(item, dict):
+            score = item.get("score")
+        payload = {"score": float(score)} if score is not None else {}
+        payload["bbox"] = box  # detector coordinates, kept for crop union / consumers
+        best, best_iou = None, 0.65
+        for b in pictures:
+            iou = utils.iou(box, (b.x0, b.y0, b.x1, b.y1))
+            if iou >= best_iou:
+                best, best_iou = b, iou
+        if best is not None:  # the parser found this chart too - flag it
+            if best.chart is None:
+                best.chart = payload
+            continue
+        lb = LayoutBox(
+            x0=box[0], y0=box[1], x1=box[2], y1=box[3], boxclass="picture"
+        )
+        lb.chart = payload
+        index = len(pagelayout.boxes)
+        key = _stripe(box[1], box[0])
+        for i, b in enumerate(pagelayout.boxes):
+            if _stripe(b.y0, b.x0) > key:
+                index = i
+                break
+        pagelayout.boxes.insert(index, lb)
+
+
 def parse_document(
     doc,
     filename="",
@@ -1305,6 +1384,7 @@ def parse_document(
     ocr_function=None,
     render_html_tables=None,
     edge_threshold=None,
+    detect_charts=False,
 ) -> ParsedDocument:
     original_path = None
     if isinstance(doc, pymupdf.Document):
@@ -1370,6 +1450,7 @@ def parse_document(
     document.image_format = image_format
     document.image_path = image_path
     document.pages = []
+    document.detect_charts = bool(detect_charts)
     document.force_text = force_text
     document.embed_images = embed_images
     document.write_images = write_images
@@ -1673,6 +1754,8 @@ def parse_document(
                     layoutbox.max_fontsize = max_fontsize
 
             pagelayout.boxes.append(layoutbox)
+        if detect_charts:
+            _merge_chart_detections(page, detect_charts, pagelayout)
         document.pages.append(pagelayout)
     if mydoc != doc:
         mydoc.close()

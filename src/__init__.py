@@ -1,4 +1,5 @@
 import pathlib
+import tempfile
 
 import pymupdf
 import pymupdf4llm.helpers.document_layout
@@ -56,6 +57,34 @@ else:
     use_layout(True)
 
 
+def _maybe_splice_charts(
+    parsed_doc,
+    doc,
+    chart_function,
+    *,
+    chart_region=None,
+    chart_zoom=None,
+    chart_strict=False,
+    chart_diagnostics=None,
+):
+    """Run the chart extraction hook when chart_function is given."""
+    if chart_function is None:
+        return
+    from pymupdf4llm.helpers.chart_layout import splice_charts_into_parsed
+
+    with tempfile.TemporaryDirectory(prefix="pymupdf4llm_chart_") as tmp:
+        splice_charts_into_parsed(
+            parsed_doc,
+            doc,
+            chart_function,
+            pathlib.Path(tmp),
+            zoom=chart_zoom,
+            region_source=chart_region,
+            strict=chart_strict,
+            diagnostics=chart_diagnostics,
+        )
+
+
 def _layout_to_markdown(
     doc,
     *,
@@ -82,6 +111,12 @@ def _layout_to_markdown(
     write_images=False,
     render_html_tables=None,
     edge_threshold=None,
+    chart_function=None,
+    chart_region=None,
+    chart_zoom=None,
+    chart_strict=False,
+    chart_diagnostics=None,
+    detect_charts=False,
     # unsupported options for pymupdf layout:
     **kwargs,
 ):
@@ -105,6 +140,16 @@ def _layout_to_markdown(
         ocr_function=ocr_function,
         render_html_tables=render_html_tables,
         edge_threshold=edge_threshold,
+        detect_charts=detect_charts,
+    )
+    _maybe_splice_charts(
+        parsed_doc,
+        doc,
+        chart_function,
+        chart_region=chart_region,
+        chart_zoom=chart_zoom,
+        chart_strict=chart_strict,
+        chart_diagnostics=chart_diagnostics,
     )
     return parsed_doc.to_markdown(
         header=header,
@@ -135,6 +180,12 @@ def _layout_to_json(
     ocr_function=None,
     render_html_tables=None,
     edge_threshold=None,
+    chart_function=None,
+    chart_region=None,
+    chart_zoom=None,
+    chart_strict=False,
+    chart_diagnostics=None,
+    detect_charts=False,
     # unsupported options for pymupdf layout:
     **kwargs,
 ):
@@ -154,6 +205,16 @@ def _layout_to_json(
         ocr_function=ocr_function,
         render_html_tables=render_html_tables,
         edge_threshold=edge_threshold,
+        detect_charts=detect_charts,
+    )
+    _maybe_splice_charts(
+        parsed_doc,
+        doc,
+        chart_function,
+        chart_region=chart_region,
+        chart_zoom=chart_zoom,
+        chart_strict=chart_strict,
+        chart_diagnostics=chart_diagnostics,
     )
     return parsed_doc.to_json()
 
