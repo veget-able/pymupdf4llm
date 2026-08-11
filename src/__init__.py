@@ -117,6 +117,8 @@ def _layout_to_markdown(
     chart_strict=False,
     chart_diagnostics=None,
     detect_charts=False,
+    detect_pictures=False,
+    picture_iou_threshold=0.65,
     # unsupported options for pymupdf layout:
     **kwargs,
 ):
@@ -141,6 +143,8 @@ def _layout_to_markdown(
         render_html_tables=render_html_tables,
         edge_threshold=edge_threshold,
         detect_charts=detect_charts,
+        detect_pictures=detect_pictures,
+        picture_iou_threshold=picture_iou_threshold,
     )
     _maybe_splice_charts(
         parsed_doc,
@@ -186,6 +190,8 @@ def _layout_to_json(
     chart_strict=False,
     chart_diagnostics=None,
     detect_charts=False,
+    detect_pictures=False,
+    picture_iou_threshold=0.65,
     # unsupported options for pymupdf layout:
     **kwargs,
 ):
@@ -206,6 +212,8 @@ def _layout_to_json(
         render_html_tables=render_html_tables,
         edge_threshold=edge_threshold,
         detect_charts=detect_charts,
+        detect_pictures=detect_pictures,
+        picture_iou_threshold=picture_iou_threshold,
     )
     _maybe_splice_charts(
         parsed_doc,

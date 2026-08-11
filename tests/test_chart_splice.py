@@ -75,6 +75,73 @@ def test_detect_json_keeps_picture_class_with_payload():
     ), "chart emitted as a table box"
 
 
+def test_dp0_picture_runs_after_dp0_chart_lane_and_cannot_reclaim_it():
+    """DP0 Chart ownership is fixed before its Picture lane is merged."""
+    events = []
+
+    def chart_detector(page):
+        events.append("dp0-chart")
+        return [{"bbox": [36, 36, 576, 356], "score": 0.9}]
+
+    def picture_detector(page):
+        events.append("dp0-picture")
+        return [
+            {
+                "bbox": [36, 36, 576, 356],
+                "score": 0.95,
+                "label": "picture",
+            }
+        ]
+
+    data = json.loads(
+        pymupdf4llm.to_json(
+            str(CHART_PDF),
+            detect_charts=chart_detector,
+            detect_pictures=picture_detector,
+            use_ocr=False,
+        )
+    )
+    assert events == ["dp0-chart", "dp0-picture"]
+    charts = [
+        box
+        for page in data["pages"]
+        for box in page["boxes"]
+        if box.get("chart")
+    ]
+    assert len(charts) == 1
+    assert charts[0].get("picture_detection") is None
+
+
+def test_dp0_picture_preserves_matched_native_bbox_and_adds_unmatched():
+    """DP0 mirrors the reviewer D0 bbox contract without moving native boxes."""
+    from pymupdf4llm.helpers.document_layout import (
+        LayoutBox,
+        PageLayout,
+        _merge_picture_detections,
+    )
+
+    native = LayoutBox(10, 10, 30, 30, "picture")
+    page = PageLayout(1, 100, 100, [native])
+
+    def detector(_page):
+        return [
+            {"bbox": [10, 10, 30, 30], "score": 0.9, "label": "picture"},
+            {"bbox": [50, 50, 70, 70], "score": 0.8, "label": "picture"},
+        ]
+
+    _merge_picture_detections(None, detector, page)
+    assert [native.x0, native.y0, native.x1, native.y1] == [10, 10, 30, 30]
+    assert native.picture_detection["bbox"] == [10.0, 10.0, 30.0, 30.0]
+    added = [box for box in page.boxes if box is not native]
+    assert len(added) == 1
+    assert [added[0].x0, added[0].y0, added[0].x1, added[0].y1] == [
+        50.0,
+        50.0,
+        70.0,
+        70.0,
+    ]
+
+
 def test_detection_ran_but_found_nothing_skips_extraction():
     """Zero detections must not fall back to feeding every picture."""
 

@@ -1366,6 +1366,113 @@ def _merge_chart_detections(page, detect_charts, pagelayout):
         pagelayout.boxes.insert(index, lb)
 
 
+def _merge_picture_detections(
+    page,
+    detect_pictures,
+    pagelayout,
+    *,
+    iou_threshold=0.65,
+):
+    """Merge optional Picture detections after the existing Chart merge.
+
+    The reviewer Chart merge implementation remains authoritative and unchanged;
+    its detections may come from D0 or from DP0's own Chart lane.
+    A DP0 Picture detection overlapping a flagged Chart at the same IoU threshold
+    is ignored. Otherwise it follows the reviewer Chart bbox contract: match
+    an existing Picture without moving it, or add an unmatched Picture box.
+    """
+    if not callable(detect_pictures):
+        raise TypeError("detect_pictures must be a callable page -> detections")
+    if not 0.0 <= float(iou_threshold) <= 1.0:
+        raise ValueError("picture_iou_threshold must be in [0, 1]")
+
+    detections = list(detect_pictures(page) or [])
+    chart_boxes = [
+        box.chart.get("bbox")
+        for box in pagelayout.boxes
+        if box.boxclass == "picture"
+        and isinstance(box.chart, dict)
+        and box.chart.get("bbox") is not None
+    ]
+    pictures = [
+        box
+        for box in pagelayout.boxes
+        if box.boxclass == "picture" and box.chart is None
+    ]
+
+    def _stripe(y0, x0):
+        return (round(y0 / 40.0), x0)
+
+    for item in detections:
+        if isinstance(item, dict):
+            label = str(item.get("label") or "picture").strip().lower()
+            if label != "picture":
+                continue
+            rect = item.get("bbox") or item.get("box")
+            score = item.get("score")
+        else:
+            rect = getattr(item, "rect", None)
+            if rect is None:
+                rect = getattr(item, "box", None)
+            if rect is None:
+                rect = item
+            score = getattr(item, "score", None)
+        try:
+            detector_box = [
+                float(rect[0]),
+                float(rect[1]),
+                float(rect[2]),
+                float(rect[3]),
+            ]
+        except (IndexError, KeyError, TypeError, ValueError):
+            continue
+        if detector_box[2] <= detector_box[0] or detector_box[3] <= detector_box[1]:
+            continue
+        if any(
+            utils.iou(detector_box, chart_box) >= float(iou_threshold)
+            for chart_box in chart_boxes
+        ):
+            continue
+
+        payload = {"bbox": detector_box}
+        if score is not None:
+            payload["score"] = float(score)
+        if isinstance(item, dict):
+            for key in ("source", "label", "detector_bbox", "timing"):
+                if key in item:
+                    payload[key] = item[key]
+
+        best, best_iou = None, float(iou_threshold)
+        for picture in pictures:
+            overlap = utils.iou(
+                detector_box,
+                (picture.x0, picture.y0, picture.x1, picture.y1),
+            )
+            if overlap >= best_iou:
+                best, best_iou = picture, overlap
+        if best is not None:
+            if getattr(best, "picture_detection", None) is None:
+                best.picture_detection = payload
+            continue
+
+        picture = LayoutBox(
+            x0=detector_box[0],
+            y0=detector_box[1],
+            x1=detector_box[2],
+            y1=detector_box[3],
+            boxclass="picture",
+        )
+        picture.picture_detection = payload
+        index = len(pagelayout.boxes)
+        key = _stripe(detector_box[1], detector_box[0])
+        for position, layoutbox in enumerate(pagelayout.boxes):
+            if _stripe(layoutbox.y0, layoutbox.x0) > key:
+                index = position
+                break
+        pagelayout.boxes.insert(index, picture)
+        pictures.append(picture)
+
+
 def parse_document(
     doc,
     filename="",
@@ -1385,7 +1492,13 @@ def parse_document(
     render_html_tables=None,
     edge_threshold=None,
     detect_charts=False,
+    detect_pictures=False,
+    picture_iou_threshold=0.65,
 ) -> ParsedDocument:
+    if detect_pictures and not callable(detect_pictures):
+        raise TypeError("detect_pictures must be a callable page -> detections")
+    if not 0.0 <= float(picture_iou_threshold) <= 1.0:
+        raise ValueError("picture_iou_threshold must be in [0, 1]")
     original_path = None
     if isinstance(doc, pymupdf.Document):
         mydoc = doc
@@ -1756,6 +1869,13 @@ def parse_document(
             pagelayout.boxes.append(layoutbox)
         if detect_charts:
             _merge_chart_detections(page, detect_charts, pagelayout)
+        if detect_pictures:
+            _merge_picture_detections(
+                page,
+                detect_pictures,
+                pagelayout,
+                iou_threshold=picture_iou_threshold,
+            )
         document.pages.append(pagelayout)
     if mydoc != doc:
         mydoc.close()
