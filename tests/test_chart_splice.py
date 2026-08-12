@@ -159,12 +159,16 @@ def test_builtin_d0_forwards_variant_without_running_dp0(monkeypatch):
     monkeypatch.setitem(sys.modules, module.__name__, module)
     page = object()
 
-    charts, pictures = _run_builtin_finder(page, "d0", "full-fp16")
+    charts, pictures = _run_builtin_finder(
+        page,
+        "d0",
+        "mixed-sensitive-fp16",
+    )
 
-    assert calls == [(page, "full-fp16")]
+    assert calls == [(page, "mixed-sensitive-fp16")]
     assert len(charts) == 1
-    assert charts[0]["model_path"] == "/models/d0-full-fp16.onnx"
-    assert charts[0]["model_variant"] == "full-fp16"
+    assert charts[0]["model_path"] == "/models/d0-mixed-sensitive-fp16.onnx"
+    assert charts[0]["model_variant"] == "mixed-sensitive-fp16"
     assert charts[0]["refinement"] == "chart_finder._refine"
     assert pictures == []
 

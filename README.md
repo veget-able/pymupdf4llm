@@ -176,15 +176,17 @@ data = pymupdf4llm.to_json(
 data = pymupdf4llm.to_json(
     "document.pdf",
     finder_mode="dp0",
-    finder_variant="full-fp16",
+    finder_variant="mixed-sensitive-fp16",
 )
 ```
 
-The available variants are `fp32`, `weight-fp16`, and `full-fp16`; none has a
-separate enable gate. D0 and DP0 are mutually exclusive modes. The DP0 Chart
-lane uses the reviewer Chart association before its Picture lane is merged.
-Native Picture parents are removed only when the final child Pictures explain
-the parent area and all contained text/layout elements.
+The available variants are `fp32`, `weight-fp16`, and
+`mixed-sensitive-fp16`; none has a separate enable gate. The mixed variant uses
+FP16 convolutions and weights while retaining sensitive reductions in FP32. D0
+and DP0 are mutually exclusive modes. The DP0 Chart lane uses the reviewer
+Chart association before its Picture lane is merged. Native Picture parents
+are removed only when the final child Pictures explain the parent area and all
+contained text/layout elements.
 
 ### Extraction capabilities
 

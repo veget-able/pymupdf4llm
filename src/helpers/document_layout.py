@@ -1636,9 +1636,14 @@ def _run_builtin_finder(page, finder_mode, finder_variant):
     """
     if finder_mode not in {"d0", "dp0"}:
         raise ValueError("finder_mode must be 'd0', 'dp0', or None")
-    if finder_variant not in {"fp32", "weight-fp16", "full-fp16"}:
+    if finder_variant not in {
+        "fp32",
+        "weight-fp16",
+        "mixed-sensitive-fp16",
+    }:
         raise ValueError(
-            "finder_variant must be 'fp32', 'weight-fp16', or 'full-fp16'"
+            "finder_variant must be 'fp32', 'weight-fp16', or "
+            "'mixed-sensitive-fp16'"
         )
 
     if finder_mode == "d0":
@@ -1731,10 +1736,11 @@ def parse_document(
     if finder_mode is not None and finder_variant not in {
         "fp32",
         "weight-fp16",
-        "full-fp16",
+        "mixed-sensitive-fp16",
     }:
         raise ValueError(
-            "finder_variant must be 'fp32', 'weight-fp16', or 'full-fp16'"
+            "finder_variant must be 'fp32', 'weight-fp16', or "
+            "'mixed-sensitive-fp16'"
         )
     original_path = None
     if isinstance(doc, pymupdf.Document):
