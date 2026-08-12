@@ -119,6 +119,8 @@ def _layout_to_markdown(
     detect_charts=False,
     detect_pictures=False,
     picture_iou_threshold=0.65,
+    finder_mode=None,
+    finder_variant="fp32",
     # unsupported options for pymupdf layout:
     **kwargs,
 ):
@@ -145,6 +147,8 @@ def _layout_to_markdown(
         detect_charts=detect_charts,
         detect_pictures=detect_pictures,
         picture_iou_threshold=picture_iou_threshold,
+        finder_mode=finder_mode,
+        finder_variant=finder_variant,
     )
     _maybe_splice_charts(
         parsed_doc,
@@ -192,6 +196,8 @@ def _layout_to_json(
     detect_charts=False,
     detect_pictures=False,
     picture_iou_threshold=0.65,
+    finder_mode=None,
+    finder_variant="fp32",
     # unsupported options for pymupdf layout:
     **kwargs,
 ):
@@ -214,6 +220,8 @@ def _layout_to_json(
         detect_charts=detect_charts,
         detect_pictures=detect_pictures,
         picture_iou_threshold=picture_iou_threshold,
+        finder_mode=finder_mode,
+        finder_variant=finder_variant,
     )
     _maybe_splice_charts(
         parsed_doc,

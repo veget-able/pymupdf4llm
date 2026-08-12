@@ -9,6 +9,8 @@ output.
 
 import json
 import os
+import sys
+import types
 from pathlib import Path
 
 import pymupdf
@@ -140,6 +142,81 @@ def test_dp0_picture_preserves_matched_native_bbox_and_adds_unmatched():
         70.0,
         70.0,
     ]
+
+
+def test_builtin_d0_forwards_variant_without_running_dp0(monkeypatch):
+    from pymupdf4llm.helpers.document_layout import _run_builtin_finder
+
+    calls = []
+    module = types.ModuleType("pymupdf.layout.chart_finder")
+    module.model_path_for_variant = lambda variant: f"/models/d0-{variant}.onnx"
+
+    def find_charts(page, *, variant):
+        calls.append((page, variant))
+        return [{"bbox": [1, 2, 3, 4], "score": 0.9}]
+
+    module.find_charts = find_charts
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    page = object()
+
+    charts, pictures = _run_builtin_finder(page, "d0", "full-fp16")
+
+    assert calls == [(page, "full-fp16")]
+    assert len(charts) == 1
+    assert charts[0]["model_path"] == "/models/d0-full-fp16.onnx"
+    assert charts[0]["model_variant"] == "full-fp16"
+    assert charts[0]["refinement"] == "chart_finder._refine"
+    assert pictures == []
+
+
+def test_builtin_dp0_runs_once_and_returns_chart_then_picture(monkeypatch):
+    from pymupdf4llm.helpers.document_layout import _run_builtin_finder
+
+    calls = []
+    module = types.ModuleType("pymupdf.layout.chart_picture_finder")
+
+    def find_chart_pictures(page, *, variant):
+        calls.append((page, variant))
+        return {
+            "chart": [{"bbox": [1, 2, 3, 4], "score": 0.9, "label": "chart"}],
+            "picture": [
+                {"bbox": [5, 6, 7, 8], "score": 0.8, "label": "picture"}
+            ],
+            "model_variant": variant,
+            "model_path": "/models/dp0.onnx",
+            "providers": ["CPUExecutionProvider"],
+            "refinement": {"chart": "chart-refiner", "picture": {"mode": "parent"}},
+        }
+
+    module.find_chart_pictures = find_chart_pictures
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    page = object()
+
+    charts, pictures = _run_builtin_finder(page, "dp0", "weight-fp16")
+
+    assert calls == [(page, "weight-fp16")]
+    assert charts[0]["model_variant"] == "weight-fp16"
+    assert charts[0]["refinement"] == "chart-refiner"
+    assert pictures[0]["model_path"] == "/models/dp0.onnx"
+    assert pictures[0]["refinement"] == {"mode": "parent"}
+
+
+def test_builtin_finder_mode_is_mutually_exclusive_with_callbacks():
+    from pymupdf4llm.helpers.document_layout import parse_document
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        parse_document(
+            None,
+            finder_mode="d0",
+            detect_charts=lambda page: [],
+        )
+
+
+def test_builtin_finder_rejects_unknown_variant():
+    from pymupdf4llm.helpers.document_layout import _run_builtin_finder
+
+    with pytest.raises(ValueError, match="finder_variant"):
+        _run_builtin_finder(object(), "d0", "unknown")
 
 
 def test_dp0_removes_native_picture_parent_containing_multiple_children():

@@ -1344,6 +1344,17 @@ def _merge_chart_detections(page, detect_charts, pagelayout):
             score = item.get("score")
         payload = {"score": float(score)} if score is not None else {}
         payload["bbox"] = box  # detector coordinates, kept for crop union / consumers
+        if isinstance(item, dict):
+            for key in (
+                "source",
+                "label",
+                "model_path",
+                "model_variant",
+                "providers",
+                "refinement",
+            ):
+                if key in item:
+                    payload[key] = item[key]
         best, best_iou = None, 0.65
         for b in pictures:
             iou = utils.iou(box, (b.x0, b.y0, b.x1, b.y1))
@@ -1438,7 +1449,16 @@ def _merge_picture_detections(
         if score is not None:
             payload["score"] = float(score)
         if isinstance(item, dict):
-            for key in ("source", "label", "detector_bbox", "timing"):
+            for key in (
+                "source",
+                "label",
+                "detector_bbox",
+                "timing",
+                "model_path",
+                "model_variant",
+                "providers",
+                "refinement",
+            ):
                 if key in item:
                     payload[key] = item[key]
 
@@ -1607,6 +1627,72 @@ def _suppress_multichild_native_picture_parents(
     return len(suppressed)
 
 
+def _run_builtin_finder(page, finder_mode, finder_variant):
+    """Run one bundled pymupdf-layout finder and return ordered lanes.
+
+    D0 returns only a Chart lane. DP0 runs its two-class model exactly once and
+    returns Chart and Picture lanes separately so the caller can merge Chart
+    ownership first. The two modes are alternatives, never a combined run.
+    """
+    if finder_mode not in {"d0", "dp0"}:
+        raise ValueError("finder_mode must be 'd0', 'dp0', or None")
+    if finder_variant not in {"fp32", "weight-fp16", "full-fp16"}:
+        raise ValueError(
+            "finder_variant must be 'fp32', 'weight-fp16', or 'full-fp16'"
+        )
+
+    if finder_mode == "d0":
+        try:
+            from pymupdf.layout import chart_finder
+        except ImportError as exc:
+            raise RuntimeError(
+                "finder_mode='d0' requires pymupdf_layout "
+                "experiments/best_combination"
+            ) from exc
+        charts = []
+        model_path = str(chart_finder.model_path_for_variant(finder_variant))
+        for raw in chart_finder.find_charts(page, variant=finder_variant) or []:
+            item = dict(raw) if isinstance(raw, dict) else {"bbox": raw}
+            item.setdefault("source", "chart_finder")
+            item.setdefault("model_path", model_path)
+            item.setdefault("model_variant", finder_variant)
+            item.setdefault("refinement", "chart_finder._refine")
+            charts.append(item)
+        return charts, []
+
+    try:
+        from pymupdf.layout.chart_picture_finder import find_chart_pictures
+    except ImportError as exc:
+        raise RuntimeError(
+            "finder_mode='dp0' requires pymupdf_layout "
+            "experiments/best_combination"
+        ) from exc
+    result = find_chart_pictures(page, variant=finder_variant)
+    if not isinstance(result, dict):
+        raise TypeError("find_chart_pictures() must return a mapping")
+
+    metadata = {
+        key: result[key]
+        for key in ("model_path", "model_variant", "providers")
+        if key in result
+    }
+    refinement = result.get("refinement") or {}
+
+    def _lane(name):
+        items = []
+        for raw in result.get(name) or []:
+            item = dict(raw) if isinstance(raw, dict) else {"bbox": raw}
+            item.update(
+                {key: value for key, value in metadata.items() if key not in item}
+            )
+            if name in refinement and "refinement" not in item:
+                item["refinement"] = refinement[name]
+            items.append(item)
+        return items
+
+    return _lane("chart"), _lane("picture")
+
+
 def parse_document(
     doc,
     filename="",
@@ -1628,11 +1714,28 @@ def parse_document(
     detect_charts=False,
     detect_pictures=False,
     picture_iou_threshold=0.65,
+    finder_mode=None,
+    finder_variant="fp32",
 ) -> ParsedDocument:
     if detect_pictures and not callable(detect_pictures):
         raise TypeError("detect_pictures must be a callable page -> detections")
     if not 0.0 <= float(picture_iou_threshold) <= 1.0:
         raise ValueError("picture_iou_threshold must be in [0, 1]")
+    if finder_mode not in {None, "d0", "dp0"}:
+        raise ValueError("finder_mode must be 'd0', 'dp0', or None")
+    if finder_mode is not None and (detect_charts or detect_pictures):
+        raise ValueError(
+            "finder_mode is mutually exclusive with detect_charts and "
+            "detect_pictures"
+        )
+    if finder_mode is not None and finder_variant not in {
+        "fp32",
+        "weight-fp16",
+        "full-fp16",
+    }:
+        raise ValueError(
+            "finder_variant must be 'fp32', 'weight-fp16', or 'full-fp16'"
+        )
     original_path = None
     if isinstance(doc, pymupdf.Document):
         mydoc = doc
@@ -2001,7 +2104,26 @@ def parse_document(
                     layoutbox.max_fontsize = max_fontsize
 
             pagelayout.boxes.append(layoutbox)
-        if detect_charts:
+        if finder_mode is not None:
+            chart_detections, picture_detections = _run_builtin_finder(
+                page,
+                finder_mode,
+                finder_variant,
+            )
+            _merge_chart_detections(
+                page,
+                lambda _page, items=chart_detections: items,
+                pagelayout,
+            )
+            if finder_mode == "dp0":
+                _merge_picture_detections(
+                    page,
+                    lambda _page, items=picture_detections: items,
+                    pagelayout,
+                    iou_threshold=picture_iou_threshold,
+                )
+                _suppress_multichild_native_picture_parents(pagelayout)
+        elif detect_charts:
             _merge_chart_detections(page, detect_charts, pagelayout)
         if detect_pictures:
             _merge_picture_detections(

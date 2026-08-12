@@ -36,6 +36,8 @@ md = pymupdf4llm.to_markdown("research-paper.pdf")
 
 [![Star on GitHub](https://img.shields.io/github/stars/pymupdf/pymupdf4llm.svg?style=for-the-badge&label=Star&logo=github)](https://github.com/pymupdf/pymupdf4llm/)
 
+
+
 [![Demo](https://img.shields.io/badge/Pymupdf4llm-live?style=for-the-badge&label=DEMO&logo=python&logoColor=ffffff)](https://demo.pymupdf.io?utm_source=github&utm_medium=referral&utm_campaign=pymupdf4llm_github&utm_content=body&utm_term=demo)
 
 ---
@@ -155,6 +157,34 @@ md = pymupdf4llm.to_markdown("document.pdf", edge_threshold=0.75)
 ```
 
 The default remains the library default unless this option is provided.
+
+### D0 and DP0 finder modes
+
+When installed with
+`veget-able/pymupdf_layout:experiments/best_combination`, layout mode can
+select one detector mode and precision directly:
+
+```python
+# D0: Chart only
+data = pymupdf4llm.to_json(
+    "document.pdf",
+    finder_mode="d0",
+    finder_variant="weight-fp16",
+)
+
+# DP0: run one two-class model, merge Chart first, then Picture
+data = pymupdf4llm.to_json(
+    "document.pdf",
+    finder_mode="dp0",
+    finder_variant="full-fp16",
+)
+```
+
+The available variants are `fp32`, `weight-fp16`, and `full-fp16`; none has a
+separate enable gate. D0 and DP0 are mutually exclusive modes. The DP0 Chart
+lane uses the reviewer Chart association before its Picture lane is merged.
+Native Picture parents are removed only when the final child Pictures explain
+the parent area and all contained text/layout elements.
 
 ### Extraction capabilities
 
@@ -562,5 +592,3 @@ Contributions are welcome. Please open an issue before submitting large pull req
 If you find this useful, please consider giving it a star — it helps others discover it!
 
 [![Star on GitHub](https://img.shields.io/github/stars/pymupdf/pymupdf4llm.svg?style=for-the-badge&label=Star&logo=github)](https://github.com/pymupdf/pymupdf4llm/)
-
-
