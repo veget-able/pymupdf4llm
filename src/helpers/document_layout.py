@@ -1473,6 +1473,140 @@ def _merge_picture_detections(
         pictures.append(picture)
 
 
+def _suppress_multichild_native_picture_parents(
+    pagelayout,
+    *,
+    contain_overlap=0.9,
+    min_children=2,
+    parent_coverage=0.9,
+    content_coverage=0.9,
+):
+    """Remove only a fully explained native Picture around multiple Pictures.
+
+    This runs after the ordered Chart and Picture detector merges. Detector-owned
+    boxes remain authoritative children, while only a native GNN Picture without
+    either ownership payload can be removed as an oversized parent. The children
+    must explain both its area and every contained layout/text element.
+    """
+    if not 0 <= float(contain_overlap) <= 1:
+        raise ValueError("contain_overlap must be in [0, 1]")
+    if not 0 <= float(parent_coverage) <= 1:
+        raise ValueError("parent_coverage must be in [0, 1]")
+    if not 0 <= float(content_coverage) <= 1:
+        raise ValueError("content_coverage must be in [0, 1]")
+    if min_children < 2:
+        raise ValueError("min_children must be at least 2")
+
+    pictures = [box for box in pagelayout.boxes if box.boxclass == "picture"]
+
+    def _rect(box):
+        if isinstance(box, dict):
+            return tuple(float(value) for value in box.get("bbox", [])[:4])
+        return (box.x0, box.y0, box.x1, box.y1)
+
+    def _area(rect):
+        return max(0.0, rect[2] - rect[0]) * max(0.0, rect[3] - rect[1])
+
+    def _intersection(first, second):
+        rect = (
+            max(first[0], second[0]),
+            max(first[1], second[1]),
+            min(first[2], second[2]),
+            min(first[3], second[3]),
+        )
+        return rect if _area(rect) > 0 else None
+
+    def _union_area(rectangles):
+        x_values = sorted({value for rect in rectangles for value in rect[::2]})
+        total = 0.0
+        for x0, x1 in zip(x_values, x_values[1:]):
+            spans = sorted(
+                (rect[1], rect[3])
+                for rect in rectangles
+                if rect[0] < x1 and rect[2] > x0
+            )
+            if not spans:
+                continue
+            start, end = spans[0]
+            for y0, y1 in spans[1:]:
+                if y0 > end:
+                    total += (x1 - x0) * (end - start)
+                    start, end = y0, y1
+                else:
+                    end = max(end, y1)
+            total += (x1 - x0) * (end - start)
+        return total
+
+    def _covered_by_child(target, children):
+        target_area = _area(target)
+        return target_area > 0 and any(
+            _area(intersection) / target_area >= float(content_coverage)
+            for child in children
+            if (intersection := _intersection(target, child)) is not None
+        )
+
+    rects = {id(box): _rect(box) for box in pagelayout.boxes}
+    areas = {id(box): _area(rects[id(box)]) for box in pictures}
+    suppressed = set()
+    for parent in pictures:
+        if parent.chart is not None or getattr(parent, "picture_detection", None):
+            continue
+        parent_rect = rects[id(parent)]
+        parent_area = areas[id(parent)]
+        if parent_area <= 0:
+            continue
+        children = []
+        for child in pictures:
+            child_area = areas[id(child)]
+            if child is parent or not 0 < child_area < parent_area:
+                continue
+            child_rect = rects[id(child)]
+            intersection = _intersection(parent_rect, child_rect)
+            if (
+                intersection is not None
+                and _area(intersection) / child_area >= float(contain_overlap)
+            ):
+                children.append(child_rect)
+        if len(children) < min_children:
+            continue
+
+        explained = [
+            intersection
+            for child in children
+            if (intersection := _intersection(parent_rect, child)) is not None
+        ]
+        if _union_area(explained) / parent_area < float(parent_coverage):
+            continue
+
+        residual_content = any(
+            not _covered_by_child(_rect(textline), children)
+            for textline in (parent.textlines or [])
+            if len(textline.get("bbox", [])) >= 4 and _area(_rect(textline)) > 0
+        )
+        if residual_content:
+            continue
+        residual_layout = any(
+            _area(rects[id(item)]) > 0
+            and (
+                intersection := _intersection(parent_rect, rects[id(item)])
+            )
+            is not None
+            and _area(intersection) / _area(rects[id(item)])
+            >= float(contain_overlap)
+            and not _covered_by_child(rects[id(item)], children)
+            for item in pagelayout.boxes
+            if item is not parent and item.boxclass != "picture"
+        )
+        if not residual_layout:
+            suppressed.add(id(parent))
+
+    if suppressed:
+        pagelayout.boxes[:] = [
+            box for box in pagelayout.boxes if id(box) not in suppressed
+        ]
+    return len(suppressed)
+
+
 def parse_document(
     doc,
     filename="",
@@ -1876,6 +2010,7 @@ def parse_document(
                 pagelayout,
                 iou_threshold=picture_iou_threshold,
             )
+            _suppress_multichild_native_picture_parents(pagelayout)
         document.pages.append(pagelayout)
     if mydoc != doc:
         mydoc.close()

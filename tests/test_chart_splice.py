@@ -142,6 +142,90 @@ def test_dp0_picture_preserves_matched_native_bbox_and_adds_unmatched():
     ]
 
 
+def test_dp0_removes_native_picture_parent_containing_multiple_children():
+    """A native over-merge must not survive around multiple final Pictures."""
+    from pymupdf4llm.helpers.document_layout import (
+        LayoutBox,
+        PageLayout,
+        _suppress_multichild_native_picture_parents,
+    )
+
+    parent = LayoutBox(10, 10, 90, 90, "picture")
+    upper = LayoutBox(8, 8, 92, 50, "picture")
+    upper.chart = {"bbox": [8, 8, 92, 50]}
+    lower = LayoutBox(8, 50, 92, 92, "picture")
+    lower.picture_detection = {"bbox": [8, 50, 92, 92]}
+    text = LayoutBox(5, 5, 15, 8, "text")
+    page = PageLayout(1, 100, 100, [text, parent, upper, lower])
+
+    removed = _suppress_multichild_native_picture_parents(page)
+
+    assert removed == 1
+    assert page.boxes == [text, upper, lower]
+
+
+def test_dp0_preserves_native_picture_parent_with_only_one_child():
+    """One containment relation is insufficient to suppress a native Picture."""
+    from pymupdf4llm.helpers.document_layout import (
+        LayoutBox,
+        PageLayout,
+        _suppress_multichild_native_picture_parents,
+    )
+
+    parent = LayoutBox(10, 10, 90, 90, "picture")
+    child = LayoutBox(20, 20, 40, 40, "picture")
+    child.chart = {"bbox": [20, 20, 40, 40]}
+    page = PageLayout(1, 100, 100, [parent, child])
+
+    removed = _suppress_multichild_native_picture_parents(page)
+
+    assert removed == 0
+    assert page.boxes == [parent, child]
+
+
+def test_dp0_preserves_native_parent_with_unexplained_area():
+    """Sparse child detections cannot justify dropping the native parent."""
+    from pymupdf4llm.helpers.document_layout import (
+        LayoutBox,
+        PageLayout,
+        _suppress_multichild_native_picture_parents,
+    )
+
+    parent = LayoutBox(0, 0, 100, 100, "picture")
+    first = LayoutBox(0, 0, 40, 40, "picture")
+    first.chart = {"bbox": [0, 0, 40, 40]}
+    second = LayoutBox(60, 60, 100, 100, "picture")
+    second.chart = {"bbox": [60, 60, 100, 100]}
+    page = PageLayout(1, 100, 100, [parent, first, second])
+
+    removed = _suppress_multichild_native_picture_parents(page)
+
+    assert removed == 0
+    assert page.boxes == [parent, first, second]
+
+
+def test_dp0_preserves_native_parent_with_content_outside_each_child():
+    """A parent textline spanning children proves residual parent ownership."""
+    from pymupdf4llm.helpers.document_layout import (
+        LayoutBox,
+        PageLayout,
+        _suppress_multichild_native_picture_parents,
+    )
+
+    parent = LayoutBox(0, 0, 100, 100, "picture")
+    parent.textlines = [{"bbox": [10, 45, 90, 55], "spans": []}]
+    upper = LayoutBox(0, 0, 100, 50, "picture")
+    upper.chart = {"bbox": [0, 0, 100, 50]}
+    lower = LayoutBox(0, 50, 100, 100, "picture")
+    lower.chart = {"bbox": [0, 50, 100, 100]}
+    page = PageLayout(1, 100, 100, [parent, upper, lower])
+
+    removed = _suppress_multichild_native_picture_parents(page)
+
+    assert removed == 0
+    assert page.boxes == [parent, upper, lower]
+
+
 def test_detection_ran_but_found_nothing_skips_extraction():
     """Zero detections must not fall back to feeding every picture."""
 
