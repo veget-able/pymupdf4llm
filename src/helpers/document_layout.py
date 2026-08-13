@@ -454,7 +454,75 @@ def fallback_text_to_text(textlines, ignore_code: bool = False, clip=None):
     return output + "\n"
 
 
-def get_styled_text(spans):
+def _style_state(span):
+    """Return the effective style state consumed by the Markdown serializer."""
+    flags = span["flags"]
+    char_flags = span["char_flags"]
+    script = span.get("script")
+    if flags & pymupdf.TEXT_FONT_SUPERSCRIPT:
+        script = "superscript"
+    return (
+        script,
+        bool(
+            flags & pymupdf.TEXT_FONT_BOLD
+            or char_flags & pymupdf.mupdf.FZ_STEXT_BOLD
+        ),
+        bool(flags & pymupdf.TEXT_FONT_ITALIC),
+        bool(char_flags & pymupdf.mupdf.FZ_STEXT_STRIKEOUT),
+        bool(char_flags & pymupdf.mupdf.FZ_STEXT_UNDERLINE),
+        bool(char_flags & pymupdf.mupdf.FZ_STEXT_HIGHLIGHT),
+        bool(
+            flags & pymupdf.TEXT_FONT_MONOSPACED
+            and not utils.is_ocr_text(span)
+        ),
+    )
+
+
+def _join_styled_boundary(left, right):
+    """Whether a serializer-created blank at this style boundary is spurious."""
+    if left.get("_reconstructed_line") != right.get("_reconstructed_line"):
+        return False
+    if not left.get("text") or not right.get("text"):
+        return False
+    if left["text"][-1].isspace() or right["text"][0].isspace():
+        return False
+    left_state = _style_state(left)
+    right_state = _style_state(right)
+    if left_state == right_state:
+        return False
+    if left_state[0] or right_state[0]:
+        return False
+    left_bbox = pymupdf.Rect(left["bbox"])
+    right_bbox = pymupdf.Rect(right["bbox"])
+    if min(left_bbox.y1, right_bbox.y1) <= max(left_bbox.y0, right_bbox.y0):
+        return False
+    if left_bbox.x0 > right_bbox.x0 or left_bbox.x1 > right_bbox.x1:
+        return False
+    return right_bbox.x0 - left_bbox.x1 <= 0.1 * right["size"]
+
+
+def _join_script_boundary(left, right):
+    """Keep a recovered sup/sub span attached to its neighboring token."""
+    left_script = _style_state(left)[0]
+    right_script = _style_state(right)[0]
+    if not (left_script or right_script):
+        return False
+    if left.get("_reconstructed_line") != right.get("_reconstructed_line"):
+        return False
+    if not left.get("text") or not right.get("text"):
+        return False
+    if left["text"][-1].isspace() or right["text"][0].isspace():
+        return False
+    left_bbox = pymupdf.Rect(left["bbox"])
+    right_bbox = pymupdf.Rect(right["bbox"])
+    if left_bbox.x0 > right_bbox.x0 or left_bbox.x1 > right_bbox.x1:
+        return False
+    return right_bbox.x0 - left_bbox.x1 <= 0.1 * max(
+        left["size"], right["size"]
+    )
+
+
+def _styled_text_legacy(spans):
     """Output text with markdown style codes based on font properties.
     Parameter is a list of span dictionaries. The spans may come from
     one or more original "textlines" items.
@@ -469,7 +537,12 @@ def get_styled_text(spans):
 
     for i, s in enumerate(spans):
         # decode font flags and char_flags properties
-        superscript = s["flags"] & pymupdf.TEXT_FONT_SUPERSCRIPT
+        script = s.get("script")
+        superscript = (
+            s["flags"] & pymupdf.TEXT_FONT_SUPERSCRIPT
+            or script == "superscript"
+        )
+        subscript = script == "subscript" and not superscript
         mono = s["flags"] & pymupdf.TEXT_FONT_MONOSPACED and not utils.is_ocr_text(s)
         bold = (
             s["flags"] & pymupdf.TEXT_FONT_BOLD
@@ -487,6 +560,10 @@ def get_styled_text(spans):
         if superscript:
             prefix.append("<sup>")
             suffix.append("</sup>")
+
+        if subscript:
+            prefix.append("<sub>")
+            suffix.append("</sub>")
 
         if bold:
             prefix.append("**")
@@ -543,10 +620,89 @@ def get_styled_text(spans):
 
         old_line = s["line"]
         old_block = s["block"]
-        if superscript:
+        if superscript or subscript:
             output = output.rstrip(" ")
+        if i and (
+            _join_styled_boundary(spans[i - 1], s)
+            or _join_script_boundary(spans[i - 1], s)
+        ):
+            output = output.rstrip(" ")
+            text = text.lstrip(" ")
         output += text
     return output, suffix
+
+
+def _outer_style_signature(span):
+    state = _style_state(span)
+    return state[1:3], not (state[0] or state[-1])
+
+
+def _inner_decorator_signature(span):
+    return _style_state(span)[3:6]
+
+
+def _coalesce_outer_style_runs(spans):
+    """Keep common bold/italic outside recovered decorator transitions."""
+    result = []
+    position = 0
+    while position < len(spans):
+        outer, eligible = _outer_style_signature(spans[position])
+        if not any(outer) or not eligible:
+            result.append(spans[position])
+            position += 1
+            continue
+
+        size = spans[position]["size"]
+        stop = position + 1
+        while stop < len(spans):
+            this_outer, this_eligible = _outer_style_signature(spans[stop])
+            if (
+                this_outer != outer
+                or not this_eligible
+                or abs(spans[stop]["size"] - size) > 0.05 * max(size, 1)
+            ):
+                break
+            stop += 1
+
+        run = spans[position:stop]
+        decorators = {_inner_decorator_signature(span) for span in run}
+        if (
+            len(run) < 2
+            or len(decorators) < 2
+            or not any(span.get("recovered_style") for span in run)
+        ):
+            result.extend(run)
+            position = stop
+            continue
+
+        inner_spans = []
+        for span in run:
+            inner = dict(span)
+            inner["flags"] &= ~(
+                pymupdf.TEXT_FONT_BOLD | pymupdf.TEXT_FONT_ITALIC
+            )
+            inner["char_flags"] &= ~pymupdf.mupdf.FZ_STEXT_BOLD
+            inner_spans.append(inner)
+        inner_text, _ = _styled_text_legacy(inner_spans)
+
+        combined = dict(run[0])
+        combined["text"] = inner_text.rstrip()
+        combined["char_flags"] &= ~(
+            pymupdf.mupdf.FZ_STEXT_STRIKEOUT
+            | pymupdf.mupdf.FZ_STEXT_UNDERLINE
+            | pymupdf.mupdf.FZ_STEXT_HIGHLIGHT
+        )
+        combined["bbox"] = pymupdf.Rect(run[0]["bbox"])
+        for span in run[1:]:
+            combined["bbox"] |= pymupdf.Rect(span["bbox"])
+        result.append(combined)
+        position = stop
+    return result
+
+
+def get_styled_text(spans):
+    """Serialize style metadata supplied by PyMuPDF to Markdown."""
+    return _styled_text_legacy(_coalesce_outer_style_runs(spans))
 
 
 def list_item_to_md(textlines, level):
@@ -606,6 +762,74 @@ def list_item_to_md(textlines, level):
     return output + "\n\n"
 
 
+def _leading_bold_title_lines(textlines):
+    """Count a short, fully-bold prefix that is structurally a title."""
+    line_count = 0
+    word_count = 0
+    for line in textlines:
+        spans = [
+            span
+            for span in line.get("spans", ())
+            if span.get("text", "").strip()
+        ]
+        if not spans:
+            break
+        if not all(_style_state(span)[1] for span in spans) or any(
+            _style_state(span)[2] for span in spans
+        ):
+            break
+        word_count += len(" ".join(span["text"] for span in spans).split())
+        line_count += 1
+        if word_count > 12:
+            return 0
+    if not word_count:
+        return 0
+    text = " ".join(
+        span["text"].strip()
+        for line in textlines[:line_count]
+        for span in line.get("spans", ())
+        if span.get("text", "").strip()
+    ).strip()
+    folded = text.casefold()
+    if len(text) < 2 or folded.startswith(("www.", "http://", "https://")):
+        return 0
+    if folded.startswith(("page ", "page •", "página ", "pagina ")) and any(
+        character.isdigit() for character in folded
+    ):
+        return 0
+    return line_count
+
+
+def _leading_bold_run_in_spans(textlines):
+    """Count an all-caps bold run-in title at the start of the first line."""
+    if not textlines:
+        return 0
+    spans = [
+        span
+        for span in textlines[0].get("spans", ())
+        if span.get("text", "").strip()
+    ]
+    count = 0
+    for span in spans:
+        state = _style_state(span)
+        if not state[1] or state[2]:
+            break
+        count += 1
+    if not count or count == len(spans):
+        return 0
+    text = " ".join(span["text"].strip() for span in spans[:count]).strip()
+    letters = [character for character in text if character.isalpha()]
+    words = text.split()
+    if (
+        len(text) < 2
+        or not 2 <= len(words) <= 12
+        or not letters
+        or any(character != character.upper() for character in letters)
+    ):
+        return 0
+    return count
+
+
 def footnote_to_md(textlines):
     """
     Convert "footnote" bboxes to markdown.
@@ -642,7 +866,13 @@ def section_hdr_to_md(header_level, textlines):
     for l in textlines:
         for s in l["spans"]:
             assert isinstance(s, dict)
-            spans.append(s)
+            # Geometric script recovery is intentionally suppressed in
+            # headings: a smaller raised section number is structural heading
+            # typography, not a superscript. Native MuPDF superscript flags are
+            # still consumed through ``flags``.
+            heading_span = dict(s)
+            heading_span.pop("script", None)
+            spans.append(heading_span)
     output, suffix = get_styled_text(spans)
     return f"{'#' * header_level} {output}\n\n"
 
@@ -657,7 +887,9 @@ def title_to_md(header_level, textlines):
     for l in textlines:
         for s in l["spans"]:
             assert isinstance(s, dict)
-            spans.append(s)
+            heading_span = dict(s)
+            heading_span.pop("script", None)
+            spans.append(heading_span)
     output, suffix = get_styled_text(spans)
     return f"{'#' * header_level} {output}\n\n"
 
@@ -980,6 +1212,16 @@ class ParsedDocument:
         else:
             document_output = ""
 
+        header_levels = [
+            box.header_level
+            for page in self.pages
+            for box in page.boxes
+            if box.boxclass in ("title", "section-header") and box.header_level
+        ]
+        promoted_header_level = (
+            min(6, max(header_levels) + 1) if header_levels else 2
+        )
+
         if show_progress and len(self.pages) > 5:
             print(f"Generating markdown text...")
             this_iterator = ProgressBar(self.pages)
@@ -1053,10 +1295,74 @@ class ParsedDocument:
                 elif btype == "footnote":
                     md_string += footnote_to_md(box.textlines)
                     string_lengths.append(len(md_string))
-                else:  # treat as normal MD text
-                    md_string += text_to_md(
-                        box.textlines, ignore_code=ignore_code or page.full_ocred
+                else:
+                    candidate_title_line_count = _leading_bold_title_lines(
+                        box.textlines
                     )
+                    candidate_run_in_span_count = (
+                        0
+                        if candidate_title_line_count
+                        else _leading_bold_run_in_spans(box.textlines)
+                    )
+                    # A bold-only box immediately above the page footer is
+                    # normally pagination or an editorial callout. A title
+                    # prefix followed by body text in the same box remains a
+                    # structural heading even when the column reaches the
+                    # bottom margin.
+                    near_page_footer = any(
+                        other.boxclass == "page-footer"
+                        and other.y0 >= box.y1
+                        and other.y0 - box.y1 <= max(24, 0.03 * page.height)
+                        for other in page.boxes
+                    )
+                    has_following_body = (
+                        candidate_title_line_count
+                        and candidate_title_line_count < len(box.textlines)
+                        or candidate_run_in_span_count
+                    )
+                    promotion_blocked = (
+                        btype in ("page-header", "page-footer")
+                        or near_page_footer
+                    ) and not has_following_body
+                    title_line_count = (
+                        0
+                        if promotion_blocked
+                        else candidate_title_line_count
+                    )
+                    run_in_span_count = (
+                        0
+                        if promotion_blocked
+                        else candidate_run_in_span_count
+                    )
+                    if title_line_count:
+                        md_string += section_hdr_to_md(
+                            promoted_header_level,
+                            box.textlines[:title_line_count],
+                        )
+                        if title_line_count < len(box.textlines):
+                            md_string += text_to_md(
+                                box.textlines[title_line_count:],
+                                ignore_code=ignore_code or page.full_ocred,
+                            )
+                    elif run_in_span_count:
+                        first_line = box.textlines[0]
+                        title_line = dict(first_line)
+                        title_line["spans"] = first_line["spans"][:run_in_span_count]
+                        body_line = dict(first_line)
+                        body_line["spans"] = first_line["spans"][run_in_span_count:]
+                        md_string += section_hdr_to_md(
+                            promoted_header_level,
+                            [title_line],
+                        )
+                        md_string += text_to_md(
+                            [body_line, *box.textlines[1:]],
+                            ignore_code=ignore_code or page.full_ocred,
+                        )
+                    else:
+                        md_string += text_to_md(
+                            box.textlines,
+                            ignore_code=ignore_code or page.full_ocred,
+                        )
                     string_lengths.append(len(md_string))
             if page_separators:
                 md_string += f"--- end of {page.page_number=} ---\n\n"
@@ -1443,6 +1749,16 @@ def parse_document(
 
         textpage = page.get_textpage(flags=FLAGS, clip=pymupdf.INFINITE_RECT())
         blocks = textpage.extractDICT()["blocks"]
+        # Style recovery belongs to the text-extraction layer. PyMuPDF augments
+        # these blocks with script metadata and exact decorator char_flags;
+        # this module only consumes those values while building Markdown.
+        pymupdf.recover_text_styles(
+            page,
+            blocks,
+            textpage=textpage,
+            raster=True,
+            dpi=300,
+        )
 
         # Execute the Layout module AFTER any OCR.
         layout_kwargs = {"return_raw": True}
