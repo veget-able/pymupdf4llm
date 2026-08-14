@@ -464,6 +464,17 @@ def _style_state(span):
     script = span.get("script")
     if script is None and flags & pymupdf.TEXT_FONT_SUPERSCRIPT:
         script = "superscript"
+    elif script is None and char_flags & getattr(
+        pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0
+    ):
+        # MuPDF's line-level script detection is consumed like recovered
+        # script metadata (soft), so heading serialization can suppress
+        # it; getattr keeps older PyMuPDF builds working unchanged.
+        script = "superscript"
+    elif script is None and char_flags & getattr(
+        pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0
+    ):
+        script = "subscript"
     return (
         script,
         bool(
