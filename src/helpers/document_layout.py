@@ -461,6 +461,17 @@ def _style_state(span):
     script = span.get("script")
     if flags & pymupdf.TEXT_FONT_SUPERSCRIPT:
         script = "superscript"
+    elif script is None and char_flags & getattr(
+        pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0
+    ):
+        # MuPDF's line-level script detection is consumed like recovered
+        # script metadata (soft), so heading serialization can suppress
+        # it; getattr keeps older PyMuPDF builds working unchanged.
+        script = "superscript"
+    elif script is None and char_flags & getattr(
+        pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0
+    ):
+        script = "subscript"
     return (
         script,
         bool(
@@ -990,6 +1001,10 @@ def section_hdr_to_md(header_level, textlines):
             # still consumed through ``flags``.
             heading_span = dict(s)
             heading_span.pop("script", None)
+            heading_span["char_flags"] &= ~(
+                getattr(pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0)
+                | getattr(pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0)
+            )
             spans.append(heading_span)
     output, suffix = get_styled_text(spans)
     return f"{'#' * header_level} {output}\n\n"
@@ -1007,6 +1022,10 @@ def title_to_md(header_level, textlines):
             assert isinstance(s, dict)
             heading_span = dict(s)
             heading_span.pop("script", None)
+            heading_span["char_flags"] &= ~(
+                getattr(pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0)
+                | getattr(pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0)
+            )
             spans.append(heading_span)
     output, suffix = get_styled_text(spans)
     return f"{'#' * header_level} {output}\n\n"
