@@ -939,7 +939,6 @@ class LayoutBox:
     header_level: Optional[int] = 0  # one of 1..6 for title/section-header
     textlines: Optional[List[Dict]] = None
 
-
 @dataclass
 class PageLayout:
     page_number: int
@@ -1493,6 +1492,36 @@ def _merge_picture_detections(
         pictures.append(picture)
 
 
+def _suppress_chart_semantic_children(pagelayout, semantic_children=()):
+    """Keep Chart-owned text on the Chart/CSV lane.
+
+    Generic layout boxes are unchanged. Only children explicitly marked by
+    pymupdf-layout's Picture semantic split are removed when a Chart-owned
+    Picture fully contains them.
+    """
+    marked = {tuple(box) for box in semantic_children}
+    if not marked:
+        return
+    charts = [
+        pymupdf.Rect(box.x0, box.y0, box.x1, box.y1)
+        for box in pagelayout.boxes
+        if box.boxclass == "picture" and box.chart is not None
+    ]
+    if not charts:
+        return
+    pagelayout.boxes[:] = [
+        box
+        for box in pagelayout.boxes
+        if not (
+            (box.x0, box.y0, box.x1, box.y1, box.boxclass) in marked
+            and any(
+                chart.contains(pymupdf.Rect(box.x0, box.y0, box.x1, box.y1))
+                for chart in charts
+            )
+        )
+    ]
+
+
 def _suppress_multichild_native_picture_parents(
     pagelayout,
     *,
@@ -1930,9 +1959,10 @@ def parse_document(
                 # table without a grid: skip it
                 continue
             bbox = tuple(gbbox + [b["class_name"]])
-            new_layout_info.append(bbox)
             if b.get("semantic_split_profile"):
                 semantic_children.append(bbox)
+            else:
+                new_layout_info.append(bbox)
 
             # store table info for later use in table extraction
             # we use the bounding box tuple as key for later matching
@@ -1959,6 +1989,11 @@ def parse_document(
         if not OCR_SPANS:  # some cleaning if no old OCR spans
             utils.clean_pictures(page, blocks)
             utils.add_image_orphans(page, blocks)
+
+        # Overlapping semantic children are an opt-in view over an already
+        # finalized native layout. Letting generic Picture cleanup see them
+        # would change parent geometry merely because the view is enabled.
+        page.layout_information.extend(semantic_children)
 
         # execute our own reading order function
         page.layout_information = utils.find_reading_order(
@@ -2127,6 +2162,9 @@ def parse_document(
                 lambda _page, items=chart_detections: items,
                 pagelayout,
             )
+            # Chart-owned semantic children must not influence the existing
+            # DP0 native-Picture parent suppression decision.
+            _suppress_chart_semantic_children(pagelayout, semantic_children)
             if finder_mode == "dp0":
                 _merge_picture_detections(
                     page,
@@ -2137,6 +2175,7 @@ def parse_document(
                 _suppress_multichild_native_picture_parents(pagelayout)
         elif detect_charts:
             _merge_chart_detections(page, detect_charts, pagelayout)
+            _suppress_chart_semantic_children(pagelayout, semantic_children)
         if detect_pictures:
             _merge_picture_detections(
                 page,
