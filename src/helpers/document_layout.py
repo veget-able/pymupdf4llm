@@ -658,6 +658,26 @@ def _monospace_markers(items):
     return markers
 
 
+def _reorder_open_styles(active, stack):
+    """Keep already-open styles open when the new span still wants them.
+
+    The canonical order alone closes and reopens a continuing outer style
+    whenever a style above it in canonical order appears or disappears -
+    a superscript inside an italic run would split the run into fragments.
+    Starting the target stack with the still-wanted prefix of the active
+    stack keeps continuing runs open; only genuinely new styles nest inside.
+    """
+    remaining = list(stack)
+    kept = []
+    for item in active:
+        if item in remaining:
+            kept.append(item)
+            remaining.remove(item)
+        else:
+            break
+    return kept + remaining
+
+
 def _style_stack(span, italic_marker, monospace_marker):
     """Return the canonical, explicitly tracked Markdown style stack."""
     script, bold, italic, strikeout, underline, highlight, mono = _style_state(span)
@@ -695,11 +715,11 @@ def get_styled_text(spans):
 
     for index, (span, forced_space) in enumerate(items):
         state = _style_state(span)
-        stack = _style_stack(
+        stack = _reorder_open_styles(active, _style_stack(
             span,
             italic_markers.get(index, ("_", "_")),
             monospace_markers.get(index, ("`", "`")),
-        )
+        ))
 
         separator = ""
         if previous is not None:
