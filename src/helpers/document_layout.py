@@ -567,15 +567,21 @@ def _longest_backtick_run(text):
 
 
 def _nonempty_styled_spans(spans):
-    """Drop empty style intervals while preserving their whitespace boundary."""
+    """Drop empty style intervals while preserving their whitespace boundary.
+
+    The dropped whitespace span itself is kept as the boundary value (a
+    truthy dict standing in for the previous boolean): its style state
+    tells the serializer which decorations the gap between two runs does
+    NOT carry, so separately drawn decoration runs are not fused.
+    """
     result = []
-    whitespace_before = False
+    whitespace_before = None
     for span in spans:
         if span.get("text", "").strip():
             result.append((span, whitespace_before))
-            whitespace_before = False
+            whitespace_before = None
         elif span.get("text", ""):
-            whitespace_before = True
+            whitespace_before = span
     return result
 
 
@@ -736,6 +742,41 @@ def get_styled_text(spans):
             ):
                 output = output[:-1]
                 separator = ""
+
+        if previous is not None and active:
+            # An undecorated whitespace span, or a wide same-line gap whose
+            # whitespace was swallowed upstream, separates two independently
+            # drawn line-decoration runs: close those decorations so the
+            # serializer does not fuse them into one run. A highlight is an
+            # area decoration whose box covers in-run gaps, so a plain gap
+            # does not break it - only an explicit unhighlighted space does.
+            broken = set()
+            if forced_space:
+                ws_state = _style_state(forced_space)
+                for name, state_index in (
+                    ("strikeout", 3), ("underline", 4), ("highlight", 5),
+                ):
+                    if not ws_state[state_index]:
+                        broken.add(name)
+            elif (
+                (previous["block"], previous["line"])
+                == (span["block"], span["line"])
+                and span["bbox"][0] - previous["bbox"][2] > 0.6 * span["size"]
+            ):
+                broken.update(("strikeout", "underline"))
+            if broken:
+                cut = next(
+                    (
+                        position
+                        for position, item in enumerate(active)
+                        if item[0] in broken
+                    ),
+                    len(active),
+                )
+                output += "".join(
+                    item[2] for item in reversed(active[cut:])
+                )
+                active = active[:cut]
 
         common = 0
         while (
