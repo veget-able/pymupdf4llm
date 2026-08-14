@@ -1918,6 +1918,7 @@ def parse_document(
         table_infos = {}
         html_tables_by_box = {}
         textlines_by_box = {}
+        semantic_children = []
 
         new_layout_info = []  # will contain Layout boxes in non-"raw" format
         for b in page.layout_information:
@@ -1930,6 +1931,8 @@ def parse_document(
                 continue
             bbox = tuple(gbbox + [b["class_name"]])
             new_layout_info.append(bbox)
+            if b.get("semantic_split_profile"):
+                semantic_children.append(bbox)
 
             # store table info for later use in table extraction
             # we use the bounding box tuple as key for later matching
@@ -1959,7 +1962,10 @@ def parse_document(
 
         # execute our own reading order function
         page.layout_information = utils.find_reading_order(
-            page.rect, blocks, page.layout_information
+            page.rect,
+            blocks,
+            page.layout_information,
+            preserve_contained=semantic_children,
         )
         fulltext = [b for b in blocks if b["type"] == 0]
         if tables_exist:

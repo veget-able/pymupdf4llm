@@ -626,7 +626,13 @@ def compute_reading_order(boxes, joined_boxes, vectors, vertical_gap=12):
     return ordered
 
 
-def find_reading_order(page_rect, blocks, boxes, vertical_gap: float = 12) -> list:
+def find_reading_order(
+    page_rect,
+    blocks,
+    boxes,
+    vertical_gap: float = 12,
+    preserve_contained=(),
+) -> list:
     """Given page layout information, return the boxes in reading order.
 
     Args:
@@ -635,6 +641,9 @@ def find_reading_order(page_rect, blocks, boxes, vertical_gap: float = 12) -> li
         vertical_gap: Minimum vertical gap to separate stripes. The default
                       value of 36 works well for most documents. It roughly
                       corresponds to 2 -3 text line heights
+        preserve_contained: Exact layout boxes that must survive the generic
+                            containment filter. This is used for semantic
+                            children explicitly emitted by pymupdf-layout.
 
     Returns:
         List of boxes in reading order.
@@ -654,6 +663,8 @@ def find_reading_order(page_rect, blocks, boxes, vertical_gap: float = 12) -> li
             and inner != outer
         )
 
+    preserved = {tuple(box) for box in preserve_contained}
+
     def filter_contained(boxes) -> list:
         """Remove boxes that are fully contained within another box."""
         # Sort boxes by descending area
@@ -662,7 +673,9 @@ def find_reading_order(page_rect, blocks, boxes, vertical_gap: float = 12) -> li
         )
         result = []
         for r in sorted_boxes:
-            if not any(is_contained(r, other) for other in result):
+            if tuple(r) in preserved or not any(
+                is_contained(r, other) for other in result
+            ):
                 result.append(r)
         return result
 
