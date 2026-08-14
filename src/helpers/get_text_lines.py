@@ -144,6 +144,13 @@ def get_raw_lines(
                     and ignore_invisible
                 ):
                     continue
+                # ``blocks`` is shared by every layout box on the page.
+                # Sanitizing one clipped view must not rewrite the source span
+                # that a later, overlapping view will read. In particular,
+                # ``sanitize_spans()`` joins text and bboxes in place; without
+                # this copy repeated calls can grow strings such as
+                # ``intensity2 emission intensity`` on every pass.
+                s = s.copy()
                 sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
                 # the y-coords of the line bbox wrap the y-coords of
                 # all spans. Therefore use the line's y coordinates.

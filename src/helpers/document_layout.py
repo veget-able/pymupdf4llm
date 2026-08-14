@@ -1522,6 +1522,77 @@ def _suppress_chart_semantic_children(pagelayout, semantic_children=()):
     ]
 
 
+def _textlines_have_visible_text(textlines):
+    """Return whether extracted lines contain user-visible text."""
+    return any(
+        str(span.get("text") or "").strip()
+        for line in textlines or []
+        for span in line.get("spans") or []
+    )
+
+
+def _semantic_span_key(span):
+    bbox = span.get("bbox") or []
+    return (
+        tuple(round(float(value), 4) for value in bbox[:4]),
+        str(span.get("text") or ""),
+        span.get("block"),
+        span.get("line"),
+    )
+
+
+def _detach_semantic_child_text_from_pictures(pagelayout, semantic_children=()):
+    """Make exposed semantic text belong to the child, not also its Picture.
+
+    Both parent and child lines originate from the same native text blocks, so
+    exact span identity is a stronger ownership signal than an overlap
+    threshold.  The Picture geometry and visual payload remain untouched.
+    """
+    marked = {tuple(box) for box in semantic_children}
+    if not marked:
+        return 0
+    child_span_keys = {
+        _semantic_span_key(span)
+        for box in pagelayout.boxes
+        if (box.x0, box.y0, box.x1, box.y1, box.boxclass) in marked
+        for line in box.textlines or []
+        for span in line.get("spans") or []
+        if str(span.get("text") or "").strip()
+    }
+    if not child_span_keys:
+        return 0
+
+    removed = 0
+    for box in pagelayout.boxes:
+        if box.boxclass != "picture" or not box.textlines:
+            continue
+        retained_lines = []
+        for line in box.textlines:
+            spans = line.get("spans") or []
+            retained_spans = [
+                span
+                for span in spans
+                if _semantic_span_key(span) not in child_span_keys
+            ]
+            removed += len(spans) - len(retained_spans)
+            if not retained_spans:
+                continue
+            retained_line = dict(line)
+            retained_line["spans"] = retained_spans
+            span_boxes = [span.get("bbox") or [] for span in retained_spans]
+            span_boxes = [bbox for bbox in span_boxes if len(bbox) >= 4]
+            if span_boxes:
+                retained_line["bbox"] = [
+                    min(bbox[0] for bbox in span_boxes),
+                    min(bbox[1] for bbox in span_boxes),
+                    max(bbox[2] for bbox in span_boxes),
+                    max(bbox[3] for bbox in span_boxes),
+                ]
+            retained_lines.append(retained_line)
+        box.textlines = retained_lines
+    return removed
+
+
 def _suppress_multichild_native_picture_parents(
     pagelayout,
     *,
@@ -1529,6 +1600,7 @@ def _suppress_multichild_native_picture_parents(
     min_children=2,
     parent_coverage=0.9,
     content_coverage=0.9,
+    ignored_layout_boxes=(),
 ):
     """Remove only a fully explained native Picture around multiple Pictures.
 
@@ -1536,6 +1608,8 @@ def _suppress_multichild_native_picture_parents(
     boxes remain authoritative children, while only a native GNN Picture without
     either ownership payload can be removed as an oversized parent. The children
     must explain both its area and every contained layout/text element.
+    ``ignored_layout_boxes`` are derived views of existing content, such as
+    Picture semantic children; they must not change the native-parent decision.
     """
     if not 0 <= float(contain_overlap) <= 1:
         raise ValueError("contain_overlap must be in [0, 1]")
@@ -1547,6 +1621,7 @@ def _suppress_multichild_native_picture_parents(
         raise ValueError("min_children must be at least 2")
 
     pictures = [box for box in pagelayout.boxes if box.boxclass == "picture"]
+    ignored_layout_box_set = {tuple(box) for box in ignored_layout_boxes}
 
     def _rect(box):
         if isinstance(box, dict):
@@ -1644,7 +1719,18 @@ def _suppress_multichild_native_picture_parents(
             >= float(contain_overlap)
             and not _covered_by_child(rects[id(item)], children)
             for item in pagelayout.boxes
-            if item is not parent and item.boxclass != "picture"
+            if (
+                item is not parent
+                and item.boxclass != "picture"
+                and (
+                    item.x0,
+                    item.y0,
+                    item.x1,
+                    item.y1,
+                    item.boxclass,
+                )
+                not in ignored_layout_box_set
+            )
         )
         if not residual_layout:
             suppressed.add(id(parent))
@@ -2022,9 +2108,11 @@ def parse_document(
             words=words,
             links=links,
         )
+        semantic_child_set = {tuple(box) for box in semantic_children}
         for box in page.layout_information:
             layoutbox = LayoutBox(*box)
             clip = pymupdf.Rect(box[:4])
+            is_semantic_child = tuple(box) in semantic_child_set
 
             if layoutbox.boxclass in ("picture", "formula"):
                 if document.embed_images or document.write_images:
@@ -2137,8 +2225,17 @@ def parse_document(
                             blocks=pagelayout.fulltext,
                             clip=clip,
                             ignore_invisible=False,
+                            only_horizontal=not is_semantic_child,
                         )
                     ]
+                # A GNN node bbox can cover only a suffix of a native line, in
+                # which case clipped extraction returns no span at all.  Such
+                # an empty semantic child adds neither searchable content nor
+                # useful structure.  Native layout boxes remain unchanged.
+                if is_semantic_child and not _textlines_have_visible_text(
+                    layoutbox.textlines
+                ):
+                    continue
                 # For each title/section_header compute and store the maximum
                 # font size, to be used as a signal for header "#" prefix
                 if layoutbox.boxclass in ("title", "section-header"):
@@ -2172,7 +2269,10 @@ def parse_document(
                     pagelayout,
                     iou_threshold=picture_iou_threshold,
                 )
-                _suppress_multichild_native_picture_parents(pagelayout)
+                _suppress_multichild_native_picture_parents(
+                    pagelayout,
+                    ignored_layout_boxes=semantic_children,
+                )
         elif detect_charts:
             _merge_chart_detections(page, detect_charts, pagelayout)
             _suppress_chart_semantic_children(pagelayout, semantic_children)
@@ -2183,7 +2283,17 @@ def parse_document(
                 pagelayout,
                 iou_threshold=picture_iou_threshold,
             )
-            _suppress_multichild_native_picture_parents(pagelayout)
+            _suppress_multichild_native_picture_parents(
+                pagelayout,
+                ignored_layout_boxes=semantic_children,
+            )
+        # Detector parent suppression must observe the same native Picture
+        # content regardless of whether the optional semantic view is active.
+        # Transfer text ownership only after that invariant decision.
+        _detach_semantic_child_text_from_pictures(
+            pagelayout,
+            semantic_children,
+        )
         document.pages.append(pagelayout)
     if mydoc != doc:
         mydoc.close()
