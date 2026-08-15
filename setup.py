@@ -21,13 +21,14 @@ pymupdf_layout_version = VERSION
 PYMUPDF_SETUP_VERSION = os.environ.get("PYMUPDF_SETUP_VERSION")
 if PYMUPDF_SETUP_VERSION:
     # Allow testing with non-matching pymupdf/layout versions.
-    requires_dist = ["tabulate", "psutil"]
+    requires_dist = ["tabulate", "psutil", "magika==1.0.3"]
 else:
     requires_dist = [
         f"pymupdf=={pymupdf_version}",
         f"pymupdf_layout=={pymupdf_layout_version}",
         "tabulate",
         "psutil",
+        "magika==1.0.3",
     ]
 
 

@@ -2,6 +2,9 @@ import base64
 import io
 import json
 import math
+import os
+import re
+import statistics
 import threading
 from dataclasses import dataclass
 from collections import defaultdict
@@ -36,6 +39,33 @@ OFFICE_FORMATS = {"DOCX", "XLSX", "PPTX", "DOC", "XLS", "PPT", "HWPX", "HWP"}
 
 pymupdf.TOOLS.unset_quad_corrections(True)
 _LAYOUT_LOCK = threading.RLock()
+
+# Magika loads an ONNX model, so constructing it for every block would be both
+# expensive and wasteful.  Keep one detector per process, while still creating
+# a fresh session after fork.  The factory is separate to keep the lifecycle
+# testable without loading the model.
+_CODE_DETECTOR = None
+_CODE_DETECTOR_PID = None
+_CODE_DETECTOR_LOCK = threading.Lock()
+
+
+def _new_code_detector():
+    from magika import Magika
+
+    return Magika()
+
+
+def _get_code_detector():
+    """Return the process-local, lazily constructed language detector."""
+    global _CODE_DETECTOR, _CODE_DETECTOR_PID
+
+    pid = os.getpid()
+    if _CODE_DETECTOR is None or _CODE_DETECTOR_PID != pid:
+        with _CODE_DETECTOR_LOCK:
+            if _CODE_DETECTOR is None or _CODE_DETECTOR_PID != pid:
+                _CODE_DETECTOR = _new_code_detector()
+                _CODE_DETECTOR_PID = pid
+    return _CODE_DETECTOR
 
 INFO_MESSAGES = io.StringIO()
 GRAPHICS_TEXT = "\n![](%s)\n"
@@ -259,6 +289,376 @@ def is_monospaced(textlines):
         if all_mono:
             mono += 1
     return mono == line_count
+
+
+_CODE_BOX_CLASSES = {"text", "list-item", "section-header"}
+_CODE_CONTROL_RE = re.compile(
+    r"^\s*(?:if|elif|else|for|while|def|class|try|except|finally|with|"
+    r"switch|case|do|return|yield|import|from|function|subroutine|program)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+_CODE_COMMENT_RE = re.compile(r"^\s*(?:#|//|/\*|\*|--|!)(?!\s*#)", re.MULTILINE)
+_CODE_ASSIGNMENT_RE = re.compile(r"(?<![<>=!])=(?!=)|:=|=>")
+_CODE_CALL_RE = re.compile(r"\b[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*\s*\([^\n)]*\)")
+_JSON_KEY_RE = re.compile(r'^\s*"(?:[^"\\]|\\.)+"\s*:', re.MULTILINE)
+_TYPED_CALL_RE = re.compile(
+    r"\b[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+\s*\("
+    r"(?:\s*(?:(?:const|unsigned|signed|long|short)\s+)*"
+    r"(?:bool|char|double|float|int|size_t|void|wchar_t|std::\w+)"
+    r"(?:\s*[*&])?\s+[A-Za-z_]\w*\s*,){1,}"
+    r"\s*(?:(?:const|unsigned|signed|long|short)\s+)*"
+    r"(?:bool|char|double|float|int|size_t|void|wchar_t|std::\w+)"
+    r"(?:\s*[*&])?\s+[A-Za-z_]\w*\s*\)\s*;",
+)
+_TERMINAL_PROMPT_RE = re.compile(
+    r"^\s*(?:\$\s+|(?:[A-Za-z0-9_.-]+@)?[A-Za-z0-9_.-]+:[^\n$#>]*[$#>]\s+)",
+    re.MULTILINE,
+)
+_EXPLICIT_LANGUAGE_RE = re.compile(
+    r"\b(python|json|fortran|javascript|typescript|java|rust|ruby|"
+    r"bash|shell|sql|kotlin|swift|php|perl|lua)\b|c\+\+|c#",
+    re.IGNORECASE,
+)
+_LANGUAGE_ALIASES = {
+    "c++": "cpp",
+    "c#": "csharp",
+    "javascript": "javascript",
+    "typescript": "typescript",
+    "bash": "bash",
+    "shell": "bash",
+    "python": "python",
+    "json": "json",
+    "fortran": "fortran",
+    "java": "java",
+    "rust": "rust",
+    "ruby": "ruby",
+    "sql": "sql",
+    "kotlin": "kotlin",
+    "swift": "swift",
+    "php": "php",
+    "perl": "perl",
+    "lua": "lua",
+}
+
+
+@dataclass(frozen=True)
+class _CodeBoxMetrics:
+    cell_width: float
+    font_size: float
+    fixed_pitch: bool
+    native_monospace: bool
+    syntax: bool
+    seed: bool
+
+
+@dataclass(frozen=True)
+class _CodeRegion:
+    indices: tuple
+    cell_width: float
+    language: str
+
+
+def _box_plain_text(box):
+    return "\n".join(
+        "".join(span.get("text", "") for span in line.get("spans", ()))
+        for line in (box.textlines or ())
+    )
+
+
+def _raw_fixed_pitch_metrics(raw_blocks, clip):
+    """Return the dominant glyph advance and its inlier fraction in a box."""
+    advances = []
+    for block in raw_blocks:
+        if block.get("type") != 0:
+            continue
+        for line in block.get("lines", ()):
+            chars = [
+                char
+                for span in line.get("spans", ())
+                for char in span.get("chars", ())
+                if pymupdf.Point(char["origin"]) in clip
+            ]
+            for previous, current in zip(chars, chars[1:]):
+                advance = float(current["origin"][0] - previous["origin"][0])
+                baseline_delta = abs(
+                    float(current["origin"][1] - previous["origin"][1])
+                )
+                if advance > 0 and baseline_delta < 1:
+                    advances.append(advance)
+    if not advances:
+        return None, None, 0
+    cell_width = statistics.median(advances)
+    inlier_fraction = sum(
+        abs(advance - cell_width) <= 0.08 * cell_width
+        for advance in advances
+    ) / len(advances)
+    return cell_width, inlier_fraction, len(advances)
+
+
+def _has_code_syntax(text):
+    """Return whether fixed-pitch text contains a conservative code cue."""
+    if not text.strip():
+        return False
+    return bool(
+        _CODE_CONTROL_RE.search(text)
+        or _CODE_COMMENT_RE.search(text)
+        or _CODE_ASSIGNMENT_RE.search(text)
+        or _CODE_CALL_RE.search(text)
+        or _JSON_KEY_RE.search(text)
+        or _TERMINAL_PROMPT_RE.search(text)
+        or re.search(r"(?:\{|\}|;|\[\])\s*$", text, re.MULTILINE)
+        or re.search(r"^\s*In\s*\[\d*\]\s*:", text, re.MULTILINE)
+    )
+
+
+def _code_box_metrics(box):
+    """Measure whether a layout box behaves like fixed-pitch source text."""
+    if box.boxclass not in _CODE_BOX_CLASSES or not box.textlines:
+        return None
+
+    samples = []
+    sizes = []
+    relevant_spans = []
+    for line in box.textlines:
+        for span in line.get("spans", ()):
+            text = span.get("text", "")
+            if not text or text.isspace() or utils.is_ocr_text(span):
+                continue
+            relevant_spans.append(span)
+            printable = text.replace("\t", "    ")
+            if not printable:
+                continue
+            width = float(span["bbox"][2] - span["bbox"][0])
+            cell = width / len(printable)
+            size = float(span.get("size", 0))
+            if width > 0 and cell > 0 and size > 0:
+                samples.append(cell)
+                sizes.append(size)
+    if not samples or not relevant_spans:
+        return None
+
+    span_cell_width = statistics.median(samples)
+    font_size = statistics.median(sizes)
+    printable = _box_plain_text(box)
+    nonspace = [character for character in printable if not character.isspace()]
+    ascii_fraction = (
+        sum(ord(character) < 128 for character in nonspace) / len(nonspace)
+        if nonspace
+        else 0
+    )
+    native_monospace = all(
+        span.get("flags", 0) & pymupdf.TEXT_FONT_MONOSPACED
+        for span in relevant_spans
+    )
+    measured_cell_width = box.code_cell_width
+    cell_width = measured_cell_width or span_cell_width
+    ratio = cell_width / font_size
+    measured_fixed_pitch = bool(
+        measured_cell_width
+        and box.code_advance_count >= 4
+        and box.code_width_inlier is not None
+        and box.code_width_inlier >= 0.9
+    )
+    fixed_pitch = bool(
+        nonspace
+        and ascii_fraction >= 0.85
+        and 0.32 <= ratio <= 0.85
+        and (native_monospace or measured_fixed_pitch)
+    )
+    syntax = _has_code_syntax(printable)
+    substantial = (
+        len(nonspace) >= 8
+        or len(box.textlines) >= 2
+        or len(samples) >= 2
+    )
+    return _CodeBoxMetrics(
+        cell_width=cell_width,
+        font_size=font_size,
+        fixed_pitch=fixed_pitch,
+        native_monospace=native_monospace,
+        syntax=syntax,
+        seed=bool(fixed_pitch and syntax and substantial),
+    )
+
+
+def _page_needs_code_widths(boxes):
+    """Cheaply gate the more expensive per-glyph advance extraction."""
+    for box in boxes:
+        if box.boxclass not in _CODE_BOX_CLASSES or not box.textlines:
+            continue
+        text = _box_plain_text(box)
+        nonspace = [character for character in text if not character.isspace()]
+        if not _has_code_syntax(text) or len(nonspace) < 8:
+            continue
+        samples = []
+        sizes = []
+        native_monospace = True
+        for line in box.textlines:
+            for span in line.get("spans", ()):
+                span_text = span.get("text", "")
+                if not span_text or span_text.isspace() or utils.is_ocr_text(span):
+                    continue
+                native_monospace &= bool(
+                    span.get("flags", 0) & pymupdf.TEXT_FONT_MONOSPACED
+                )
+                width = float(span["bbox"][2] - span["bbox"][0])
+                size = float(span.get("size", 0))
+                if width > 0 and size > 0:
+                    samples.append(width / len(span_text.replace("\t", "    ")))
+                    sizes.append(size)
+        if not samples or native_monospace:
+            continue
+        cell_width = statistics.median(samples)
+        font_size = statistics.median(sizes)
+        inlier_fraction = sum(
+            abs(sample - cell_width) <= 0.08 * cell_width for sample in samples
+        ) / len(samples)
+        ascii_fraction = sum(ord(character) < 128 for character in nonspace) / len(
+            nonspace
+        )
+        if (
+            ascii_fraction >= 0.85
+            and 0.32 <= cell_width / font_size <= 0.85
+            and (len(samples) == 1 or inlier_fraction >= 0.75)
+        ):
+            return True
+    return False
+
+
+def _code_boxes_are_adjacent(previous, current, previous_metrics, current_metrics):
+    if abs(current_metrics.cell_width - previous_metrics.cell_width) > (
+        0.12 * max(previous_metrics.cell_width, current_metrics.cell_width)
+    ):
+        return False
+    vertical_gap = current.y0 - previous.y1
+    if vertical_gap > 4 * max(previous_metrics.font_size, current_metrics.font_size):
+        return False
+    # Reading-order neighbours from a different column can move upwards.  Do
+    # not merge those merely because their character widths happen to match.
+    if current.y0 < previous.y0 - max(previous_metrics.font_size, current_metrics.font_size):
+        return False
+    return current.x0 < previous.x1 and previous.x0 < current.x1
+
+
+def _explicit_language(text):
+    match = _EXPLICIT_LANGUAGE_RE.search(text)
+    if not match:
+        return ""
+    return _LANGUAGE_ALIASES.get(match.group(0).casefold(), "")
+
+
+def _detect_code_language(text, context=""):
+    """Return a conservative Markdown info string, or an empty string."""
+    explicit = _explicit_language(context)
+    if explicit:
+        return explicit
+    if _TERMINAL_PROMPT_RE.search(text):
+        return "console"
+    if _TYPED_CALL_RE.search(text):
+        return "cpp"
+    if len(_JSON_KEY_RE.findall(text)) >= 2:
+        return "json"
+
+    result = _get_code_detector().identify_bytes(text.encode("utf-8"))
+    output = result.output
+    if output.group != "code":
+        return ""
+    label = str(output.label).casefold()
+    return _LANGUAGE_ALIASES.get(label, label if re.fullmatch(r"[a-z0-9_+-]+", label) else "")
+
+
+def _longest_fence_run(text):
+    return max((len(run) for run in re.findall(r"`+", text)), default=0)
+
+
+def _reconstruct_code_region(boxes, cell_width):
+    """Rebuild code whitespace only where PDF geometry contains a cell gap."""
+    all_lines = [line for box in boxes for line in (box.textlines or ())]
+    if not all_lines:
+        return ""
+    left = min(float(line["bbox"][0]) for line in all_lines if line.get("spans"))
+    output = []
+    previous_line = None
+    previous_box = None
+    for box in boxes:
+        for line in box.textlines or ():
+            spans = [span for span in line.get("spans", ()) if span.get("text")]
+            if not spans:
+                continue
+            if previous_line is not None and box is not previous_box:
+                line_height = max(
+                    float(previous_line["bbox"][3] - previous_line["bbox"][1]),
+                    float(line["bbox"][3] - line["bbox"][1]),
+                )
+                gap = float(line["bbox"][1] - previous_line["bbox"][3])
+                if gap > 1.3 * line_height:
+                    output.append("")
+
+            indent = max(0, round((float(line["bbox"][0]) - left) / cell_width))
+            line_text = " " * indent
+            previous_span = None
+            for span in spans:
+                text = span["text"]
+                if previous_span is not None:
+                    gap = float(span["bbox"][0] - previous_span["bbox"][2])
+                    if (
+                        gap > 0.4 * cell_width
+                        and not line_text.endswith((" ", "\t"))
+                        and not text.startswith((" ", "\t"))
+                    ):
+                        line_text += " " * max(1, round(gap / cell_width))
+                line_text += text
+                previous_span = span
+            output.append(line_text.rstrip())
+            previous_line = line
+            previous_box = box
+    return "\n".join(output).rstrip()
+
+
+def _code_region_to_md(region, boxes):
+    text = _reconstruct_code_region(boxes, region.cell_width)
+    fence = "`" * max(3, _longest_fence_run(text) + 1)
+    return f"{fence}{region.language}\n{text}\n{fence}\n\n"
+
+
+def _page_code_regions(boxes):
+    """Find conservative fixed-pitch code regions and their languages."""
+    metrics = [_code_box_metrics(box) for box in boxes]
+    groups = []
+    group = []
+    for index, item in enumerate(metrics):
+        if item is None or not item.fixed_pitch:
+            if group:
+                groups.append(group)
+                group = []
+            continue
+        if group:
+            previous_index = group[-1]
+            if not _code_boxes_are_adjacent(
+                boxes[previous_index], boxes[index], metrics[previous_index], item
+            ):
+                groups.append(group)
+                group = []
+        group.append(index)
+    if group:
+        groups.append(group)
+
+    regions = {}
+    for indices in groups:
+        if not any(metrics[index].seed for index in indices):
+            continue
+        cell_width = statistics.median(metrics[index].cell_width for index in indices)
+        text = _reconstruct_code_region([boxes[index] for index in indices], cell_width)
+        context = _box_plain_text(boxes[indices[0] - 1]) if indices[0] else ""
+        language = _detect_code_language(text, context=context)
+        # A recovered fixed-pitch pattern is not enough on its own: require a
+        # conservative language decision. Native monospaced boxes retain the
+        # existing unlabeled-fence path when the detector abstains.
+        if not language:
+            continue
+        region = _CodeRegion(tuple(indices), cell_width, language)
+        regions[indices[0]] = region
+    return regions
 
 
 def is_superscripted(line):
@@ -676,18 +1076,19 @@ def _monospace_markers(items):
 
 
 def _reorder_open_styles(active, stack):
-    """Keep already-open styles open when the new span still wants them.
+    """Keep only CommonMark-safe continuing outer styles open.
 
     The canonical order alone closes and reopens a continuing outer style
     whenever a style above it in canonical order appears or disappears -
     a superscript inside an italic run would split the run into fragments.
-    Starting the target stack with the still-wanted prefix of the active
-    stack keeps continuing runs open; only genuinely new styles nest inside.
+    Bold and emphasis can safely remain around a nested HTML style. Raw HTML
+    underline/script/highlight and code spans cannot safely contain arbitrary
+    Markdown delimiters or HTML, so close and reopen them in canonical order.
     """
     remaining = list(stack)
     kept = []
     for item in active:
-        if item in remaining:
+        if item[0] in ("bold", "italic") and item in remaining:
             kept.append(item)
             remaining.remove(item)
         else:
@@ -1297,6 +1698,9 @@ class LayoutBox:
     max_fontsize: Optional[int] = None
     header_level: Optional[int] = 0  # one of 1..6 for title/section-header
     textlines: Optional[List[Dict]] = None
+    code_cell_width: Optional[float] = None
+    code_width_inlier: Optional[float] = None
+    code_advance_count: int = 0
 
 
 @dataclass
@@ -1364,6 +1768,17 @@ class ParsedDocument:
             string_lengths = []
             # Make a mapping: box number -> list item hierarchy level
             list_item_levels = create_list_item_levels(page.boxes)
+            code_regions = (
+                {}
+                if ignore_code or page.full_ocred
+                else _page_code_regions(page.boxes)
+            )
+            covered_code_boxes = {
+                index
+                for start, region in code_regions.items()
+                for index in region.indices
+                if index != start
+            }
 
             for i, box in enumerate(page.boxes):
                 clip = pymupdf.IRect(box.x0, box.y0, box.x1, box.y1)
@@ -1374,6 +1789,18 @@ class ParsedDocument:
                     string_lengths.append(len(md_string))
                     continue
                 if btype == "page-footer" and footer is False:
+                    string_lengths.append(len(md_string))
+                    continue
+
+                if i in covered_code_boxes:
+                    string_lengths.append(len(md_string))
+                    continue
+                code_region = code_regions.get(i)
+                if code_region is not None:
+                    md_string += _code_region_to_md(
+                        code_region,
+                        [page.boxes[index] for index in code_region.indices],
+                    )
                     string_lengths.append(len(md_string))
                     continue
 
@@ -1877,10 +2304,12 @@ def parse_document(
                 language=ocr_language,
                 keep_ocr_text=False,
             )
+            page_full_ocred = True
             print(f"OCR on {page.number=}/{page.number+1}.", file=INFO_MESSAGES)
 
         textpage = page.get_textpage(flags=FLAGS, clip=pymupdf.INFINITE_RECT())
         blocks = textpage.extractDICT()["blocks"]
+        raw_blocks = None
         # Style recovery belongs to the text-extraction layer. PyMuPDF augments
         # these blocks with script metadata and exact decorator char_flags;
         # this module only consumes those values while building Markdown.
@@ -1974,9 +2403,8 @@ def parse_document(
         )
         fulltext = [b for b in blocks if b["type"] == 0]
         if tables_exist:
-            table_blocks = [
-                b for b in textpage.extractRAWDICT()["blocks"] if b["type"] == 0
-            ]
+            raw_blocks = textpage.extractRAWDICT()["blocks"]
+            table_blocks = [b for b in raw_blocks if b["type"] == 0]
         else:
             table_blocks = None
 
@@ -2121,6 +2549,20 @@ def parse_document(
                     layoutbox.max_fontsize = max_fontsize
 
             pagelayout.boxes.append(layoutbox)
+        if raw_blocks is None and _page_needs_code_widths(pagelayout.boxes):
+            raw_blocks = textpage.extractRAWDICT()["blocks"]
+        if raw_blocks is not None:
+            for layoutbox in pagelayout.boxes:
+                if layoutbox.boxclass not in _CODE_BOX_CLASSES:
+                    continue
+                clip = pymupdf.Rect(
+                    layoutbox.x0, layoutbox.y0, layoutbox.x1, layoutbox.y1
+                )
+                (
+                    layoutbox.code_cell_width,
+                    layoutbox.code_width_inlier,
+                    layoutbox.code_advance_count,
+                ) = _raw_fixed_pitch_metrics(raw_blocks, clip)
         document.pages.append(pagelayout)
     if mydoc != doc:
         mydoc.close()
