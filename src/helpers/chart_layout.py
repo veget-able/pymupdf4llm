@@ -29,10 +29,12 @@ logged); pass chart_strict=True to re-raise instead.
 
 from __future__ import annotations
 
+import copy
 import logging
 from pathlib import Path
 from typing import Any, Callable
 
+import markdown2
 import pymupdf
 
 # Diagnostics go through logging rather than print on purpose: extraction
@@ -41,6 +43,8 @@ import pymupdf
 _log = logging.getLogger("pymupdf4llm.chart")
 
 ZOOM = 2.0  # default crop render scale
+PAD = 2.0  # detector-bbox padding in PDF points
+TEXT_CONTAINMENT = 0.90
 
 
 def _is_sep_row(line: str) -> bool:
@@ -60,6 +64,78 @@ def pipe_to_csv(md: str) -> str:
             continue
         writer.writerow([c.strip() for c in line.strip("|").split("|")])
     return out.getvalue().rstrip("\n")
+
+
+def _chart_html_only(content: str) -> str:
+    """Convert pipe tables in one chart payload, never document tables."""
+    lines = content.split("\n")
+    result_parts: list[str] = []
+    table_lines: list[str] = []
+    in_table = False
+
+    def flush() -> None:
+        nonlocal table_lines
+        if len(table_lines) >= 2:
+            html = markdown2.markdown(
+                "\n".join(table_lines), extras=["tables"]
+            ).strip()
+            if "<table>" in html.lower():
+                result_parts.append(html)
+            else:
+                result_parts.extend(table_lines)
+        else:
+            result_parts.extend(table_lines)
+        table_lines = []
+
+    for line in lines:
+        if "|" in line and line.strip().startswith("|"):
+            in_table = True
+            table_lines.append(line)
+        else:
+            if in_table:
+                flush()
+                in_table = False
+            result_parts.append(line)
+    if in_table:
+        flush()
+    return "\n".join(result_parts)
+
+
+def _filter_chart_owned_text(textlines, chart_boxes) -> list:
+    """Drop only spans whose area is at least 90% inside a chart bbox."""
+    charts = [pymupdf.Rect(box) for box in chart_boxes]
+    filtered = []
+    for line in textlines or []:
+        kept_spans = []
+        for span in line.get("spans", []):
+            try:
+                span_box = pymupdf.Rect(span["bbox"])
+            except (KeyError, TypeError, ValueError):
+                kept_spans.append(copy.deepcopy(span))
+                continue
+            span_area = span_box.get_area()
+            coverage = (
+                max((span_box & chart).get_area() / span_area for chart in charts)
+                if span_area > 0 and charts
+                else 0.0
+            )
+            if coverage < TEXT_CONTAINMENT:
+                kept_spans.append(copy.deepcopy(span))
+        if kept_spans:
+            kept_line = copy.deepcopy(line)
+            kept_line["spans"] = kept_spans
+            filtered.append(kept_line)
+    return filtered
+
+
+def _detector_clip(detector_box, page_rect):
+    detector = pymupdf.Rect(detector_box)
+    return pymupdf.Rect(
+        detector.x0 - PAD,
+        detector.y0 - PAD,
+        detector.x1 + PAD,
+        detector.y1 + PAD,
+    ) & page_rect
 
 
 def _diagnostic(
@@ -230,35 +306,14 @@ def splice_charts_into_parsed(
                 else:
                     work_page = src_page
 
-                det_rects = [
-                    pymupdf.Rect(c.chart["bbox"])
-                    for c in candidates
-                    if c.chart is not None and c.chart.get("bbox")
-                ]
                 crops, order = [], []
                 for k, b in enumerate(candidates):
-                    clip = pymupdf.Rect(b.x0, b.y0, b.x1, b.y1)
-                    # A parser picture box and the chart detection often
-                    # disagree slightly; crop their union so the extraction
-                    # model sees both the detected chart area and whatever
-                    # context (title, caption) the picture box adds. The
-                    # layout box itself stays untouched.
                     det = (b.chart or {}).get("bbox")
                     if det:
-                        det = pymupdf.Rect(det)
-                        clip |= det
-                        # A wide parser box can drag the crop across a
-                        # neighboring chart; a crop containing two charts
-                        # degrades the extraction model, so fall back to the
-                        # detection box alone when the crop swallows a
-                        # meaningful part of another detection.
-                        if any(
-                            other != det
-                            and (clip & other).get_area() > 0.1 * other.get_area()
-                            for other in det_rects
-                        ):
-                            clip = det
-                    clip &= work_page.rect
+                        clip = _detector_clip(det, work_page.rect)
+                    else:
+                        clip = pymupdf.Rect(b.x0, b.y0, b.x1, b.y1)
+                        clip &= work_page.rect
                     # Parsers occasionally emit boxes outside the page
                     # (observed: y 521..703 on a 482 pt page). Such clips
                     # produce zero-height pixmaps whose PNG export raises
@@ -294,7 +349,12 @@ def splice_charts_into_parsed(
                 if not md:
                     continue  # failed crop - box keeps its original content
                 payload = dict(b.chart or {})
-                payload["markdown"] = md
+                detector_box = payload.get("bbox")
+                if detector_box:
+                    b.textlines = _filter_chart_owned_text(
+                        b.textlines, [detector_box]
+                    )
+                payload["markdown"] = _chart_html_only(md)
                 # CSV is part of the JSON output contract for charts, so
                 # it is materialized here rather than derived by readers.
                 payload["csv"] = pipe_to_csv(md)

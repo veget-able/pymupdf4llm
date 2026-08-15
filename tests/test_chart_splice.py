@@ -50,7 +50,7 @@ def test_detect_renders_fenced_chart_table():
         footer=False,
     )
     assert CHART_BEGIN in md
-    assert "_placeholder #1_" in md
+    assert "<em>placeholder #1</em>" in md
     # nothing may disappear: every baseline line is still in the output
     for line in base.splitlines():
         if line.strip():
