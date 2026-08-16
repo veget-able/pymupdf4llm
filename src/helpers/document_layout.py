@@ -18,6 +18,7 @@ from pymupdf4llm.helpers import utils
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines
 from pymupdf4llm.ocr import OCRMode
 from pymupdf4llm.ocr.analyze_page import is_ocr_span
+from pymupdf4llm import _prior_ocr_trust_preflight as prior_ocr_preflight
 
 try:
     from tqdm import tqdm as ProgressBar
@@ -1290,7 +1291,7 @@ def make_ocr_decision(page, use_ocr):
 
     # Keep the trained selector as the first decision. Its false-negative
     # recovery is deliberately restricted to a textless visible page.
-    if use_ocr != OCRMode.NEVER and not needs_ocr and ocr_spans == 0 and not page_analysis["visible_chars"] > 0:
+    if use_ocr != OCRMode.NEVER and not needs_ocr and ocr_spans == 0 and not page_analysis.get("visible_chars", 0) > 0:
         pix = page.get_pixmap(colorspace=pymupdf.csGRAY, alpha=False)
         if any(sample < 245 for sample in pix.samples):
             return True, ocr_spans, only_text
@@ -1451,14 +1452,25 @@ def parse_document(
         page_filter = ProgressBar(page_filter)
 
     retained_prior_page_numbers = set()
+    preflight_events = {}
     for pno in page_filter:
         page = mydoc.load_page(pno)
         page.remove_rotation()
+        preflight_event = None
+        if document.use_ocr is True or document.use_ocr == OCRMode.SELECT_KEEP_OLD:
+            preflight_event = prior_ocr_preflight.check(
+                page, source=document.filename, page_number=pno,
+                use_ocr=document.use_ocr, ocr_dpi=ocr_dpi, ocr_function=ocr_function,
+            )
+            preflight_events[pno] = preflight_event
         page_full_ocred = False
         PAGE_ANALYSIS = {}
         OCR_SPANS = 0
         ONLY_TEXT = False
-        needs_ocr, OCR_SPANS, ONLY_TEXT = make_ocr_decision(page, document.use_ocr)
+        if preflight_event and preflight_event["selected"]:
+            needs_ocr, OCR_SPANS, ONLY_TEXT = False, 0, False
+        else:
+            needs_ocr, OCR_SPANS, ONLY_TEXT = make_ocr_decision(page, document.use_ocr)
 
         # This inventory is from the decision's pre-writeback analysis. A page
         # that takes ordinary OCR must never be reclassified from its fresh
@@ -1473,6 +1485,8 @@ def parse_document(
                 language=ocr_language,
                 keep_ocr_text=False,
             )
+            if preflight_event:
+                preflight_event["normal_full_ocr_calls"] += 1
             print(f"OCR on {page.number=}/{page.number+1}.", file=INFO_MESSAGES)
 
         if retained_prior_eligible:
@@ -1717,6 +1731,10 @@ def parse_document(
     # Reparse only that page through the ordinary pipeline with OCR disabled.
     for index, page_layout in enumerate(document.pages):
         page_number = page_layout.page_number - 1
+        preflight_event = preflight_events.get(page_number)
+        if preflight_event and preflight_event["selected"]:
+            preflight_event["v3_exact_empty_skipped"] = True
+            continue
         if page_number not in retained_prior_page_numbers:
             continue
         if _page_has_unconditionally_emitting_heading(page_layout):
@@ -1728,6 +1746,8 @@ def parse_document(
         if not any(sample < 250 for sample in pix.samples):
             continue
         ocr_function(page, dpi=ocr_dpi, language=ocr_language, keep_ocr_text=False)
+        if preflight_event:
+            preflight_event["v3_recovery_full_ocr_calls"] += 1
         repaired = parse_document(
             mydoc,
             image_dpi=image_dpi,
@@ -1747,6 +1767,8 @@ def parse_document(
             edge_threshold=edge_threshold,
         )
         document.pages[index] = repaired.pages[0]
+    for preflight_event in preflight_events.values():
+        prior_ocr_preflight.emit(preflight_event)
     if mydoc != doc:
         mydoc.close()
     msg_text = INFO_MESSAGES.getvalue()
