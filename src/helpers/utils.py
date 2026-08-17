@@ -92,8 +92,18 @@ def extract_form_fields_with_pages(doc, xrefs=False):
         # "Fields" array not present or empty.
         return result
 
-    # Backreference: page xref -> page number
+    # Backreferences: page object -> number, and widget annotation -> owning page.
+    # Some normal saved PDFs omit /P on terminal widget dictionaries, but their
+    # annotation xref still belongs to exactly one page's widget list.
     page_xrefs = {page.xref: page.number for page in doc}
+    widget_page_xrefs = {}
+    for page in doc:
+        for widget in page.widgets() or ():
+            widget_page_xrefs[widget.xref] = page.number
+
+    def widget_page_number(widget):
+        page_xref = widget.pdf_dict_get(pymupdf.PDF_NAME("P")).pdf_to_num()
+        return page_xrefs.get(page_xref, widget_page_xrefs.get(widget.pdf_to_num()))
 
     def walk_field(field, prefix=""):
         # /T is the partial field name
@@ -136,19 +146,15 @@ def extract_form_fields_with_pages(doc, xrefs=False):
                     walk_field(kid, fq_name)
                 else:
                     # Kid is a plain widget annotation of this field.
-                    page_xref_x = kid.pdf_dict_get(
-                        pymupdf.PDF_NAME("P")
-                    )  # reference to page object
-                    page_xref = page_xref_x.pdf_to_num()  # xref of page
-                    if page_xref in page_xrefs:
-                        pages.append(page_xrefs.get(page_xref))
+                    page_number = widget_page_number(kid)
+                    if page_number is not None:
+                        pages.append(page_number)
 
         # If no kids, check if this field itself has a page reference
         if not kids.pdf_array_len():
-            page_ref_x = field.pdf_dict_get(pymupdf.PDF_NAME("P"))
-            page_xref = page_ref_x.pdf_to_num()
-            if page_xref in page_xrefs:
-                pages.append(page_xrefs.get(page_xref))
+            page_number = widget_page_number(field)
+            if page_number is not None:
+                pages.append(page_number)
 
         # Store result
         value_dict = {"field_value": value, "pages": sorted(set(pages))}
