@@ -256,6 +256,7 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
             "vec_area": 0.0,
             "vec_norects": 0,
             "chars_total": 0,
+            "visible_chars": 0,
             "chars_bad": 0,
             "bad_areas": 0.0,
             "ocr_spans": 0,

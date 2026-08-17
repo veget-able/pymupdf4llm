@@ -57,7 +57,7 @@ def _event(page, source: str, page_number: int) -> dict:
     }
 
 
-def check(page, *, source: str, page_number: int, use_ocr, ocr_dpi: int, ocr_function):
+def check(page, *, source: str, page_number: int, use_ocr, ocr_dpi: int, ocr_function, ocr_language: str):
     """Check one outer SELECT_KEEP_OLD page and possibly replace old OCR once."""
     event = _event(page, source, page_number)
     started = time.perf_counter_ns()
@@ -77,8 +77,7 @@ def check(page, *, source: str, page_number: int, use_ocr, ocr_dpi: int, ocr_fun
             event["ineligible_reason"] = "nondefault_ocr_callback"
             return event
         import numpy as np
-        from rapidocr.ch_ppocr_rec.typings import TextRecInput
-        from pymupdf4llm.ocr.rapidocr_391_backend import init_engine
+        from pymupdf4llm.ocr.rapidocr_391_backend import recognize_crops
 
         lines = []
         saw_relevant_text = False
@@ -117,7 +116,7 @@ def check(page, *, source: str, page_number: int, use_ocr, ocr_dpi: int, ocr_fun
                 raise RuntimeError(f"invalid sampled crop at line {index}")
             crops.append(image[crop.y0 : crop.y1, crop.x0 : crop.x1].copy())
             stored.append(text)
-        recognized = list(init_engine().text_rec(TextRecInput(img=crops)).txts)
+        recognized = list(recognize_crops(crops))
         if len(recognized) != len(crops):
             raise RuntimeError("recognition count mismatch")
         event["agreement_jaccard3"] = _agreement("\n".join(stored), "\n".join(recognized))
@@ -126,7 +125,7 @@ def check(page, *, source: str, page_number: int, use_ocr, ocr_dpi: int, ocr_fun
             event["preflight_full_ocr_calls"] = 1
             replacement_started = time.perf_counter_ns()
             try:
-                ocr_function(page, dpi=ocr_dpi, language="eng", keep_ocr_text=False)
+                ocr_function(page, dpi=ocr_dpi, language=ocr_language, keep_ocr_text=False)
             except Exception as error:
                 event["selected"] = False
                 event["preflight_full_ocr_calls"] = 0

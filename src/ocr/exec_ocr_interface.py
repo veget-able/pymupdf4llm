@@ -75,6 +75,20 @@ def get_text(pixmap, irect, language="eng"):
     return page.get_text().strip().replace("|", r"\|")
 
 
+def _recognize_detection_boxes(pixmap, detections, language):
+    """Recognize detector boxes with the caller's Tesseract language."""
+    results = []
+    for box, _score in detections:
+        irect = pymupdf.IRect(
+            min(point[0] for point in box),
+            min(point[1] for point in box),
+            max(point[0] for point in box),
+            max(point[1] for point in box),
+        )
+        results.append((irect, get_text(pixmap, irect, language=language)))
+    return results
+
+
 def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=False):
     """This callback function performs OCR on the given page.
 
@@ -157,17 +171,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
 
     # Execute Tesseract's text Recognizer
     # List of Tesseract text results
-    tess_results = []
-
-    for box, score in result:
-        irect = pymupdf.IRect(
-            min(p[0] for p in box),
-            min(p[1] for p in box),
-            max(p[0] for p in box),
-            max(p[1] for p in box),
-        )
-        text = get_text(pix, irect)
-        tess_results.append((irect, text))
+    tess_results = _recognize_detection_boxes(pix, result, language)
 
     if not tess_results:
         return

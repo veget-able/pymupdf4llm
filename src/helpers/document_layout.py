@@ -1461,6 +1461,7 @@ def parse_document(
             preflight_event = prior_ocr_preflight.check(
                 page, source=document.filename, page_number=pno,
                 use_ocr=document.use_ocr, ocr_dpi=ocr_dpi, ocr_function=ocr_function,
+                ocr_language=ocr_language,
             )
             preflight_events[pno] = preflight_event
         page_full_ocred = False
