@@ -151,9 +151,15 @@ def test_builtin_d0_forwards_variant_without_running_dp0(monkeypatch):
     module = types.ModuleType("pymupdf.layout.chart_finder")
     module.model_path_for_variant = lambda variant: f"/models/d0-{variant}.onnx"
 
-    def find_charts(page, *, variant):
-        calls.append((page, variant))
-        return [{"bbox": [1, 2, 3, 4], "score": 0.9}]
+    def find_charts(page, *, variant, include_detector_bbox):
+        calls.append((page, variant, include_detector_bbox))
+        return [
+            {
+                "bbox": [1, 2, 3, 4],
+                "detector_bbox": [1.25, 2.25, 2.75, 3.75],
+                "score": 0.9,
+            }
+        ]
 
     module.find_charts = find_charts
     monkeypatch.setitem(sys.modules, module.__name__, module)
@@ -165,8 +171,9 @@ def test_builtin_d0_forwards_variant_without_running_dp0(monkeypatch):
         "mixed-sensitive-fp16",
     )
 
-    assert calls == [(page, "mixed-sensitive-fp16")]
+    assert calls == [(page, "mixed-sensitive-fp16", True)]
     assert len(charts) == 1
+    assert charts[0]["detector_bbox"] == [1.25, 2.25, 2.75, 3.75]
     assert charts[0]["model_path"] == "/models/d0-mixed-sensitive-fp16.onnx"
     assert charts[0]["model_variant"] == "mixed-sensitive-fp16"
     assert charts[0]["refinement"] == "chart_finder._refine"
@@ -179,10 +186,19 @@ def test_builtin_dp0_runs_once_and_returns_chart_then_picture(monkeypatch):
     calls = []
     module = types.ModuleType("pymupdf.layout.chart_picture_finder")
 
-    def find_chart_pictures(page, *, variant):
-        calls.append((page, variant))
+    module.model_path_for_variant = lambda _variant: "/models/dp0.onnx"
+
+    def find_chart_pictures(page, *, variant, include_detector_bbox):
+        calls.append((page, variant, include_detector_bbox))
         return {
-            "chart": [{"bbox": [1, 2, 3, 4], "score": 0.9, "label": "chart"}],
+            "chart": [
+                {
+                    "bbox": [1, 2, 3, 4],
+                    "detector_bbox": [1.25, 2.25, 2.75, 3.75],
+                    "score": 0.9,
+                    "label": "chart",
+                }
+            ],
             "picture": [
                 {"bbox": [5, 6, 7, 8], "score": 0.8, "label": "picture"}
             ],
@@ -198,7 +214,8 @@ def test_builtin_dp0_runs_once_and_returns_chart_then_picture(monkeypatch):
 
     charts, pictures = _run_builtin_finder(page, "dp0", "weight-fp16")
 
-    assert calls == [(page, "weight-fp16")]
+    assert calls == [(page, "weight-fp16", True)]
+    assert charts[0]["detector_bbox"] == [1.25, 2.25, 2.75, 3.75]
     assert charts[0]["model_variant"] == "weight-fp16"
     assert charts[0]["refinement"] == "chart-refiner"
     assert pictures[0]["model_path"] == "/models/dp0.onnx"

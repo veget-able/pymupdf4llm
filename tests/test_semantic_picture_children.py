@@ -80,6 +80,136 @@ def test_nonchart_semantic_child_is_retained():
     assert page.boxes == [picture, semantic_child]
 
 
+def _source_text_block(text, bbox):
+    return {
+        "type": 0,
+        "bbox": list(bbox),
+        "lines": [
+            {
+                "bbox": list(bbox),
+                "dir": [1.0, 0.0],
+                "spans": [
+                    {
+                        "bbox": list(bbox),
+                        "text": text,
+                        "font": "Regular",
+                        "alpha": 255,
+                        "size": 10.0,
+                        "flags": 0,
+                        "char_flags": 0,
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def _semantic_child_for_block(boxclass, block_index, block):
+    child = LayoutBox(*block["bbox"], boxclass)
+    span = dict(block["lines"][0]["spans"][0])
+    span["block"] = block_index
+    span["line"] = 0
+    child.textlines = [{"bbox": block["bbox"], "spans": [span]}]
+    return child
+
+
+def _chart_with_raw_core():
+    chart = LayoutBox(0.0, 0.0, 100.0, 100.0, "picture")
+    chart.chart = {
+        "bbox": [0.0, 0.0, 100.0, 100.0],
+        "detector_bbox": [20.0, 20.0, 80.0, 80.0],
+    }
+    return chart
+
+
+def test_chart_core_axis_label_remains_chart_owned():
+    block = _source_text_block("2025", [40.0, 40.0, 60.0, 50.0])
+    chart = _chart_with_raw_core()
+    child = _semantic_child_for_block("text", 0, block)
+    page = PageLayout(1, 100.0, 100.0, [chart, child], fulltext=[block])
+
+    stats = _suppress_chart_semantic_children(page, [child])
+
+    assert page.boxes == [chart]
+    assert stats["suppressed"] == 1
+    assert stats["restored"] == 0
+
+
+def test_explicit_figure_caption_survives_inside_chart_core():
+    block = _source_text_block(
+        "Figure 6. Renewable energy by source",
+        [30.0, 40.0, 70.0, 50.0],
+    )
+    chart = _chart_with_raw_core()
+    child = _semantic_child_for_block("text", 0, block)
+    semantic_children = [child]
+    page = PageLayout(1, 100.0, 100.0, [chart, child], fulltext=[block])
+
+    stats = _suppress_chart_semantic_children(page, semantic_children)
+
+    restored = page.boxes[1]
+    assert restored is not child
+    assert restored.boxclass == "caption"
+    assert restored.textlines[0]["spans"][0]["text"].startswith("Figure 6")
+    assert stats["captions"] == 1
+
+
+def test_explicit_source_note_survives_and_is_detached_from_chart():
+    block = _source_text_block(
+        "Source: annual report",
+        [30.0, 60.0, 70.0, 70.0],
+    )
+    chart = _chart_with_raw_core()
+    chart_span = dict(block["lines"][0]["spans"][0])
+    chart_span.update({"block": 0, "line": 0})
+    chart.textlines = [{"bbox": block["bbox"], "spans": [chart_span]}]
+    child = _semantic_child_for_block("text", 0, block)
+    semantic_children = [child]
+    page = PageLayout(1, 100.0, 100.0, [chart, child], fulltext=[block])
+
+    _suppress_chart_semantic_children(page, semantic_children)
+    removed = _detach_semantic_child_text_from_pictures(
+        page,
+        semantic_children,
+    )
+
+    assert page.boxes[1].boxclass == "text"
+    assert page.boxes[1].textlines[0]["spans"][0]["text"].startswith("Source:")
+    assert removed == 1
+    assert chart.textlines == []
+
+
+def test_nonprefix_caption_inside_chart_core_stays_chart_owned():
+    block = _source_text_block(
+        "Revenue by region",
+        [30.0, 30.0, 70.0, 40.0],
+    )
+    chart = _chart_with_raw_core()
+    child = _semantic_child_for_block("caption", 0, block)
+    page = PageLayout(1, 100.0, 100.0, [chart, child], fulltext=[block])
+
+    _suppress_chart_semantic_children(page, [child])
+
+    assert page.boxes == [chart]
+
+
+def test_structural_heading_crossing_raw_core_is_restored_complete():
+    block = _source_text_block(
+        "Results at a glance",
+        [10.0, 10.0, 90.0, 19.0],
+    )
+    chart = _chart_with_raw_core()
+    child = _semantic_child_for_block("section-header", 0, block)
+    page = PageLayout(1, 100.0, 100.0, [chart, child], fulltext=[block])
+
+    stats = _suppress_chart_semantic_children(page, [child])
+
+    assert page.boxes == [chart, child]
+    assert [child.x0, child.y0, child.x1, child.y1] == block["bbox"]
+    assert child.textlines[0]["spans"][0]["text"] == "Results at a glance"
+    assert stats["restored"] == 1
+
+
 def test_semantic_visible_text_check_accepts_vertical_text():
     lines = [
         {

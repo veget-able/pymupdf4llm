@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import math
+import re
 import threading
 from dataclasses import dataclass
 from collections import defaultdict
@@ -1347,6 +1348,7 @@ def _merge_chart_detections(page, detect_charts, pagelayout):
             for key in (
                 "source",
                 "label",
+                "detector_bbox",
                 "model_path",
                 "model_variant",
                 "providers",
@@ -1492,34 +1494,387 @@ def _merge_picture_detections(
         pictures.append(picture)
 
 
-def _suppress_chart_semantic_children(pagelayout, semantic_children=()):
-    """Keep Chart-owned text on the Chart/CSV lane.
+_CAPTION_PREFIX = re.compile(
+    r"^\s*(?:fig(?:ure)?|table)\s*[.:#-]?\s*\d",
+    re.IGNORECASE,
+)
+_CHART_NOTE_PREFIX = re.compile(
+    r"^\s*(?:sources?|notes?)\s*[:：]",
+    re.IGNORECASE,
+)
 
-    Generic layout boxes are unchanged. Only children explicitly marked by
-    pymupdf-layout's Picture semantic split are removed when a Chart-owned
-    Picture fully contains them.
-    """
-    marked = {tuple(box) for box in semantic_children}
-    if not marked:
-        return
-    charts = [
-        pymupdf.Rect(box.x0, box.y0, box.x1, box.y1)
-        for box in pagelayout.boxes
-        if box.boxclass == "picture" and box.chart is not None
-    ]
-    if not charts:
-        return
-    pagelayout.boxes[:] = [
-        box
-        for box in pagelayout.boxes
-        if not (
-            (box.x0, box.y0, box.x1, box.y1, box.boxclass) in marked
-            and any(
-                chart.contains(pymupdf.Rect(box.x0, box.y0, box.x1, box.y1))
-                for chart in charts
-            )
+
+def _semantic_child_box_ids(pagelayout, semantic_children):
+    """Resolve semantic-child objects while retaining tuple compatibility."""
+    object_ids = {
+        id(item) for item in semantic_children if isinstance(item, LayoutBox)
+    }
+    markers = {
+        tuple(item)
+        for item in semantic_children
+        if not isinstance(item, LayoutBox)
+    }
+    if markers:
+        object_ids.update(
+            id(box)
+            for box in pagelayout.boxes
+            if (box.x0, box.y0, box.x1, box.y1, box.boxclass) in markers
+        )
+    return object_ids
+
+
+def _semantic_source_block_indices(pagelayout, child):
+    """Return valid source text-block indices represented by one child."""
+    block_indices = sorted({
+        span.get("block")
+        for line in child.textlines or []
+        for span in line.get("spans") or []
+        if isinstance(span.get("block"), int)
+    })
+    return [
+        index
+        for index in block_indices
+        if (
+            0 <= index < len(pagelayout.fulltext or [])
+            and pagelayout.fulltext[index].get("type") == 0
+            and len(pagelayout.fulltext[index].get("bbox") or []) >= 4
         )
     ]
+
+
+def _semantic_source_block(pagelayout, child):
+    """Return the unique source text block represented by a semantic child."""
+    block_indices = _semantic_source_block_indices(pagelayout, child)
+    if len(block_indices) != 1:
+        return None
+    block_index = block_indices[0]
+    block = pagelayout.fulltext[block_index]
+    return block_index, block
+
+
+def _source_block_textlines(pagelayout, block_index, block):
+    """Extract one complete source block without pulling overlapping blocks."""
+    lines = [
+        {"bbox": line[0], "spans": line[1]}
+        for line in get_raw_lines(
+            textpage=None,
+            blocks=[block],
+            clip=pymupdf.Rect(block["bbox"]),
+            ignore_invisible=False,
+            only_horizontal=False,
+        )
+    ]
+    for line in lines:
+        for span in line.get("spans") or []:
+            span["block"] = block_index
+    return lines
+
+
+def _semantic_text(textlines):
+    return " ".join(
+        str(span.get("text") or "").strip()
+        for line in textlines or []
+        for span in line.get("spans") or []
+        if str(span.get("text") or "").strip()
+    )
+
+
+def _textlines_rect(textlines):
+    """Return the union of complete PDF text-line boxes."""
+    rects = [
+        pymupdf.Rect(line.get("bbox"))
+        for line in textlines or []
+        if len(line.get("bbox") or []) >= 4
+    ]
+    if not rects:
+        return None
+    result = pymupdf.Rect(rects[0])
+    for rect in rects[1:]:
+        result.include_rect(rect)
+    return result
+
+
+def _layout_box_for_textlines(textlines, boxclass):
+    """Build a semantic box from complete source lines, never clipped spans."""
+    rect = _textlines_rect(textlines)
+    if rect is None:
+        return None
+    child = LayoutBox(rect.x0, rect.y0, rect.x1, rect.y1, boxclass)
+    child.textlines = textlines
+    return child
+
+
+def _source_lines_represented_by_child(pagelayout, block_index, child):
+    """Resolve a clipped GNN child back to the complete PDF lines it touches."""
+    block = pagelayout.fulltext[block_index]
+    child_rect = pymupdf.Rect(child.x0, child.y0, child.x1, child.y1)
+    return [
+        line
+        for line in _source_block_textlines(pagelayout, block_index, block)
+        if (
+            len(line.get("bbox") or []) >= 4
+            and pymupdf.Rect(line["bbox"]).intersects(child_rect)
+        )
+    ]
+
+
+def _suppress_chart_semantic_children(pagelayout, semantic_children=()):
+    """Separate Chart-core labels from surrounding document text.
+
+    A finder refinement intentionally grows its raw visual detection across
+    partially covered text and graphics. Ownership is therefore decided on
+    complete native PDF lines relative to the raw detector core and refined
+    Chart extent. This avoids both clipped strings and the opposite failure
+    where a large PDF text block pulls axis ticks from several charts into one
+    Caption. Explicit Figure/Table and Source/Note lines retain their semantic
+    document role.
+    """
+    semantic_ids = _semantic_child_box_ids(pagelayout, semantic_children)
+    if not semantic_ids:
+        return {"suppressed": 0, "restored": 0, "expanded": 0, "captions": 0}
+    charts = [
+        box
+        for box in pagelayout.boxes
+        if box.boxclass == "picture" and isinstance(box.chart, dict)
+    ]
+    if not charts:
+        return {"suppressed": 0, "restored": 0, "expanded": 0, "captions": 0}
+
+    def chart_owner(child):
+        child_rect = pymupdf.Rect(child.x0, child.y0, child.x1, child.y1)
+        return next(
+            (
+                chart
+                for chart in charts
+                if pymupdf.Rect(
+                    chart.x0, chart.y0, chart.x1, chart.y1
+                ).contains(child_rect)
+            ),
+            None,
+        )
+
+    # A text block clipped into the refined Chart can still be document flow
+    # when it continues a restored heading/caption at the exact same PDF x0.
+    # Use source-coordinate identity, not a learned distance threshold.
+    structural_anchors = set()
+    for child in pagelayout.boxes:
+        if (
+            id(child) not in semantic_ids
+            or child.boxclass not in ("title", "section-header", "caption")
+        ):
+            continue
+        owner = chart_owner(child)
+        source = _semantic_source_block(pagelayout, child)
+        if owner is None or source is None:
+            continue
+        block_index, _block = source
+        source_lines = _source_lines_represented_by_child(
+            pagelayout,
+            block_index,
+            child,
+        )
+        source_rect = _textlines_rect(source_lines)
+        if source_rect is None:
+            continue
+        raw_bbox = owner.chart.get("detector_bbox") or owner.chart.get("bbox")
+        raw_core = pymupdf.Rect(raw_bbox) if raw_bbox is not None else None
+        if raw_core is not None and not raw_core.contains(source_rect):
+            structural_anchors.add((id(owner), round(source_rect.x0, 3)))
+
+    suppressed = set()
+    replacements = {}
+    restored_blocks = set()
+    stats = {"suppressed": 0, "restored": 0, "expanded": 0, "captions": 0}
+    for child in list(pagelayout.boxes):
+        if id(child) not in semantic_ids:
+            continue
+        child_rect = pymupdf.Rect(child.x0, child.y0, child.x1, child.y1)
+        owner = chart_owner(child)
+        if owner is None:
+            continue
+
+        source_indices = _semantic_source_block_indices(pagelayout, child)
+        structural_class = child.boxclass in ("title", "section-header", "caption")
+
+        # Text-family GNN components can connect an external note to internal
+        # legend/data blocks. Resolve each native source block independently,
+        # and each complete source line independently within that block.
+        if not structural_class and source_indices:
+            restored = []
+            refined_bbox = owner.chart.get("bbox")
+            refined_core = (
+                pymupdf.Rect(refined_bbox) if refined_bbox is not None else None
+            )
+            raw_bbox = owner.chart.get("detector_bbox") or refined_bbox
+            raw_core = pymupdf.Rect(raw_bbox) if raw_bbox is not None else None
+            for block_index in source_indices:
+                all_source_lines = _source_block_textlines(
+                    pagelayout,
+                    block_index,
+                    pagelayout.fulltext[block_index],
+                )
+                block_caption_like = bool(
+                    _CAPTION_PREFIX.match(_semantic_text(all_source_lines))
+                )
+                block_note_like = bool(
+                    _CHART_NOTE_PREFIX.match(_semantic_text(all_source_lines))
+                )
+                if block_caption_like or block_note_like:
+                    source_lines = all_source_lines
+                else:
+                    source_lines = _source_lines_represented_by_child(
+                        pagelayout,
+                        block_index,
+                        child,
+                    )
+                retained_lines = []
+                for line in source_lines:
+                    line_text = _semantic_text([line])
+                    explicit_document_role = bool(
+                        block_caption_like
+                        or block_note_like
+                        or _CAPTION_PREFIX.match(line_text)
+                        or _CHART_NOTE_PREFIX.match(line_text)
+                    )
+                    line_rect = pymupdf.Rect(line["bbox"])
+                    raw_external = (
+                        raw_core is not None and not raw_core.contains(line_rect)
+                    )
+                    refined_external = (
+                        refined_core is not None
+                        and not refined_core.intersects(line_rect)
+                    )
+                    aligned_flow = (
+                        raw_external
+                        and (id(owner), round(line_rect.x0, 3))
+                        in structural_anchors
+                    )
+                    if explicit_document_role or refined_external or aligned_flow:
+                        retained_lines.append(line)
+                    else:
+                        stats["suppressed"] += 1
+                candidate = _layout_box_for_textlines(
+                    retained_lines,
+                    child.boxclass,
+                )
+                if candidate is None or not _textlines_have_visible_text(
+                    candidate.textlines
+                ):
+                    continue
+                caption_like = block_caption_like or bool(
+                    _CAPTION_PREFIX.match(_semantic_text(candidate.textlines))
+                )
+                source_key = (id(owner), block_index)
+                if source_key in restored_blocks:
+                    stats["suppressed"] += 1
+                    continue
+                restored_blocks.add(source_key)
+                if caption_like:
+                    candidate.boxclass = "caption"
+                    stats["captions"] += 1
+                restored.append(candidate)
+                semantic_children.append(candidate)
+                stats["restored"] += 1
+                stats["expanded"] += 1
+            replacements[id(child)] = sorted(
+                restored,
+                key=lambda box: (box.y0, box.x0, box.y1, box.x1),
+            )
+            continue
+
+        source = _semantic_source_block(pagelayout, child)
+        source_rect = child_rect
+        source_key = None
+        source_lines = list(child.textlines or [])
+        all_source_lines = source_lines
+        if source is not None:
+            block_index, _block = source
+            all_source_lines = _source_block_textlines(
+                pagelayout,
+                block_index,
+                pagelayout.fulltext[block_index],
+            )
+            source_lines = _source_lines_represented_by_child(
+                pagelayout,
+                block_index,
+                child,
+            )
+            resolved_rect = _textlines_rect(source_lines)
+            if resolved_rect is not None:
+                source_rect = resolved_rect
+            source_key = (id(owner), block_index)
+
+        raw_bbox = owner.chart.get("detector_bbox") or owner.chart.get("bbox")
+        raw_core = pymupdf.Rect(raw_bbox) if raw_bbox is not None else None
+        source_text = _semantic_text(source_lines)
+        caption_like = bool(_CAPTION_PREFIX.match(source_text))
+
+        # A generic GNN Caption inside the refined Chart is commonly a title,
+        # legend, unit, or axis row. Only an explicit Figure/Table caption can
+        # override Chart ownership there. Non-prefix captions may still survive
+        # when their complete source-line centers are outside the refined box.
+        if caption_like:
+            # The Figure/Table marker and its wrapped title normally share one
+            # native block even when the GNN child touches only the marker.
+            retained_lines = all_source_lines
+        elif child.boxclass in ("title", "section-header"):
+            # Structural headings are a strong semantic signal. If any complete
+            # line crosses the raw visual core, retain the complete native block
+            # so a clipped GNN node cannot emit only the tail of a heading.
+            retained_lines = (
+                all_source_lines
+                if raw_core is not None
+                and any(
+                    len(line.get("bbox") or []) >= 4
+                    and not raw_core.contains(pymupdf.Rect(line["bbox"]))
+                    for line in all_source_lines
+                )
+                else []
+            )
+        else:
+            # A non-prefix Caption contained by the final Picture is commonly
+            # a chart title, axis row, unit, or legend. Geometry alone cannot
+            # distinguish it from an unmarked prose caption, so keep ownership
+            # with Chart unless the line explicitly identifies a source/note.
+            retained_lines = [
+                line
+                for line in source_lines
+                if _CHART_NOTE_PREFIX.match(_semantic_text([line]))
+            ]
+        retained_rect = _textlines_rect(retained_lines)
+        if retained_rect is None:
+            suppressed.add(id(child))
+            stats["suppressed"] += 1
+            continue
+        source_rect = retained_rect
+
+        if source_key is not None and source_key in restored_blocks:
+            suppressed.add(id(child))
+            stats["suppressed"] += 1
+            continue
+        if source_key is not None:
+            restored_blocks.add(source_key)
+            if _textlines_have_visible_text(retained_lines):
+                child.x0, child.y0, child.x1, child.y1 = source_rect
+                child.textlines = retained_lines
+                stats["expanded"] += 1
+
+        if caption_like:
+            child.boxclass = "caption"
+            child.max_fontsize = None
+            child.header_level = 0
+            stats["captions"] += 1
+        stats["restored"] += 1
+
+    if suppressed or replacements:
+        boxes = []
+        for box in pagelayout.boxes:
+            if id(box) in replacements:
+                boxes.extend(replacements[id(box)])
+            elif id(box) not in suppressed:
+                boxes.append(box)
+        pagelayout.boxes[:] = boxes
+    return stats
 
 
 def _textlines_have_visible_text(textlines):
@@ -1548,13 +1903,13 @@ def _detach_semantic_child_text_from_pictures(pagelayout, semantic_children=()):
     exact span identity is a stronger ownership signal than an overlap
     threshold.  The Picture geometry and visual payload remain untouched.
     """
-    marked = {tuple(box) for box in semantic_children}
-    if not marked:
+    semantic_ids = _semantic_child_box_ids(pagelayout, semantic_children)
+    if not semantic_ids:
         return 0
     child_span_keys = {
         _semantic_span_key(span)
         for box in pagelayout.boxes
-        if (box.x0, box.y0, box.x1, box.y1, box.boxclass) in marked
+        if id(box) in semantic_ids
         for line in box.textlines or []
         for span in line.get("spans") or []
         if str(span.get("text") or "").strip()
@@ -1621,7 +1976,14 @@ def _suppress_multichild_native_picture_parents(
         raise ValueError("min_children must be at least 2")
 
     pictures = [box for box in pagelayout.boxes if box.boxclass == "picture"]
-    ignored_layout_box_set = {tuple(box) for box in ignored_layout_boxes}
+    ignored_layout_box_ids = {
+        id(box) for box in ignored_layout_boxes if isinstance(box, LayoutBox)
+    }
+    ignored_layout_box_set = {
+        tuple(box)
+        for box in ignored_layout_boxes
+        if not isinstance(box, LayoutBox)
+    }
 
     def _rect(box):
         if isinstance(box, dict):
@@ -1722,6 +2084,7 @@ def _suppress_multichild_native_picture_parents(
             if (
                 item is not parent
                 and item.boxclass != "picture"
+                and id(item) not in ignored_layout_box_ids
                 and (
                     item.x0,
                     item.y0,
@@ -1769,9 +2132,13 @@ def _run_builtin_finder(page, finder_mode, finder_variant):
                 "finder_mode='d0' requires pymupdf_layout "
                 "experiments/best_combination"
             ) from exc
-        charts = []
         model_path = str(chart_finder.model_path_for_variant(finder_variant))
-        for raw in chart_finder.find_charts(page, variant=finder_variant) or []:
+        charts = []
+        for raw in chart_finder.find_charts(
+            page,
+            variant=finder_variant,
+            include_detector_bbox=True,
+        ) or []:
             item = dict(raw) if isinstance(raw, dict) else {"bbox": raw}
             item.setdefault("source", "chart_finder")
             item.setdefault("model_path", model_path)
@@ -1787,7 +2154,15 @@ def _run_builtin_finder(page, finder_mode, finder_variant):
             "finder_mode='dp0' requires pymupdf_layout "
             "experiments/best_combination"
         ) from exc
-    result = find_chart_pictures(page, variant=finder_variant)
+    from pymupdf.layout import chart_picture_finder
+
+    model_path = str(chart_picture_finder.model_path_for_variant(finder_variant))
+
+    result = find_chart_pictures(
+        page,
+        variant=finder_variant,
+        include_detector_bbox=True,
+    )
     if not isinstance(result, dict):
         raise TypeError("find_chart_pictures() must return a mapping")
 
@@ -1810,7 +2185,8 @@ def _run_builtin_finder(page, finder_mode, finder_variant):
             items.append(item)
         return items
 
-    return _lane("chart"), _lane("picture")
+    charts = _lane("chart")
+    return charts, _lane("picture")
 
 
 def parse_document(
@@ -2109,6 +2485,7 @@ def parse_document(
             links=links,
         )
         semantic_child_set = {tuple(box) for box in semantic_children}
+        semantic_child_boxes = []
         for box in page.layout_information:
             layoutbox = LayoutBox(*box)
             clip = pymupdf.Rect(box[:4])
@@ -2247,6 +2624,8 @@ def parse_document(
                     header_fontsizes.add(max_fontsize)
                     layoutbox.max_fontsize = max_fontsize
 
+            if is_semantic_child:
+                semantic_child_boxes.append(layoutbox)
             pagelayout.boxes.append(layoutbox)
         if finder_mode is not None:
             chart_detections, picture_detections = _run_builtin_finder(
@@ -2261,7 +2640,7 @@ def parse_document(
             )
             # Chart-owned semantic children must not influence the existing
             # DP0 native-Picture parent suppression decision.
-            _suppress_chart_semantic_children(pagelayout, semantic_children)
+            _suppress_chart_semantic_children(pagelayout, semantic_child_boxes)
             if finder_mode == "dp0":
                 _merge_picture_detections(
                     page,
@@ -2271,11 +2650,11 @@ def parse_document(
                 )
                 _suppress_multichild_native_picture_parents(
                     pagelayout,
-                    ignored_layout_boxes=semantic_children,
+                    ignored_layout_boxes=semantic_child_boxes,
                 )
         elif detect_charts:
             _merge_chart_detections(page, detect_charts, pagelayout)
-            _suppress_chart_semantic_children(pagelayout, semantic_children)
+            _suppress_chart_semantic_children(pagelayout, semantic_child_boxes)
         if detect_pictures:
             _merge_picture_detections(
                 page,
@@ -2285,14 +2664,14 @@ def parse_document(
             )
             _suppress_multichild_native_picture_parents(
                 pagelayout,
-                ignored_layout_boxes=semantic_children,
+                ignored_layout_boxes=semantic_child_boxes,
             )
         # Detector parent suppression must observe the same native Picture
         # content regardless of whether the optional semantic view is active.
         # Transfer text ownership only after that invariant decision.
         _detach_semantic_child_text_from_pictures(
             pagelayout,
-            semantic_children,
+            semantic_child_boxes,
         )
         document.pages.append(pagelayout)
     if mydoc != doc:
