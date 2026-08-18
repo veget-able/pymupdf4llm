@@ -683,16 +683,23 @@ def _reorder_open_styles(active, stack):
     a superscript inside an italic run would split the run into fragments.
     Starting the target stack with the still-wanted prefix of the active
     stack keeps continuing runs open; only genuinely new styles nest inside.
+
+    A code span is literal: nothing may render inside it, so the monospace
+    marker stays pinned innermost and is never kept open across any other
+    style transition - the code run is cut and reopened instead.
     """
-    remaining = list(stack)
+    mono = [item for item in stack if item[0] == "monospace"]
+    remaining = [item for item in stack if item[0] != "monospace"]
     kept = []
     for item in active:
+        if item[0] == "monospace":
+            break
         if item in remaining:
             kept.append(item)
             remaining.remove(item)
         else:
             break
-    return kept + remaining
+    return kept + remaining + mono
 
 
 def _style_stack(span, italic_marker, monospace_marker):
@@ -716,19 +723,55 @@ def _style_stack(span, italic_marker, monospace_marker):
     return stack
 
 
-def get_styled_text(spans):
-    """Serialize style metadata with an explicit, single-pass style stack."""
-    items = _nonempty_styled_spans(spans)
-    if not items:
-        return "", ""
+def _italic_run_ranges(items):
+    """Maximal runs of consecutive italic items as {index: (start, stop)}."""
+    runs = {}
+    position = 0
+    while position < len(items):
+        if not _style_state(items[position][0])[2]:
+            position += 1
+            continue
+        stop = position + 1
+        while stop < len(items) and _style_state(items[stop][0])[2]:
+            stop += 1
+        for index in range(position, stop):
+            runs[index] = (position, stop)
+        position = stop
+    return runs
 
-    italic_markers = _italic_markers(items)
-    monospace_markers = _monospace_markers(items)
+
+def _emit(items, italic_markers, monospace_markers, italic_runs):
+    """One serialization pass; returns (output, suffix, invalid_runs).
+
+    invalid_runs collects the italic runs whose "_" markers landed where
+    CommonMark's flanking rules leave them literal - the reordered stack
+    can place a marker flush against a word inside a continuing outer run,
+    which the source-level marker choice cannot foresee. Such runs are
+    re-emitted with unambiguous HTML emphasis by the caller.
+    """
     output = ""
     active = []
     previous = None
     previous_state = None
-    suffix = ""
+    invalid = set()
+    close_checks = []  # (position of "_" close, run)
+
+    def open_item(item, index):
+        nonlocal output
+        if (
+            item[0] == "italic"
+            and item[1] == "_"
+            and output
+            and (output[-1].isalnum() or output[-1] == "_")
+        ):
+            invalid.add(italic_runs.get(index))
+        output += item[1]
+
+    def close_item(item, index):
+        nonlocal output
+        if item[0] == "italic" and item[2] == "_":
+            close_checks.append((len(output), italic_runs.get(index)))
+        output += item[2]
 
     for index, (span, forced_space) in enumerate(items):
         state = _style_state(span)
@@ -784,9 +827,8 @@ def get_styled_text(spans):
                     ),
                     len(active),
                 )
-                output += "".join(
-                    item[2] for item in reversed(active[cut:])
-                )
+                for item in reversed(active[cut:]):
+                    close_item(item, max(index - 1, 0))
                 active = active[:cut]
 
         common = 0
@@ -808,9 +850,11 @@ def get_styled_text(spans):
             and previous["text"].strip().endswith("`")
         ):
             output += " "
-        output += "".join(item[2] for item in reversed(active[common:]))
+        for item in reversed(active[common:]):
+            close_item(item, max(index - 1, 0))
         output += separator
-        output += "".join(item[1] for item in stack[common:])
+        for item in stack[common:]:
+            open_item(item, index)
 
         span_text = span["text"].strip()
         if state[-1]:
@@ -831,7 +875,44 @@ def get_styled_text(spans):
     ):
         output += " "
     suffix = "".join(item[2] for item in reversed(active))
-    output += suffix + " "
+    for item in reversed(active):
+        close_item(item, len(items) - 1)
+    output += " "
+
+    for position, run in close_checks:
+        following = output[position + 1] if position + 1 < len(output) else ""
+        if following.isalnum() or following == "_":
+            invalid.add(run)
+    invalid.discard(None)
+    return output, suffix, invalid
+
+
+def get_styled_text(spans):
+    """Serialize style metadata with an explicit style stack.
+
+    At most two passes: if the first pass placed an "_" italic marker in a
+    flanking-invalid position (possible when a continuing outer run keeps
+    tags from separating the marker and a word), the affected runs are
+    re-emitted with HTML emphasis, which renders in any position.
+    """
+    items = _nonempty_styled_spans(spans)
+    if not items:
+        return "", ""
+
+    italic_markers = _italic_markers(items)
+    monospace_markers = _monospace_markers(items)
+    italic_runs = _italic_run_ranges(items)
+    output, suffix, invalid = _emit(
+        items, italic_markers, monospace_markers, italic_runs
+    )
+    if invalid:
+        italic_markers = dict(italic_markers)
+        for start, stop in invalid:
+            for index in range(start, stop):
+                italic_markers[index] = ("<em>", "</em>")
+        output, suffix, _ = _emit(
+            items, italic_markers, monospace_markers, italic_runs
+        )
     return output, suffix
 
 

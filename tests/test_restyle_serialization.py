@@ -228,3 +228,28 @@ def test_picture_text_serializes_available_style_metadata():
         "<!-- Start of picture text -->\n"
         "<u>signed</u><br><!-- End of picture text -->\n\n"
     )
+
+
+def test_code_run_is_cut_at_a_decoration_transition():
+    # A code span is literal: an underline crossing part of a code run must
+    # cut the run so the tags render outside the backticks (audit case).
+    spans = [
+        _span("A", 0, 10, flags=8),
+        _span("B", 10, 20, flags=8, char_flags=16 | 2),
+        _span("C", 20, 30, flags=8),
+    ]
+    output, _ = get_styled_text(spans)
+    assert output == "`A`<u>`B`</u>`C` "
+
+
+def test_flanking_invalid_italic_marker_upgrades_to_html():
+    # Inside a continuing underline run no tags separate the italic marker
+    # from the neighbouring words, so "_" would be literal intra-word;
+    # the run must fall back to HTML emphasis (audit case).
+    spans = [
+        _span("BOARD", 0, 30, char_flags=16 | 2),
+        _span("/", 30, 33, flags=2, char_flags=16 | 2),
+        _span("COMMISSION", 33, 90, char_flags=16 | 2),
+    ]
+    output, _ = get_styled_text(spans)
+    assert output == "<u>BOARD<em>/</em>COMMISSION</u> "
