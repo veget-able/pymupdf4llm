@@ -1464,7 +1464,7 @@ def parse_document(
                 ocr_language=ocr_language,
             )
             preflight_events[pno] = preflight_event
-        page_full_ocred = False
+        page_full_ocred = bool(preflight_event and preflight_event["selected"])
         PAGE_ANALYSIS = {}
         OCR_SPANS = 0
         ONLY_TEXT = False
@@ -1486,6 +1486,7 @@ def parse_document(
                 language=ocr_language,
                 keep_ocr_text=False,
             )
+            page_full_ocred = True
             if preflight_event:
                 preflight_event["normal_full_ocr_calls"] += 1
             print(f"OCR on {page.number=}/{page.number+1}.", file=INFO_MESSAGES)
@@ -1767,6 +1768,7 @@ def parse_document(
             render_html_tables=render_html_tables,
             edge_threshold=edge_threshold,
         )
+        repaired.pages[0].full_ocred = True
         document.pages[index] = repaired.pages[0]
     for preflight_event in preflight_events.values():
         prior_ocr_preflight.emit(preflight_event)
