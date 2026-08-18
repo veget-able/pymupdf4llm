@@ -1,4 +1,4 @@
-# PBChart63 live native-HF evaluation on RTX 5070 Ti
+# PBChart63 live native-HF environment comparison
 
 Date: 2026-08-18
 
@@ -25,6 +25,41 @@ This is a hardware/software-specific result. It is not claimed to reproduce
 bit-for-bit on a different GPU, CPU, operating system, or inference-library
 stack. Model comparisons must use a base control measured in the same
 environment.
+
+## RTX PRO 6000 live base reference
+
+The same evaluated product commit, base-v1.6 weight, 568-PDF/4,864-rule input,
+and 907-crop PBChart63 contract were also run from source PDFs on the `Kirby`
+RTX PRO 6000 environment.
+
+| Environment | Macro | Micro | Passed rules |
+|---|---:|---:|---:|
+| `ai-70ti`, 2 x RTX 5070 Ti | **0.6327847768428755** | 0.6182154605263158 | 3,007 / 4,864 |
+| `Kirby`, RTX PRO 6000 Blackwell | **0.6250795175090950** | 0.6091694078947369 | 2,963 / 4,864 |
+
+The PRO 6000 result is therefore **62.5079518% macro**, and it is the local
+same-environment base control for the R1/full-FT comparisons performed on
+`Kirby`. The observed 5070-minus-PRO-6000 difference is +0.7705259 percentage
+points and +44 passed rules.
+
+This is not evidence that the GPU model alone caused the difference. The
+complete execution stacks differ, including CPU, kernel, PyTorch, and
+Transformers versions. The PRO 6000 run used:
+
+- GPU: NVIDIA RTX PRO 6000 Blackwell Workstation Edition, 96 GB class
+- Driver: 580.95.05
+- OS/kernel: Ubuntu 24.04.3 LTS / Linux 6.14.0-37-generic
+- Python / PyTorch: 3.12.3 / 2.12.1+cu130
+- Transformers: 5.13.0
+- PyMuPDF / PyMuPDF-Layout / PyMuPDF4LLM: 1.28.2
+- Formal ParseBench report SHA-256:
+  `639d3040d733f2dd0aa8c52c3302ff7f1865133dad376be94fd69143485d8f52`
+- Run manifest SHA-256:
+  `ac26128ca3590720e1bdd7ebe8ca75c33f8f8b2e6b4e8a77364896a616875a6e`
+
+The two base scores must remain labeled by environment. The PRO 6000 value
+does not invalidate the 5070 value, and the 5070 value must not be used as the
+denominator for model comparisons executed on the PRO 6000 host.
 
 ## Live evaluation contract
 
