@@ -972,74 +972,6 @@ def list_item_to_md(textlines, level):
     return output + "\n\n"
 
 
-def _leading_bold_title_lines(textlines):
-    """Count a short, fully-bold prefix that is structurally a title."""
-    line_count = 0
-    word_count = 0
-    for line in textlines:
-        spans = [
-            span
-            for span in line.get("spans", ())
-            if span.get("text", "").strip()
-        ]
-        if not spans:
-            break
-        if not all(_style_state(span)[1] for span in spans) or any(
-            _style_state(span)[2] for span in spans
-        ):
-            break
-        word_count += len(" ".join(span["text"] for span in spans).split())
-        line_count += 1
-        if word_count > 12:
-            return 0
-    if not word_count:
-        return 0
-    text = " ".join(
-        span["text"].strip()
-        for line in textlines[:line_count]
-        for span in line.get("spans", ())
-        if span.get("text", "").strip()
-    ).strip()
-    folded = text.casefold()
-    if len(text) < 2 or folded.startswith(("www.", "http://", "https://")):
-        return 0
-    if folded.startswith(("page ", "page •", "página ", "pagina ")) and any(
-        character.isdigit() for character in folded
-    ):
-        return 0
-    return line_count
-
-
-def _leading_bold_run_in_spans(textlines):
-    """Count an all-caps bold run-in title at the start of the first line."""
-    if not textlines:
-        return 0
-    spans = [
-        span
-        for span in textlines[0].get("spans", ())
-        if span.get("text", "").strip()
-    ]
-    count = 0
-    for span in spans:
-        state = _style_state(span)
-        if not state[1] or state[2]:
-            break
-        count += 1
-    if not count or count == len(spans):
-        return 0
-    text = " ".join(span["text"].strip() for span in spans[:count]).strip()
-    letters = [character for character in text if character.isalpha()]
-    words = text.split()
-    if (
-        len(text) < 2
-        or not 2 <= len(words) <= 12
-        or not letters
-        or any(character != character.upper() for character in letters)
-    ):
-        return 0
-    return count
-
-
 def footnote_to_md(textlines):
     """
     Convert "footnote" bboxes to markdown.
@@ -1570,15 +1502,6 @@ class ParsedDocument:
         else:
             document_output = ""
 
-        header_levels = [
-            box.header_level
-            for page in self.pages
-            for box in page.boxes
-            if box.boxclass in ("title", "section-header") and box.header_level
-        ]
-        promoted_header_level = (
-            min(6, max(header_levels) + 1) if header_levels else 2
-        )
 
         if show_progress and len(self.pages) > 5:
             print(f"Generating markdown text...")
@@ -1654,73 +1577,10 @@ class ParsedDocument:
                     md_string += footnote_to_md(box.textlines)
                     string_lengths.append(len(md_string))
                 else:
-                    candidate_title_line_count = _leading_bold_title_lines(
-                        box.textlines
+                    md_string += text_to_md(
+                        box.textlines,
+                        ignore_code=ignore_code or page.full_ocred,
                     )
-                    candidate_run_in_span_count = (
-                        0
-                        if candidate_title_line_count
-                        else _leading_bold_run_in_spans(box.textlines)
-                    )
-                    # A bold-only box immediately above the page footer is
-                    # normally pagination or an editorial callout. A title
-                    # prefix followed by body text in the same box remains a
-                    # structural heading even when the column reaches the
-                    # bottom margin.
-                    near_page_footer = any(
-                        other.boxclass == "page-footer"
-                        and other.y0 >= box.y1
-                        and other.y0 - box.y1 <= max(24, 0.03 * page.height)
-                        for other in page.boxes
-                    )
-                    has_following_body = (
-                        candidate_title_line_count
-                        and candidate_title_line_count < len(box.textlines)
-                        or candidate_run_in_span_count
-                    )
-                    promotion_blocked = (
-                        btype in ("page-header", "page-footer")
-                        or near_page_footer
-                    ) and not has_following_body
-                    title_line_count = (
-                        0
-                        if promotion_blocked
-                        else candidate_title_line_count
-                    )
-                    run_in_span_count = (
-                        0
-                        if promotion_blocked
-                        else candidate_run_in_span_count
-                    )
-                    if title_line_count:
-                        md_string += section_hdr_to_md(
-                            promoted_header_level,
-                            box.textlines[:title_line_count],
-                        )
-                        if title_line_count < len(box.textlines):
-                            md_string += text_to_md(
-                                box.textlines[title_line_count:],
-                                ignore_code=ignore_code or page.full_ocred,
-                            )
-                    elif run_in_span_count:
-                        first_line = box.textlines[0]
-                        title_line = dict(first_line)
-                        title_line["spans"] = first_line["spans"][:run_in_span_count]
-                        body_line = dict(first_line)
-                        body_line["spans"] = first_line["spans"][run_in_span_count:]
-                        md_string += section_hdr_to_md(
-                            promoted_header_level,
-                            [title_line],
-                        )
-                        md_string += text_to_md(
-                            [body_line, *box.textlines[1:]],
-                            ignore_code=ignore_code or page.full_ocred,
-                        )
-                    else:
-                        md_string += text_to_md(
-                            box.textlines,
-                            ignore_code=ignore_code or page.full_ocred,
-                        )
                     string_lengths.append(len(md_string))
             if page_separators:
                 md_string += f"--- end of {page.page_number=} ---\n\n"

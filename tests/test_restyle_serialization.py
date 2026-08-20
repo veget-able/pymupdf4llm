@@ -1,7 +1,6 @@
 import pymupdf
 
 from pymupdf4llm.helpers.document_layout import (
-    _leading_bold_run_in_spans,
     text_to_md,
     get_styled_text,
     list_item_to_md,
@@ -73,15 +72,6 @@ def test_recovered_script_is_not_serialized_in_a_heading_number():
     ]
     output = section_hdr_to_md(1, [{"spans": spans}])
     assert output == "# 5 Fund Type \n\n"
-
-
-def test_all_caps_bold_run_in_title_is_separated_from_body():
-    spans = [
-        _span("COUNTY OFFICES", 0, 50, flags=pymupdf.TEXT_FONT_BOLD),
-        _span("THREE COMMISSIONERS", 51, 120, flags=pymupdf.TEXT_FONT_BOLD),
-        _span("District 2", 121, 165),
-    ]
-    assert _leading_bold_run_in_spans([{"spans": spans}]) == 2
 
 
 def test_common_bold_stays_open_across_an_underline_transition():
