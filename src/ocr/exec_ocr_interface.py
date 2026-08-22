@@ -72,7 +72,17 @@ def _get_devanagari_font():
 
 
 def _select_writeback_font(text):
-    """Return the glyph-complete font and page resource for an OCR string."""
+    """Return the declared write-back font and page resource for an OCR string.
+
+    Existing RapidOCR write-back has always used the CJK font without a
+    preflight coverage check.  Preserve that path exactly for strings that do
+    not contain Devanagari: MuPDF's glyph probe is not authoritative for every
+    legacy OCR result (for example U+2206).  The stricter, glyph-complete
+    choice is only needed for strings which require the Devanagari fallback.
+    """
+    if not _contains_devanagari(text):
+        return FONT, FONTNAME
+
     if "\x00" in text or REPLACEMENT_UNICODE in text:
         raise OCRFontCoverageError(
             "OCR output contains a forbidden control or replacement glyph"

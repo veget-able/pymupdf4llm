@@ -145,9 +145,11 @@ class ScriptAwareWritebackTests(unittest.TestCase):
         self.assertEqual(list(DEVANAGARI_STRINGS), page.get_text("text").splitlines())
         document.close()
 
-    def test_current_font_covered_writeback_uses_the_existing_cjk_path(self):
+    def test_non_devanagari_writeback_uses_the_exact_legacy_cjk_path(self):
         for text in (
             "OFFICE OF THE PRINCIPAL COMMISSIONER",
+            "∆E = mc²",
+            "العربية",
             "Русский",
             "漢字",
         ):
@@ -165,11 +167,28 @@ class ScriptAwareWritebackTests(unittest.TestCase):
                     [font[4] for font in selected[2].get_fonts(full=True)],
                 )
 
-    def test_uncovered_non_devanagari_or_invalid_text_is_rejected(self):
-        for text in ("😀", "العربية", "NUL\x00text", "bad\ufffdtext"):
+    def test_devanagari_strings_not_fully_covered_are_rejected(self):
+        for text in ("भारत OFFICE", "भारत\x00", "भारत\ufffd", "भारत😀"):
             with self.subTest(text=repr(text)):
                 with self.assertRaises(ocr.OCRFontCoverageError):
                     ocr._select_writeback_font(text)
+
+    def test_non_devanagari_full_and_detection_paths_keep_legacy_selection(self):
+        texts = ("∆E = mc²", "العربية", "Русский")
+
+        document, page = _nonempty_page()
+        ocr.exec_ocr_full(page, _full_ocr_result(texts))
+        full_resources = [font[4] for font in page.get_fonts(full=True)]
+        self.assertEqual(1, full_resources.count(ocr.FONTNAME))
+        self.assertNotIn(ocr.DEVANAGARI_FONTNAME, full_resources)
+        document.close()
+
+        document, page = _nonempty_page()
+        _run_detection(page, texts)
+        detection_resources = [font[4] for font in page.get_fonts(full=True)]
+        self.assertEqual(1, detection_resources.count(ocr.FONTNAME))
+        self.assertNotIn(ocr.DEVANAGARI_FONTNAME, detection_resources)
+        document.close()
 
     def test_detection_writeback_roundtrips_devanagari_without_replacement_or_nul(self):
         document, page = _nonempty_page()
@@ -186,7 +205,7 @@ class ScriptAwareWritebackTests(unittest.TestCase):
         document.close()
 
     def test_detection_preflight_rejects_before_target_page_mutation(self):
-        for text in ("भारत OFFICE", "bad\x00text", "bad\ufffdtext", "😀"):
+        for text in ("भारत OFFICE", "भारत\x00", "भारत\ufffd", "भारत😀"):
             with self.subTest(text=repr(text)):
                 document, page = _nonempty_page()
                 before = _page_snapshot(page)
