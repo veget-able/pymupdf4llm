@@ -73,16 +73,17 @@ def _get_devanagari_font():
 
 def _select_writeback_font(text):
     """Return the glyph-complete font and page resource for an OCR string."""
+    if "\x00" in text or REPLACEMENT_UNICODE in text:
+        raise OCRFontCoverageError(
+            "OCR output contains a forbidden control or replacement glyph"
+        )
     if _font_covers(FONT, text):
         return FONT, FONTNAME
     if _contains_devanagari(text):
         font = _get_devanagari_font()
         if _font_covers(font, text):
             return font, DEVANAGARI_FONTNAME
-        raise OCRFontCoverageError(
-            "no declared write-back font covers Devanagari OCR output"
-        )
-    return FONT, FONTNAME
+    raise OCRFontCoverageError("no declared write-back font covers OCR output")
 
 
 # prepare for more advanced use of Tesseract by checking a function signature
@@ -189,6 +190,28 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
             "Detection-only function must return a list of (box, score) tuples."
         )
 
+    # Execute Tesseract's text Recognizer
+    # List of Tesseract text results
+    writeback_items = []
+
+    for box, score in result:
+        irect = pymupdf.IRect(
+            min(p[0] for p in box),
+            min(p[1] for p in box),
+            max(p[0] for p in box),
+            max(p[1] for p in box),
+        )
+        text = get_text(pix, irect)
+        if not text.strip():
+            continue
+        font, fontname = _select_writeback_font(text)
+        writeback_items.append((irect, text, font, fontname))
+
+    if not writeback_items:
+        return
+
+    # All font selection above is a preflight: an uncovered result must not
+    # redact existing page text before the callback fails closed.
     # Remove all OCR spans and spans containing a U+FFFD.
     # The OCR engine will restore them according to its best ability.
     redaction_rects = fffd_spans + ocr_spans
@@ -201,32 +224,20 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
             text=pymupdf.PDF_REDACT_TEXT_REMOVE,
         )
 
-    # Execute Tesseract's text Recognizer
-    # List of Tesseract text results
-    tess_results = []
-
-    for box, score in result:
-        irect = pymupdf.IRect(
-            min(p[0] for p in box),
-            min(p[1] for p in box),
-            max(p[0] for p in box),
-            max(p[1] for p in box),
-        )
-        text = get_text(pix, irect)
-        tess_results.append((irect, text))
-
-    if not tess_results:
-        return
-
     # insert the OCR font into the page
     page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
+    devanagari_font_inserted = False
 
-    for irect, text in tess_results:
+    for irect, text, font, fontname in writeback_items:
         # this is the line box
         rect = pymupdf.Rect(irect) * matrix
 
+        if fontname == DEVANAGARI_FONTNAME and not devanagari_font_inserted:
+            page.insert_font(fontname=fontname, fontbuffer=font.buffer)
+            devanagari_font_inserted = True
+
         # this matrix will ensure text width = rect width
-        mat = adjust_width(text, rect.height, rect)
+        mat = adjust_width(text, rect.height, rect, font=font)
 
         # Insert one line of text. Insertion point is the bottom-left box
         # corner adjusted slightly upwards to account for the descender. Note
@@ -238,7 +249,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
             rect.bl + (0, -0.2 * rect.height),  # insertion point
             text,  # text to render
             fontsize=rect.height,  # take this as font size
-            fontname=FONTNAME,  # fallback font
+            fontname=fontname,
             morph=(rect.bl, mat),  # adjust width to fit the line box
         )
 
@@ -313,6 +324,9 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
             continue
         font, fontname = _select_writeback_font(text)
         writeback_items.append((box, text, conf, font, fontname))
+
+    if not writeback_items:
+        return
 
     # Remove all OCR and illegible spans from the page.
     # The OCR engine will restore them according to its best ability.

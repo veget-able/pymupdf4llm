@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import pymupdf
 
@@ -37,7 +38,12 @@ def _full_ocr_result(texts):
             top = 20 + ordinal * 80
             result.append(
                 (
-                    [[20, top], [width - 20, top], [width - 20, top + 50], [20, top + 50]],
+                    [
+                        [20, top],
+                        [width - 20, top],
+                        [width - 20, top + 50],
+                        [20, top + 50],
+                    ],
                     text,
                     0.99,
                 )
@@ -47,11 +53,50 @@ def _full_ocr_result(texts):
     return full_ocr
 
 
+def _det_only_result(text_count):
+    def det_only(image):
+        width = image.shape[1]
+        result = []
+        for ordinal in range(text_count):
+            top = 20 + ordinal * 80
+            result.append(
+                (
+                    [
+                        [20, top],
+                        [width - 20, top],
+                        [width - 20, top + 50],
+                        [20, top + 50],
+                    ],
+                    0.99,
+                )
+            )
+        return result
+
+    return det_only
+
+
 def _nonempty_page():
     document = pymupdf.open()
     page = document.new_page(width=600, height=300)
     page.draw_rect(page.rect, color=None, fill=(0, 0, 0))
     return document, page
+
+
+def _page_snapshot(page):
+    return (
+        page.get_text("text"),
+        page.read_contents(),
+        page.get_fonts(full=True),
+        list(page.annots() or ()),
+    )
+
+
+def _run_detection(page, texts):
+    with (
+        mock.patch.object(ocr, "TESSDATA", "test"),
+        mock.patch.object(ocr, "get_text", side_effect=texts),
+    ):
+        ocr.exec_ocr_detection(page, _det_only_result(len(texts)))
 
 
 class ScriptAwareWritebackTests(unittest.TestCase):
@@ -82,13 +127,12 @@ class ScriptAwareWritebackTests(unittest.TestCase):
 
     def test_uncovered_devanagari_ascii_fails_closed_before_page_mutation(self):
         document, page = _nonempty_page()
-        before_fonts = page.get_fonts(full=True)
+        before = _page_snapshot(page)
 
         with self.assertRaises(ocr.OCRFontCoverageError):
             ocr.exec_ocr_full(page, _full_ocr_result(("भारत OFFICE",)))
 
-        self.assertEqual(before_fonts, page.get_fonts(full=True))
-        self.assertNotIn("devanagari_font", page.read_contents().decode("latin-1"))
+        self.assertEqual(before, _page_snapshot(page))
         document.close()
 
     def test_devanagari_resource_is_inserted_once_for_multiple_strings(self):
@@ -101,11 +145,11 @@ class ScriptAwareWritebackTests(unittest.TestCase):
         self.assertEqual(list(DEVANAGARI_STRINGS), page.get_text("text").splitlines())
         document.close()
 
-    def test_non_devanagari_writeback_uses_the_existing_cjk_path(self):
+    def test_current_font_covered_writeback_uses_the_existing_cjk_path(self):
         for text in (
             "OFFICE OF THE PRINCIPAL COMMISSIONER",
-            "Қазақстан Республикасы",
-            "العربية",
+            "Русский",
+            "漢字",
         ):
             with self.subTest(text=text):
                 current = _write_text(text, ocr.FONT, ocr.FONTNAME)
@@ -120,6 +164,65 @@ class ScriptAwareWritebackTests(unittest.TestCase):
                     ocr.DEVANAGARI_FONTNAME,
                     [font[4] for font in selected[2].get_fonts(full=True)],
                 )
+
+    def test_uncovered_non_devanagari_or_invalid_text_is_rejected(self):
+        for text in ("😀", "العربية", "NUL\x00text", "bad\ufffdtext"):
+            with self.subTest(text=repr(text)):
+                with self.assertRaises(ocr.OCRFontCoverageError):
+                    ocr._select_writeback_font(text)
+
+    def test_detection_writeback_roundtrips_devanagari_without_replacement_or_nul(self):
+        document, page = _nonempty_page()
+
+        _run_detection(page, DEVANAGARI_STRINGS)
+
+        reopened = pymupdf.open("pdf", document.tobytes())
+        extracted = reopened[0].get_text("text")
+        self.assertEqual(list(DEVANAGARI_STRINGS), extracted.splitlines())
+        self.assertNotIn("\ufffd", extracted)
+        self.assertNotIn("\x00", extracted)
+        resources = [font[4] for font in reopened[0].get_fonts(full=True)]
+        self.assertEqual(1, resources.count(ocr.DEVANAGARI_FONTNAME))
+        document.close()
+
+    def test_detection_preflight_rejects_before_target_page_mutation(self):
+        for text in ("भारत OFFICE", "bad\x00text", "bad\ufffdtext", "😀"):
+            with self.subTest(text=repr(text)):
+                document, page = _nonempty_page()
+                before = _page_snapshot(page)
+
+                with self.assertRaises(ocr.OCRFontCoverageError):
+                    _run_detection(page, (text,))
+
+                self.assertEqual(before, _page_snapshot(page))
+                document.close()
+
+    def test_blank_results_do_not_mutate_either_writeback_path(self):
+        for callback in (
+            lambda page: ocr.exec_ocr_full(page, _full_ocr_result((" \t",))),
+            lambda page: _run_detection(page, (" \t",)),
+        ):
+            with self.subTest(callback=callback):
+                document, page = _nonempty_page()
+                before = _page_snapshot(page)
+
+                callback(page)
+
+                self.assertEqual(before, _page_snapshot(page))
+                document.close()
+
+    def test_detection_covered_path_uses_existing_cjk_resource(self):
+        document, page = _nonempty_page()
+
+        _run_detection(page, ("OFFICE OF THE PRINCIPAL COMMISSIONER",))
+
+        resources = [font[4] for font in page.get_fonts(full=True)]
+        self.assertEqual(1, resources.count(ocr.FONTNAME))
+        self.assertNotIn(ocr.DEVANAGARI_FONTNAME, resources)
+        self.assertEqual(
+            "OFFICE OF THE PRINCIPAL COMMISSIONER", page.get_text("text").strip()
+        )
+        document.close()
 
     def test_selected_font_controls_the_width_scaling(self):
         text = DEVANAGARI_STRINGS[0]
