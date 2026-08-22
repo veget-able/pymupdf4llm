@@ -1,3 +1,5 @@
+import hashlib
+import math
 import unittest
 from unittest import mock
 
@@ -11,6 +13,27 @@ DEVANAGARI_STRINGS = (
     "नवीन सीमा शल्क भवन, निकट इंदिरा गाधी अंतराष्टीय हवाई अडडा, नई दिल्ली-110037",
     "7०9/19",
 )
+
+D2_MIXED_STRINGS = (
+    "uo updde oqe प q pगy sem zi's/n uoensI8ay Suypes VOIoN पoI u! uoneoddeपL 'I",
+    "Jo unpuerouaN/snL Jo pa e q ponsuos eM uonnsuI/snL ueodde पL ZI0Z/I0/8I",
+)
+D2_MIXED_SHA256 = (
+    "58b2ebbd4283f54515600378c2d43ddcadc1d370471bb49a84154f6e8676ac0e",
+    "13a88bf9cae678c1bc770f523b90b0eb6b834b380f16619374d8c08d62dcaca2",
+)
+
+
+class _RecordingPage:
+    def __init__(self):
+        self.fonts = []
+        self.text = []
+
+    def insert_font(self, **kwargs):
+        self.fonts.append(kwargs)
+
+    def insert_text(self, point, text, **kwargs):
+        self.text.append((pymupdf.Point(point), text, kwargs))
 
 
 def _write_text(text, font, fontname):
@@ -125,12 +148,12 @@ class ScriptAwareWritebackTests(unittest.TestCase):
         self.assertIs(font, ocr._get_devanagari_font())
         self.assertEqual(ocr.DEVANAGARI_FONTNAME, fontname)
 
-    def test_uncovered_devanagari_ascii_fails_closed_before_page_mutation(self):
+    def test_uncovered_devanagari_input_fails_closed_before_page_mutation(self):
         document, page = _nonempty_page()
         before = _page_snapshot(page)
 
         with self.assertRaises(ocr.OCRFontCoverageError):
-            ocr.exec_ocr_full(page, _full_ocr_result(("भारत OFFICE",)))
+            ocr.exec_ocr_full(page, _full_ocr_result(("भारत😀",)))
 
         self.assertEqual(before, _page_snapshot(page))
         document.close()
@@ -168,7 +191,7 @@ class ScriptAwareWritebackTests(unittest.TestCase):
                 )
 
     def test_devanagari_strings_not_fully_covered_are_rejected(self):
-        for text in ("भारत OFFICE", "भारत\x00", "भारत\ufffd", "भारत😀"):
+        for text in ("भारत\x00", "भारत\ufffd", "भारत😀"):
             with self.subTest(text=repr(text)):
                 with self.assertRaises(ocr.OCRFontCoverageError):
                     ocr._select_writeback_font(text)
@@ -205,7 +228,7 @@ class ScriptAwareWritebackTests(unittest.TestCase):
         document.close()
 
     def test_detection_preflight_rejects_before_target_page_mutation(self):
-        for text in ("भारत OFFICE", "भारत\x00", "भारत\ufffd", "भारत😀"):
+        for text in ("भारत\x00", "भारत\ufffd", "भारत😀"):
             with self.subTest(text=repr(text)):
                 document, page = _nonempty_page()
                 before = _page_snapshot(page)
@@ -252,3 +275,89 @@ class ScriptAwareWritebackTests(unittest.TestCase):
 
         self.assertIsNot(font, ocr.FONT)
         self.assertEqual(rect.width / font.text_length(text, rect.height), matrix.a)
+
+    def test_actual_d2_mixed_strings_and_codepoints_are_pinned(self):
+        self.assertEqual(
+            list(D2_MIXED_SHA256),
+            [hashlib.sha256(text.encode("utf-8")).hexdigest() for text in D2_MIXED_STRINGS],
+        )
+        self.assertEqual([0x092A, 0x0917, 0x092A, 0x092A], [ord(c) for c in D2_MIXED_STRINGS[0] if 0x0900 <= ord(c) <= 0x097F])
+        self.assertEqual([0x092A], [ord(c) for c in D2_MIXED_STRINGS[1] if 0x0900 <= ord(c) <= 0x097F])
+
+    def test_actual_d2_mixed_strings_plan_maximal_cjk_and_devanagari_runs(self):
+        for text in D2_MIXED_STRINGS:
+            with self.subTest(text_sha256=hashlib.sha256(text.encode()).hexdigest()):
+                runs = ocr._plan_writeback_runs(text)
+                self.assertEqual(text, "".join(run[0] for run in runs))
+                self.assertGreater(len(runs), 1)
+                self.assertEqual(ocr.FONTNAME, runs[0][2])
+                self.assertTrue(any(run[2] == ocr.DEVANAGARI_FONTNAME for run in runs))
+                self.assertTrue(all(run[2] != next_run[2] for run, next_run in zip(runs, runs[1:])))
+                self.assertTrue(all(ocr._font_covers(run[1], run[0]) for run in runs))
+
+    def test_mixed_planner_uses_cjk_for_an_equal_transition_tie(self):
+        runs = ocr._plan_writeback_runs("A/प")
+
+        self.assertEqual([("A/", ocr.FONTNAME), ("प", ocr.DEVANAGARI_FONTNAME)], [(text, name) for text, _font, name in runs])
+
+    def test_cluster_planner_keeps_marks_virama_variation_and_join_controls_with_base(self):
+        self.assertEqual(["क्‍षि"], ocr._grapheme_clusters("क्‍षि"))
+        self.assertEqual(["क्‌", "ष"], ocr._grapheme_clusters("क्‌ष"))
+        self.assertEqual(["क️"], ocr._grapheme_clusters("क️"))
+
+    def test_mixed_roundtrip_preserves_actual_d2_strings_in_full_and_detection_paths(self):
+        for path in ("full", "detection"):
+            with self.subTest(path=path):
+                document, page = _nonempty_page()
+                if path == "full":
+                    ocr.exec_ocr_full(page, _full_ocr_result(D2_MIXED_STRINGS))
+                else:
+                    _run_detection(page, D2_MIXED_STRINGS)
+                reopened = pymupdf.open("pdf", document.tobytes())
+                extracted = reopened[0].get_text("text")
+                self.assertEqual(list(D2_MIXED_STRINGS), extracted.splitlines())
+                self.assertNotIn("\ufffd", extracted)
+                self.assertNotIn("\x00", extracted)
+                resources = [font[4] for font in reopened[0].get_fonts(full=True)]
+                self.assertEqual(1, resources.count(ocr.FONTNAME))
+                self.assertEqual(1, resources.count(ocr.DEVANAGARI_FONTNAME))
+                document.close()
+
+    def test_mixed_inserter_uses_one_scale_and_preserves_run_order_and_geometry(self):
+        text = D2_MIXED_STRINGS[1]
+        rect = pymupdf.Rect(20, 20, 580, 80)
+        prepared = ocr._prepare_writeback(text, rect)
+        page = _RecordingPage()
+        ocr._insert_writeback(page, rect, text, prepared, {ocr.FONTNAME})
+        runs, natural_width = prepared
+        scale = rect.width / natural_width
+        self.assertTrue(math.isfinite(scale) and scale > 0)
+        self.assertEqual([run[0] for run in runs], [record[1] for record in page.text])
+        self.assertEqual(text, "".join(record[1] for record in page.text))
+        self.assertTrue(all(record[2]["morph"][1].a == scale for record in page.text))
+        expected = rect.bl + (0, -0.2 * rect.height)
+        self.assertEqual(expected, page.text[0][0])
+        self.assertAlmostEqual(rect.x1, page.text[-1][0].x + runs[-1][3] * scale)
+        self.assertEqual(1, sum(font["fontname"] == ocr.DEVANAGARI_FONTNAME for font in page.fonts))
+
+    def test_mixed_preflight_rejects_a_later_uncovered_item_before_any_mutation(self):
+        callbacks = (
+            lambda page: ocr.exec_ocr_full(page, _full_ocr_result((D2_MIXED_STRINGS[0], "भारत😀"))),
+            lambda page: _run_detection(page, (D2_MIXED_STRINGS[0], "भारत😀")),
+        )
+        for callback in callbacks:
+            with self.subTest(callback=callback):
+                document, page = _nonempty_page()
+                before = _page_snapshot(page)
+                with self.assertRaises(ocr.OCRFontCoverageError):
+                    callback(page)
+                self.assertEqual(before, _page_snapshot(page))
+                document.close()
+
+    def test_mixed_resource_is_reused_across_multiple_items(self):
+        document, page = _nonempty_page()
+        ocr.exec_ocr_full(page, _full_ocr_result(D2_MIXED_STRINGS))
+        resources = [font[4] for font in page.get_fonts(full=True)]
+        self.assertEqual(1, resources.count(ocr.FONTNAME))
+        self.assertEqual(1, resources.count(ocr.DEVANAGARI_FONTNAME))
+        document.close()
