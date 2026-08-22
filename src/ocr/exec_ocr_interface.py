@@ -1,4 +1,5 @@
 import inspect
+import unicodedata
 
 import numpy as np
 import pymupdf
@@ -12,9 +13,17 @@ except Exception as e:
 
 FONT = pymupdf.Font("cjk")  # this is the "Droid Sans Fallback" font
 FONTNAME = "myfont"  # its reference name in the page
+DEVANAGARI_FONTNAME = "devanagari_font"
+DEVANAGARI_SCRIPT = pymupdf.mupdf.UCDN_SCRIPT_DEVANAGARI
 REPLACEMENT_UNICODE = chr(0xFFFD)  # Unicode Replacement Character
 STROKED_TEXT = pymupdf.mupdf.FZ_STEXT_STROKED
 FILLED_TEXT = pymupdf.mupdf.FZ_STEXT_FILLED
+
+_devanagari_font = None
+
+
+class OCRFontCoverageError(RuntimeError):
+    """Raised when no declared write-back font covers an OCR string."""
 
 
 def ocr_text(span) -> bool:
@@ -27,16 +36,53 @@ def ocr_text(span) -> bool:
     return True
 
 
-def adjust_width(text, fontsize, rect):
+def adjust_width(text, fontsize, rect, font=FONT):
     """Compute matrix to adjust text width.
 
     We must ensure that inserted text has the width of the rectangle.
     The computed matrix will do this scaling.
     """
-    tl = FONT.text_length(text, fontsize)
+    tl = font.text_length(text, fontsize)
     if tl > 0:
         return pymupdf.Matrix(rect.width / tl, 1)
     return pymupdf.Matrix(1, 1)
+
+
+def _contains_devanagari(text):
+    return any(0x0900 <= ord(char) <= 0x097F for char in text)
+
+
+def _font_covers(font, text):
+    """Return whether *font* covers every non-control codepoint in *text*."""
+    return all(
+        unicodedata.category(char) == "Cc" or font.has_glyph(ord(char)) != 0
+        for char in text
+    )
+
+
+def _get_devanagari_font():
+    """Lazily load MuPDF's built-in Noto Serif Devanagari font."""
+    global _devanagari_font
+    if _devanagari_font is None:
+        font = pymupdf.Font(script=DEVANAGARI_SCRIPT)
+        if not _font_covers(font, "".join(map(chr, range(0x0900, 0x0980)))):
+            raise OCRFontCoverageError("MuPDF Devanagari font is incomplete")
+        _devanagari_font = font
+    return _devanagari_font
+
+
+def _select_writeback_font(text):
+    """Return the glyph-complete font and page resource for an OCR string."""
+    if _font_covers(FONT, text):
+        return FONT, FONTNAME
+    if _contains_devanagari(text):
+        font = _get_devanagari_font()
+        if _font_covers(font, text):
+            return font, DEVANAGARI_FONTNAME
+        raise OCRFontCoverageError(
+            "no declared write-back font covers Devanagari OCR output"
+        )
+    return FONT, FONTNAME
 
 
 # prepare for more advanced use of Tesseract by checking a function signature
@@ -257,6 +303,17 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
         raise RuntimeError(
             "Full OCR function must return a list of (box, text, score) tuples."
         )
+
+    # Select all write-back fonts before mutating the page. In particular, an
+    # uncovered Devanagari-mixed string must fail closed rather than redact
+    # existing OCR text and then write an incomplete replacement.
+    writeback_items = []
+    for box, text, conf in result:
+        if not text.strip():
+            continue
+        font, fontname = _select_writeback_font(text)
+        writeback_items.append((box, text, conf, font, fontname))
+
     # Remove all OCR and illegible spans from the page.
     # The OCR engine will restore them according to its best ability.
     redaction_rects = fffd_spans + ocr_spans
@@ -271,9 +328,10 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
 
     # insert the font into the page if not already present
     page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
+    devanagari_font_inserted = False
 
     # Insert recognized text
-    for box, text, conf in result:
+    for box, text, conf, font, fontname in writeback_items:
         rect = (
             pymupdf.Rect(
                 min(p[0] for p in box),
@@ -284,17 +342,18 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
             * matrix
         )
 
-        if not text.strip():
-            continue
+        if fontname == DEVANAGARI_FONTNAME and not devanagari_font_inserted:
+            page.insert_font(fontname=fontname, fontbuffer=font.buffer)
+            devanagari_font_inserted = True
 
         fontsize = rect.height
         # Text width scaling matrix ensures text width = box width
-        mat = adjust_width(text, fontsize, rect)
+        mat = adjust_width(text, fontsize, rect, font=font)
 
         page.insert_text(
             rect.bl + (0, -0.2 * fontsize),
             text,
             fontsize=fontsize,
-            fontname=FONTNAME,
+            fontname=fontname,
             morph=(rect.bl, mat),
         )
