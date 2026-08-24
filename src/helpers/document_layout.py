@@ -1344,17 +1344,6 @@ def _merge_chart_detections(page, detect_charts, pagelayout):
             score = item.get("score")
         payload = {"score": float(score)} if score is not None else {}
         payload["bbox"] = box  # detector coordinates, kept for crop union / consumers
-        if isinstance(item, dict):
-            for key in (
-                "source",
-                "label",
-                "model_path",
-                "model_variant",
-                "providers",
-                "refinement",
-            ):
-                if key in item:
-                    payload[key] = item[key]
         best, best_iou = None, 0.65
         for b in pictures:
             iou = utils.iou(box, (b.x0, b.y0, b.x1, b.y1))
@@ -1377,327 +1366,6 @@ def _merge_chart_detections(page, detect_charts, pagelayout):
         pagelayout.boxes.insert(index, lb)
 
 
-def _merge_picture_detections(
-    page,
-    detect_pictures,
-    pagelayout,
-    *,
-    iou_threshold=0.65,
-):
-    """Merge optional Picture detections after the existing Chart merge.
-
-    The reviewer Chart merge implementation remains authoritative and unchanged;
-    its detections may come from D0 or from DP0's own Chart lane.
-    A DP0 Picture detection overlapping a flagged Chart at the same IoU threshold
-    is ignored. Otherwise it follows the reviewer Chart bbox contract: match
-    an existing Picture without moving it, or add an unmatched Picture box.
-    """
-    if not callable(detect_pictures):
-        raise TypeError("detect_pictures must be a callable page -> detections")
-    if not 0.0 <= float(iou_threshold) <= 1.0:
-        raise ValueError("picture_iou_threshold must be in [0, 1]")
-
-    detections = list(detect_pictures(page) or [])
-    chart_boxes = [
-        box.chart.get("bbox")
-        for box in pagelayout.boxes
-        if box.boxclass == "picture"
-        and isinstance(box.chart, dict)
-        and box.chart.get("bbox") is not None
-    ]
-    pictures = [
-        box
-        for box in pagelayout.boxes
-        if box.boxclass == "picture" and box.chart is None
-    ]
-
-    def _stripe(y0, x0):
-        return (round(y0 / 40.0), x0)
-
-    for item in detections:
-        if isinstance(item, dict):
-            label = str(item.get("label") or "picture").strip().lower()
-            if label != "picture":
-                continue
-            rect = item.get("bbox") or item.get("box")
-            score = item.get("score")
-        else:
-            rect = getattr(item, "rect", None)
-            if rect is None:
-                rect = getattr(item, "box", None)
-            if rect is None:
-                rect = item
-            score = getattr(item, "score", None)
-        try:
-            detector_box = [
-                float(rect[0]),
-                float(rect[1]),
-                float(rect[2]),
-                float(rect[3]),
-            ]
-        except (IndexError, KeyError, TypeError, ValueError):
-            continue
-        if detector_box[2] <= detector_box[0] or detector_box[3] <= detector_box[1]:
-            continue
-        if any(
-            utils.iou(detector_box, chart_box) >= float(iou_threshold)
-            for chart_box in chart_boxes
-        ):
-            continue
-
-        payload = {"bbox": detector_box}
-        if score is not None:
-            payload["score"] = float(score)
-        if isinstance(item, dict):
-            for key in (
-                "source",
-                "label",
-                "detector_bbox",
-                "timing",
-                "model_path",
-                "model_variant",
-                "providers",
-                "refinement",
-            ):
-                if key in item:
-                    payload[key] = item[key]
-
-        best, best_iou = None, float(iou_threshold)
-        for picture in pictures:
-            overlap = utils.iou(
-                detector_box,
-                (picture.x0, picture.y0, picture.x1, picture.y1),
-            )
-            if overlap >= best_iou:
-                best, best_iou = picture, overlap
-        if best is not None:
-            if getattr(best, "picture_detection", None) is None:
-                best.picture_detection = payload
-            continue
-
-        picture = LayoutBox(
-            x0=detector_box[0],
-            y0=detector_box[1],
-            x1=detector_box[2],
-            y1=detector_box[3],
-            boxclass="picture",
-        )
-        picture.picture_detection = payload
-        index = len(pagelayout.boxes)
-        key = _stripe(detector_box[1], detector_box[0])
-        for position, layoutbox in enumerate(pagelayout.boxes):
-            if _stripe(layoutbox.y0, layoutbox.x0) > key:
-                index = position
-                break
-        pagelayout.boxes.insert(index, picture)
-        pictures.append(picture)
-
-
-def _suppress_multichild_native_picture_parents(
-    pagelayout,
-    *,
-    contain_overlap=0.9,
-    min_children=2,
-    parent_coverage=0.9,
-    content_coverage=0.9,
-):
-    """Remove only a fully explained native Picture around multiple Pictures.
-
-    This runs after the ordered Chart and Picture detector merges. Detector-owned
-    boxes remain authoritative children, while only a native GNN Picture without
-    either ownership payload can be removed as an oversized parent. The children
-    must explain both its area and every contained layout/text element.
-    """
-    if not 0 <= float(contain_overlap) <= 1:
-        raise ValueError("contain_overlap must be in [0, 1]")
-    if not 0 <= float(parent_coverage) <= 1:
-        raise ValueError("parent_coverage must be in [0, 1]")
-    if not 0 <= float(content_coverage) <= 1:
-        raise ValueError("content_coverage must be in [0, 1]")
-    if min_children < 2:
-        raise ValueError("min_children must be at least 2")
-
-    pictures = [box for box in pagelayout.boxes if box.boxclass == "picture"]
-
-    def _rect(box):
-        if isinstance(box, dict):
-            return tuple(float(value) for value in box.get("bbox", [])[:4])
-        return (box.x0, box.y0, box.x1, box.y1)
-
-    def _area(rect):
-        return max(0.0, rect[2] - rect[0]) * max(0.0, rect[3] - rect[1])
-
-    def _intersection(first, second):
-        rect = (
-            max(first[0], second[0]),
-            max(first[1], second[1]),
-            min(first[2], second[2]),
-            min(first[3], second[3]),
-        )
-        return rect if _area(rect) > 0 else None
-
-    def _union_area(rectangles):
-        x_values = sorted({value for rect in rectangles for value in rect[::2]})
-        total = 0.0
-        for x0, x1 in zip(x_values, x_values[1:]):
-            spans = sorted(
-                (rect[1], rect[3])
-                for rect in rectangles
-                if rect[0] < x1 and rect[2] > x0
-            )
-            if not spans:
-                continue
-            start, end = spans[0]
-            for y0, y1 in spans[1:]:
-                if y0 > end:
-                    total += (x1 - x0) * (end - start)
-                    start, end = y0, y1
-                else:
-                    end = max(end, y1)
-            total += (x1 - x0) * (end - start)
-        return total
-
-    def _covered_by_child(target, children):
-        target_area = _area(target)
-        return target_area > 0 and any(
-            _area(intersection) / target_area >= float(content_coverage)
-            for child in children
-            if (intersection := _intersection(target, child)) is not None
-        )
-
-    rects = {id(box): _rect(box) for box in pagelayout.boxes}
-    areas = {id(box): _area(rects[id(box)]) for box in pictures}
-    suppressed = set()
-    for parent in pictures:
-        if parent.chart is not None or getattr(parent, "picture_detection", None):
-            continue
-        parent_rect = rects[id(parent)]
-        parent_area = areas[id(parent)]
-        if parent_area <= 0:
-            continue
-        children = []
-        for child in pictures:
-            child_area = areas[id(child)]
-            if child is parent or not 0 < child_area < parent_area:
-                continue
-            child_rect = rects[id(child)]
-            intersection = _intersection(parent_rect, child_rect)
-            if (
-                intersection is not None
-                and _area(intersection) / child_area >= float(contain_overlap)
-            ):
-                children.append(child_rect)
-        if len(children) < min_children:
-            continue
-
-        explained = [
-            intersection
-            for child in children
-            if (intersection := _intersection(parent_rect, child)) is not None
-        ]
-        if _union_area(explained) / parent_area < float(parent_coverage):
-            continue
-
-        residual_content = any(
-            not _covered_by_child(_rect(textline), children)
-            for textline in (parent.textlines or [])
-            if len(textline.get("bbox", [])) >= 4 and _area(_rect(textline)) > 0
-        )
-        if residual_content:
-            continue
-        residual_layout = any(
-            _area(rects[id(item)]) > 0
-            and (
-                intersection := _intersection(parent_rect, rects[id(item)])
-            )
-            is not None
-            and _area(intersection) / _area(rects[id(item)])
-            >= float(contain_overlap)
-            and not _covered_by_child(rects[id(item)], children)
-            for item in pagelayout.boxes
-            if item is not parent and item.boxclass != "picture"
-        )
-        if not residual_layout:
-            suppressed.add(id(parent))
-
-    if suppressed:
-        pagelayout.boxes[:] = [
-            box for box in pagelayout.boxes if id(box) not in suppressed
-        ]
-    return len(suppressed)
-
-
-def _run_builtin_finder(page, finder_mode, finder_variant):
-    """Run one bundled pymupdf-layout finder and return ordered lanes.
-
-    D0 returns only a Chart lane. DP0 runs its two-class model exactly once and
-    returns Chart and Picture lanes separately so the caller can merge Chart
-    ownership first. The two modes are alternatives, never a combined run.
-    """
-    if finder_mode not in {"d0", "dp0"}:
-        raise ValueError("finder_mode must be 'd0', 'dp0', or None")
-    if finder_variant not in {
-        "fp32",
-        "weight-fp16",
-        "mixed-sensitive-fp16",
-    }:
-        raise ValueError(
-            "finder_variant must be 'fp32', 'weight-fp16', or "
-            "'mixed-sensitive-fp16'"
-        )
-
-    if finder_mode == "d0":
-        try:
-            from pymupdf.layout import chart_finder
-        except ImportError as exc:
-            raise RuntimeError(
-                "finder_mode='d0' requires pymupdf_layout "
-                "experiments/best_combination"
-            ) from exc
-        charts = []
-        model_path = str(chart_finder.model_path_for_variant(finder_variant))
-        for raw in chart_finder.find_charts(page, variant=finder_variant) or []:
-            item = dict(raw) if isinstance(raw, dict) else {"bbox": raw}
-            item.setdefault("source", "chart_finder")
-            item.setdefault("model_path", model_path)
-            item.setdefault("model_variant", finder_variant)
-            item.setdefault("refinement", "chart_finder._refine")
-            charts.append(item)
-        return charts, []
-
-    try:
-        from pymupdf.layout.chart_picture_finder import find_chart_pictures
-    except ImportError as exc:
-        raise RuntimeError(
-            "finder_mode='dp0' requires pymupdf_layout "
-            "experiments/best_combination"
-        ) from exc
-    result = find_chart_pictures(page, variant=finder_variant)
-    if not isinstance(result, dict):
-        raise TypeError("find_chart_pictures() must return a mapping")
-
-    metadata = {
-        key: result[key]
-        for key in ("model_path", "model_variant", "providers")
-        if key in result
-    }
-    refinement = result.get("refinement") or {}
-
-    def _lane(name):
-        items = []
-        for raw in result.get(name) or []:
-            item = dict(raw) if isinstance(raw, dict) else {"bbox": raw}
-            item.update(
-                {key: value for key, value in metadata.items() if key not in item}
-            )
-            if name in refinement and "refinement" not in item:
-                item["refinement"] = refinement[name]
-            items.append(item)
-        return items
-
-    return _lane("chart"), _lane("picture")
-
-
 def parse_document(
     doc,
     filename="",
@@ -1717,31 +1385,13 @@ def parse_document(
     render_html_tables=None,
     edge_threshold=None,
     detect_charts=False,
-    detect_pictures=False,
-    picture_iou_threshold=0.65,
     finder_mode=None,
-    finder_variant="fp32",
 ) -> ParsedDocument:
-    if detect_pictures and not callable(detect_pictures):
-        raise TypeError("detect_pictures must be a callable page -> detections")
-    if not 0.0 <= float(picture_iou_threshold) <= 1.0:
-        raise ValueError("picture_iou_threshold must be in [0, 1]")
-    if finder_mode not in {None, "d0", "dp0"}:
-        raise ValueError("finder_mode must be 'd0', 'dp0', or None")
-    if finder_mode is not None and (detect_charts or detect_pictures):
-        raise ValueError(
-            "finder_mode is mutually exclusive with detect_charts and "
-            "detect_pictures"
-        )
-    if finder_mode is not None and finder_variant not in {
-        "fp32",
-        "weight-fp16",
-        "mixed-sensitive-fp16",
-    }:
-        raise ValueError(
-            "finder_variant must be 'fp32', 'weight-fp16', or "
-            "'mixed-sensitive-fp16'"
-        )
+    if finder_mode not in (None, "d0"):
+        raise ValueError("finder_mode must be 'd0' or None")
+    if finder_mode is not None and detect_charts:
+        raise ValueError("finder_mode is mutually exclusive with detect_charts")
+
     original_path = None
     if isinstance(doc, pymupdf.Document):
         mydoc = doc
@@ -1806,7 +1456,7 @@ def parse_document(
     document.image_format = image_format
     document.image_path = image_path
     document.pages = []
-    document.detect_charts = bool(detect_charts)
+    document.detect_charts = bool(detect_charts or finder_mode)
     document.force_text = force_text
     document.embed_images = embed_images
     document.write_images = write_images
@@ -2110,35 +1760,9 @@ def parse_document(
                     layoutbox.max_fontsize = max_fontsize
 
             pagelayout.boxes.append(layoutbox)
-        if finder_mode is not None:
-            chart_detections, picture_detections = _run_builtin_finder(
-                page,
-                finder_mode,
-                finder_variant,
-            )
-            _merge_chart_detections(
-                page,
-                lambda _page, items=chart_detections: items,
-                pagelayout,
-            )
-            if finder_mode == "dp0":
-                _merge_picture_detections(
-                    page,
-                    lambda _page, items=picture_detections: items,
-                    pagelayout,
-                    iou_threshold=picture_iou_threshold,
-                )
-                _suppress_multichild_native_picture_parents(pagelayout)
-        elif detect_charts:
-            _merge_chart_detections(page, detect_charts, pagelayout)
-        if detect_pictures:
-            _merge_picture_detections(
-                page,
-                detect_pictures,
-                pagelayout,
-                iou_threshold=picture_iou_threshold,
-            )
-            _suppress_multichild_native_picture_parents(pagelayout)
+        chart_detector = True if finder_mode == "d0" else detect_charts
+        if chart_detector:
+            _merge_chart_detections(page, chart_detector, pagelayout)
         document.pages.append(pagelayout)
     if mydoc != doc:
         mydoc.close()

@@ -36,8 +36,6 @@ md = pymupdf4llm.to_markdown("research-paper.pdf")
 
 [![Star on GitHub](https://img.shields.io/github/stars/pymupdf/pymupdf4llm.svg?style=for-the-badge&label=Star&logo=github)](https://github.com/pymupdf/pymupdf4llm/)
 
-
-
 [![Demo](https://img.shields.io/badge/Pymupdf4llm-live?style=for-the-badge&label=DEMO&logo=python&logoColor=ffffff)](https://demo.pymupdf.io?utm_source=github&utm_medium=referral&utm_campaign=pymupdf4llm_github&utm_content=body&utm_term=demo)
 
 ---
@@ -158,35 +156,25 @@ md = pymupdf4llm.to_markdown("document.pdf", edge_threshold=0.75)
 
 The default remains the library default unless this option is provided.
 
-### D0 and DP0 finder modes
+### D0 chart finder
 
-When installed with
-`veget-able/pymupdf_layout:experiments/best_combination`, layout mode can
-select one detector mode and precision directly:
+Layout mode can invoke the chart-only D0 detector through PyMuPDF's
+`Page.find_charts()` API:
 
 ```python
-# D0: Chart only
 data = pymupdf4llm.to_json(
     "document.pdf",
     finder_mode="d0",
-    finder_variant="weight-fp16",
-)
-
-# DP0: run one two-class model, merge Chart first, then Picture
-data = pymupdf4llm.to_json(
-    "document.pdf",
-    finder_mode="dp0",
-    finder_variant="mixed-sensitive-fp16",
 )
 ```
 
-The available variants are `fp32`, `weight-fp16`, and
-`mixed-sensitive-fp16`; none has a separate enable gate. The mixed variant uses
-FP16 convolutions and weights while retaining sensitive reductions in FP32. D0
-and DP0 are mutually exclusive modes. The DP0 Chart lane uses the reviewer
-Chart association before its Picture lane is merged. Native Picture parents
-are removed only when the final child Pictures explain the parent area and all
-contained text/layout elements.
+This mode requires `veget-able/PyMuPDF:chart/find-charts` together with a
+`pymupdf-layout` build that provides the D0 `chart_finder`. The integration
+does not import the detector implementation directly: `Page.find_charts()` is
+the sole built-in finder entry point. DP0 and Picture-finder modes are not
+supported by this branch. `finder_mode="d0"` and `detect_charts` are mutually
+exclusive; `detect_charts` remains available for callers that supply their own
+detector callback.
 
 ### Extraction capabilities
 
