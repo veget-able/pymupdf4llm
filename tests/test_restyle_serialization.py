@@ -269,6 +269,30 @@ def _textline(*spans):
     return {"spans": list(spans), "bbox": tuple(rect)}
 
 
+def test_heading_splits_at_a_font_signature_boundary():
+    underline = 16 | pymupdf.mupdf.FZ_STEXT_UNDERLINE
+    title = _textline(_sized_span(
+        "SAFE IN THE ARMS JESUS", 0, 200, 0, 24,
+        font="Avenir-BlackOblique", size=24.0, char_flags=underline, line=0))
+    subtitle = _textline(_sized_span(
+        "THE GREAT SAMARITAN", 20, 150, 26, 39,
+        font="Avenir-HeavyOblique", size=13.0, char_flags=underline, line=1))
+    output = section_hdr_to_md(1, [title, subtitle])
+    assert output == (
+        "# <u>SAFE IN THE ARMS JESUS</u> \n\n"
+        "# <u>THE GREAT SAMARITAN</u> \n\n"
+    )
+
+
+def test_heading_keeps_a_same_font_wrap_merged():
+    first = _textline(_sized_span(
+        "TWO MEMBERS OF THE", 0, 120, 0, 12, size=12.0, line=0))
+    second = _textline(_sized_span(
+        "PUBLIC REGULATION COMMISSION", 0, 170, 14, 26, size=12.0, line=1))
+    output = section_hdr_to_md(2, [first, second])
+    assert output == "## TWO MEMBERS OF THE PUBLIC REGULATION COMMISSION \n\n"
+
+
 def test_body_splits_at_a_font_signature_boundary():
     label = _textline(_sized_span(
         "Narcotics Anonymous SA", 0, 120, 0, 12,
@@ -336,6 +360,31 @@ def test_embedded_ocr_layer_keeps_real_font_identity():
         char_flags=0, line=1))
     output = text_to_md([first, second])
     assert output.count("\n\n") == 2  # split into two blocks
+
+
+def test_ocr_box_height_jitter_stays_merged():
+    first = _textline(_sized_span(
+        "Delays in the supplier's", 0, 150, 0, 13, font="Droid Sans Fallback Regular",
+        size=13.0, char_flags=0, line=0))
+    second = _textline(_sized_span(
+        "performance", 0, 80, 15, 27, font="Droid Sans Fallback Regular",
+        size=12.2, char_flags=0, line=1))
+    output = section_hdr_to_md(2, [first, second])
+    assert output == "## Delays in the supplier's performance \n\n"
+
+
+def test_ocr_scale_contrast_still_splits():
+    title = _textline(_sized_span(
+        "ARCHIVE NOTICE", 0, 150, 0, 24, font="Droid Sans Fallback Regular",
+        size=24.0, char_flags=0, line=0))
+    body = _textline(_sized_span(
+        "Details of the retention policy", 0, 180, 26, 37,
+        font="Droid Sans Fallback Regular", size=11.0, char_flags=0, line=1))
+    output = section_hdr_to_md(2, [title, body])
+    assert output == (
+        "## ARCHIVE NOTICE \n\n"
+        "## Details of the retention policy \n\n"
+    )
 
 
 def test_body_run_crossing_emphasis_stays_merged():

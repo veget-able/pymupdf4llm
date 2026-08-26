@@ -1122,8 +1122,13 @@ def _font_gate_groups(textlines, body=False):
 def section_hdr_to_md(header_level, textlines):
     """
     Convert "section-header" bboxes to markdown.
+
+    Lines are split into separate headings at font-signature boundaries
+    (see _font_gate_groups): a title/subtitle pair keeps its line break
+    instead of being fused into one heading text, while a wrapped
+    same-font title still merges as before.
     """
-    groups = [textlines]
+    groups = _font_gate_groups(textlines)
     parts = []
     for group in groups:
         spans = []
@@ -1155,7 +1160,7 @@ def title_to_md(header_level, textlines):
     The line text itself is handled like normal text.
     TODO: Consider joining with section_hdr.
     """
-    groups = [textlines]
+    groups = _font_gate_groups(textlines)
     parts = []
     for group in groups:
         spans = []
