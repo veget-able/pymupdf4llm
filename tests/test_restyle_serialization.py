@@ -64,6 +64,41 @@ def test_script_metadata_is_serialized_and_attached():
     assert output == "H<sub>2</sub>O "
 
 
+def test_explicit_script_metadata_wins_over_legacy_font_flag():
+    spans = [
+        _span(
+            "2",
+            0,
+            5,
+            flags=pymupdf.TEXT_FONT_SUPERSCRIPT,
+            script="subscript",
+        )
+    ]
+    output, _ = get_styled_text(spans)
+    assert output == "<sub>2</sub> "
+
+
+def test_native_script_char_flags_are_not_a_serializer_fallback():
+    native_sup = pymupdf.mupdf.FZ_STEXT_SUPERSCRIPT
+    native_sub = pymupdf.mupdf.FZ_STEXT_SUBSCRIPT
+    assert native_sup and native_sub
+    superscript_output, _ = get_styled_text(
+        [_span("2", 0, 5, char_flags=16 | native_sup)]
+    )
+    subscript_output, _ = get_styled_text(
+        [_span("2", 0, 5, char_flags=16 | native_sub)]
+    )
+    assert superscript_output == "2 "
+    assert subscript_output == "2 "
+
+
+def test_legacy_font_superscript_flag_remains_a_fallback():
+    output, _ = get_styled_text(
+        [_span("2", 0, 5, flags=pymupdf.TEXT_FONT_SUPERSCRIPT)]
+    )
+    assert output == "<sup>2</sup> "
+
+
 def test_recovered_script_is_not_serialized_in_a_heading_number():
     spans = [
         _span("5", 0, 5, script="superscript"),
