@@ -1,6 +1,7 @@
 import pymupdf
 
 from pymupdf4llm.helpers.document_layout import (
+    text_to_md,
     get_styled_text,
     list_item_to_md,
     picture_text_to_md,
@@ -243,3 +244,132 @@ def test_flanking_invalid_italic_marker_upgrades_to_html():
     ]
     output, _ = get_styled_text(spans)
     assert output == "<u>BOARD<em>/</em>COMMISSION</u> "
+
+
+def _sized_span(text, x0, x1, y0, y1, *, font="Helvetica", size=10.0,
+                flags=0, char_flags=16, line=0):
+    return {
+        "text": text,
+        "bbox": pymupdf.Rect(x0, y0, x1, y1),
+        "origin": (x0, y1 - 1),
+        "size": size,
+        "flags": flags,
+        "char_flags": char_flags,
+        "font": font,
+        "block": 0,
+        "line": line,
+        "_reconstructed_line": line,
+    }
+
+
+def _textline(*spans):
+    rect = pymupdf.Rect(spans[0]["bbox"])
+    for s in spans[1:]:
+        rect |= pymupdf.Rect(s["bbox"])
+    return {"spans": list(spans), "bbox": tuple(rect)}
+
+
+def test_body_splits_at_a_font_signature_boundary():
+    label = _textline(_sized_span(
+        "Narcotics Anonymous SA", 0, 120, 0, 12,
+        font="Roboto-Regular", size=10.0, line=0))
+    number = _textline(_sized_span(
+        "083 900 MY NA", 0, 90, 14, 28, font="Roboto-BoldCondensed",
+        size=12.0, flags=pymupdf.TEXT_FONT_BOLD, line=1))
+    output = text_to_md([label, number])
+    assert output == "Narcotics Anonymous SA \n\n**083 900 MY NA** \n\n"
+
+
+def test_same_row_font_change_stays_merged():
+    left = _textline(_sized_span(
+        "Hong Kong", 0, 60, 0, 12, font="MSungHK", size=12.0, line=0))
+    right = _textline(_sized_span(
+        "Lulea", 80, 120, 0, 12, font="Helvetica-Bold", size=14.0,
+        flags=pymupdf.TEXT_FONT_BOLD, line=0))
+    output = text_to_md([left, right])
+    assert output == "Hong Kong **Lulea** \n\n"
+
+
+def test_body_impure_emphasis_line_stays_merged():
+    # A bold run covering most of a wrapped line flips its dominant
+    # fontname, but the line is not font-pure - the paragraph must not
+    # be split there.
+    plain = _textline(_sized_span(
+        "Because forest fires pose a threat", 0, 200, 0, 24,
+        font="Calibri-Italic", size=24.0,
+        flags=pymupdf.TEXT_FONT_ITALIC, line=0))
+    emphasized = _textline(
+        _sized_span("time), the ", 0, 40, 26, 50, font="Calibri-Italic",
+                    size=24.0, flags=pymupdf.TEXT_FONT_ITALIC, line=1),
+        _sized_span("USFS needs a better system", 40, 160, 26, 50,
+                    font="Calibri-BoldItalic", size=24.0,
+                    flags=pymupdf.TEXT_FONT_ITALIC | pymupdf.TEXT_FONT_BOLD,
+                    line=1),
+        _sized_span(". In addition,", 160, 200, 26, 50,
+                    font="Calibri-Italic", size=24.0,
+                    flags=pymupdf.TEXT_FONT_ITALIC, line=1))
+    output = text_to_md([plain, emphasized])
+    assert output.count("\n\n") == 1  # one paragraph, no split
+
+
+def test_body_full_line_label_change_splits():
+    # A font-pure Roman -> Bold line transition is a label/subheading
+    # boundary and splits even without a size change.
+    body = _textline(_sized_span(
+        "Provides the main insurance cover", 0, 180, 0, 12,
+        font="Calibri", size=9.0, line=0))
+    label = _textline(_sized_span(
+        "Other buildings", 0, 90, 14, 26, font="Calibri-Bold", size=9.0,
+        flags=pymupdf.TEXT_FONT_BOLD, line=1))
+    output = text_to_md([body, label])
+    assert output == "Provides the main insurance cover \n\n**Other buildings** \n\n"
+
+
+def test_embedded_ocr_layer_keeps_real_font_identity():
+    # An embedded OCR text layer (invisible, but with recognized
+    # fontnames) is not synthetic - a fontname change still splits.
+    first = _textline(_sized_span(
+        "VANDENHERIK", 0, 120, 0, 15, font="TimesNewRomanPS-BoldMT",
+        size=15.3, char_flags=0, line=0))
+    second = _textline(_sized_span(
+        "SLIEDRECHT", 0, 110, 17, 32, font="Arial-BoldMT", size=15.0,
+        char_flags=0, line=1))
+    output = text_to_md([first, second])
+    assert output.count("\n\n") == 2  # split into two blocks
+
+
+def test_body_run_crossing_emphasis_stays_merged():
+    # The bold run starts at the end of the previous line and continues
+    # onto the next - the change does not coincide with the line break,
+    # so this is inline emphasis and the paragraph must not split, even
+    # though the next line is fully bold.
+    plain = _textline(
+        _sized_span("for other nations; c", 0, 160, 0, 24,
+                    font="Calibri-Italic", size=24.0,
+                    flags=pymupdf.TEXT_FONT_ITALIC, line=0),
+        _sized_span("ollect", 160, 200, 0, 24,
+                    font="Calibri-BoldItalic", size=24.0,
+                    flags=pymupdf.TEXT_FONT_ITALIC | pymupdf.TEXT_FONT_BOLD,
+                    line=0))
+    emphasized = _textline(_sized_span(
+        "statistical data on fire outbreaks", 0, 180, 26, 50,
+        font="Calibri-BoldItalic", size=24.0,
+        flags=pymupdf.TEXT_FONT_ITALIC | pymupdf.TEXT_FONT_BOLD, line=1))
+    output = text_to_md([plain, emphasized])
+    assert output.count("\n\n") == 1
+
+
+def test_body_label_after_mixed_line_still_splits():
+    # Only the breaking side must be font-pure: a "Date: value" mixed
+    # line does not stop the following bold "Subject:" label from
+    # becoming its own block.
+    mixed = _textline(
+        _sized_span("Date:", 0, 30, 0, 14, font="TimesNewRomanPS-BoldMT",
+                    size=14.0, flags=pymupdf.TEXT_FONT_BOLD, line=0),
+        _sized_span("  April 22, 2025 and some more text", 30, 190, 0, 14,
+                    font="TimesNewRomanPSMT", size=14.0, line=0))
+    label = _textline(_sized_span(
+        "Subject: UPDATE", 0, 100, 16, 30, font="TimesNewRomanPS-BoldMT",
+        size=14.0, flags=pymupdf.TEXT_FONT_BOLD, line=1))
+    output = text_to_md([mixed, label])
+    assert output.count("\n\n") == 2

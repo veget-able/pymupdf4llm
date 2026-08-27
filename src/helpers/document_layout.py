@@ -1000,27 +1000,153 @@ def footnote_to_md(textlines):
     return output + "\n\n"
 
 
+# OCR replacement font name prefixes: rapidocr injection writes with
+# pymupdf.Font("cjk") ("Droid Sans Fallback Regular"), Tesseract text
+# layers use "GlyphLessFont".
+_OCR_REPLACEMENT_FONT_PREFIXES = ("Droid Sans Fallback", "GlyphLessFont")
+
+
+def _line_font_signature(line):
+    """Dominant font identity of a textline, for the split gate.
+
+    Weighted by non-space character count. The PDF subset tag
+    ("ABCDEF+") is stripped so re-subset fonts compare equal. ``head``
+    and ``last`` are the first/last non-empty spans' font keys - the
+    spans that touch a line boundary; ``synthetic`` marks OCR
+    replacement fonts, whose name and size carry no typography.
+    """
+    counts = {}
+    total = 0
+    span_keys = []
+    for span in line.get("spans") or []:
+        name = span.get("font") or ""
+        if len(name) > 7 and name[6] == "+" and name[:6].isalpha():
+            name = name[7:]
+        weight = len((span.get("text") or "").strip())
+        key = (name, span.get("size") or 0)
+        counts[key] = counts.get(key, 0) + weight
+        total += weight
+        span_keys.append((key, weight))
+    if not counts or not total:
+        return None
+    (name, size), weight = max(counts.items(), key=lambda item: item[1])
+    keys = [k for k, w in span_keys if w]
+    return {
+        "name": name,
+        "size": size,
+        "synthetic": name.startswith(_OCR_REPLACEMENT_FONT_PREFIXES),
+        "head": keys[0] if keys else (name, size),
+        "last": keys[-1] if keys else (name, size),
+    }
+
+
+def _signature_break(prev, cur, body):
+    """Is the boundary between two line signatures a structural break?"""
+    if prev is None or cur is None:
+        return False
+    if prev["synthetic"] or cur["synthetic"]:
+        # Text written with an OCR replacement font has no real font
+        # identity: the fontname is fixed and the size is the
+        # recognition box height, which jitters between the lines of
+        # one element. Only a clear size contrast (heading scale vs
+        # body scale) marks a boundary. Embedded OCR text layers with
+        # recognized fontnames are not synthetic and use the normal
+        # rules.
+        low, high = sorted((prev["size"] or 0, cur["size"] or 0))
+        return low > 0 and high / low > 1.2
+    if abs(prev["size"] - cur["size"]) > 0.6:
+        return True
+    if prev["name"] == cur["name"]:
+        return False
+    if body:
+        # In body text a name-only change is a boundary only when the
+        # style change coincides exactly with the physical line break.
+        # If the spans touching the boundary share a font - the
+        # emphasis run continues across the wrap, or the change starts
+        # mid-line - it is inline emphasis inside one paragraph, not a
+        # label or subheading boundary.
+        return prev["last"] != cur["head"]
+    return True
+
+
+def _line_rect(line):
+    bbox = line.get("bbox")
+    if bbox is not None:
+        return pymupdf.Rect(bbox)
+    rect = None
+    for span in line.get("spans") or []:
+        if "bbox" in span:
+            r = pymupdf.Rect(span["bbox"])
+            rect = r if rect is None else rect | r
+    return rect
+
+
+def _font_gate_groups(textlines, body=False):
+    """Split a region's lines where the dominant font signature changes.
+
+    Flattening a region into one markdown block destroys the line breaks
+    inside it. Most of those breaks are mere wrapping and the merge is
+    wanted - but a boundary where the dominant font name or size
+    (>0.6pt) changes between vertically separate lines is a transition
+    between distinct elements (title vs subtitle, label vs body), and
+    there the break is structural. Split only at such boundaries;
+    identical signatures keep the merged output unchanged. Fragments on
+    the same visual row (no vertical separation) never split.
+    """
+    if len(textlines) < 2:
+        return [textlines]
+    groups = [[textlines[0]]]
+    prev_rect = _line_rect(textlines[0])
+    prev_sig = _line_font_signature(textlines[0])
+    for line in textlines[1:]:
+        rect = _line_rect(line)
+        sig = _line_font_signature(line)
+        vertical_break = False
+        if prev_rect is not None and rect is not None:
+            overlap = min(prev_rect.y1, rect.y1) - max(prev_rect.y0, rect.y0)
+            vertical_break = overlap <= 0.3 * min(
+                prev_rect.height, rect.height
+            )
+        changed = _signature_break(prev_sig, sig, body)
+        if vertical_break and changed:
+            groups.append([line])
+        else:
+            groups[-1].append(line)
+        if rect is not None:
+            prev_rect = rect
+        if sig is not None:
+            prev_sig = sig
+    return groups
+
+
 def section_hdr_to_md(header_level, textlines):
     """
     Convert "section-header" bboxes to markdown.
     """
-    spans = []
-    for l in textlines:
-        for s in l["spans"]:
-            assert isinstance(s, dict)
-            # Geometric script recovery is intentionally suppressed in
-            # headings: a smaller raised section number is structural heading
-            # typography, not a superscript. Native MuPDF superscript flags are
-            # still consumed through ``flags``.
-            heading_span = dict(s)
-            heading_span.pop("script", None)
-            heading_span["char_flags"] &= ~(
-                getattr(pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0)
-                | getattr(pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0)
-            )
-            spans.append(heading_span)
-    output, suffix = get_styled_text(spans)
-    return f"{'#' * header_level} {output}\n\n"
+    groups = [textlines]
+    parts = []
+    for group in groups:
+        spans = []
+        for l in group:
+            for s in l["spans"]:
+                assert isinstance(s, dict)
+                # Geometric script recovery is intentionally suppressed in
+                # headings: a smaller raised section number is structural heading
+                # typography, not a superscript. Native MuPDF superscript flags are
+                # still consumed through ``flags``.
+                heading_span = dict(s)
+                heading_span.pop("script", None)
+                heading_span["char_flags"] &= ~(
+                    getattr(pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0)
+                    | getattr(pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0)
+                )
+                spans.append(heading_span)
+        output, suffix = get_styled_text(spans)
+        if output or len(groups) == 1:
+            parts.append(f"{'#' * header_level} {output}\n\n")
+    if not parts:
+        parts.append(f"{'#' * header_level} \n\n")
+    return "".join(parts)
 
 
 def title_to_md(header_level, textlines):
@@ -1029,19 +1155,26 @@ def title_to_md(header_level, textlines):
     The line text itself is handled like normal text.
     TODO: Consider joining with section_hdr.
     """
-    spans = []
-    for l in textlines:
-        for s in l["spans"]:
-            assert isinstance(s, dict)
-            heading_span = dict(s)
-            heading_span.pop("script", None)
-            heading_span["char_flags"] &= ~(
-                getattr(pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0)
-                | getattr(pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0)
-            )
-            spans.append(heading_span)
-    output, suffix = get_styled_text(spans)
-    return f"{'#' * header_level} {output}\n\n"
+    groups = [textlines]
+    parts = []
+    for group in groups:
+        spans = []
+        for l in group:
+            for s in l["spans"]:
+                assert isinstance(s, dict)
+                heading_span = dict(s)
+                heading_span.pop("script", None)
+                heading_span["char_flags"] &= ~(
+                    getattr(pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0)
+                    | getattr(pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0)
+                )
+                spans.append(heading_span)
+        output, suffix = get_styled_text(spans)
+        if output or len(groups) == 1:
+            parts.append(f"{'#' * header_level} {output}\n\n")
+    if not parts:
+        parts.append(f"{'#' * header_level} \n\n")
+    return "".join(parts)
 
 
 def code_block_to_md(textlines):
@@ -1072,13 +1205,20 @@ def text_to_md(textlines, ignore_code: bool = False):
     if not ignore_code and is_monospaced(textlines):
         return code_block_to_md(textlines)
 
-    spans = []
-    for l in textlines:
-        for s in l["spans"]:
-            assert isinstance(s, dict)
-            spans.append(s)
-    output, suffix = get_styled_text(spans)
-    return output + "\n\n"
+    groups = _font_gate_groups(textlines, body=True)
+    parts = []
+    for group in groups:
+        spans = []
+        for l in group:
+            for s in l["spans"]:
+                assert isinstance(s, dict)
+                spans.append(s)
+        output, suffix = get_styled_text(spans)
+        if output or len(groups) == 1:
+            parts.append(output + "\n\n")
+    if not parts:
+        return "\n\n"
+    return "".join(parts)
 
 
 def picture_text_to_md(textlines, ignore_code: bool = False, clip=None):
