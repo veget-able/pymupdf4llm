@@ -454,98 +454,465 @@ def fallback_text_to_text(textlines, ignore_code: bool = False, clip=None):
     return output + "\n"
 
 
-def get_styled_text(spans):
-    """Output text with markdown style codes based on font properties.
-    Parameter is a list of span dictionaries. The spans may come from
-    one or more original "textlines" items.
-    Returns the text string and the suffix for continuing styles.
-    The text string always ends with the suffix and a space
+def _style_state(span):
+    """Return the effective style state consumed by the Markdown serializer."""
+    flags = span["flags"]
+    char_flags = span["char_flags"]
+    script = span.get("script")
+    if flags & pymupdf.TEXT_FONT_SUPERSCRIPT:
+        script = "superscript"
+    elif script is None and char_flags & getattr(
+        pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0
+    ):
+        # MuPDF's line-level script detection is consumed like recovered
+        # script metadata (soft), so heading serialization can suppress
+        # it; getattr keeps older PyMuPDF builds working unchanged.
+        script = "superscript"
+    elif script is None and char_flags & getattr(
+        pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0
+    ):
+        script = "subscript"
+    return (
+        script,
+        bool(
+            flags & pymupdf.TEXT_FONT_BOLD
+            or char_flags & pymupdf.mupdf.FZ_STEXT_BOLD
+        ),
+        bool(flags & pymupdf.TEXT_FONT_ITALIC),
+        bool(char_flags & pymupdf.mupdf.FZ_STEXT_STRIKEOUT),
+        bool(char_flags & pymupdf.mupdf.FZ_STEXT_UNDERLINE),
+        bool(char_flags & pymupdf.mupdf.FZ_STEXT_HIGHLIGHT),
+        bool(
+            flags & pymupdf.TEXT_FONT_MONOSPACED
+            and not utils.is_ocr_text(span)
+        ),
+    )
+
+
+def _join_styled_boundary(left, right):
+    """Whether a serializer-created blank at this style boundary is spurious."""
+    if left.get("_reconstructed_line") != right.get("_reconstructed_line"):
+        return False
+    if not left.get("text") or not right.get("text"):
+        return False
+    if left["text"][-1].isspace() or right["text"][0].isspace():
+        return False
+    left_state = _style_state(left)
+    right_state = _style_state(right)
+    if left_state == right_state:
+        return False
+    if left_state[0] or right_state[0]:
+        return False
+    left_bbox = pymupdf.Rect(left["bbox"])
+    right_bbox = pymupdf.Rect(right["bbox"])
+    if min(left_bbox.y1, right_bbox.y1) <= max(left_bbox.y0, right_bbox.y0):
+        return False
+    if left_bbox.x0 > right_bbox.x0 or left_bbox.x1 > right_bbox.x1:
+        return False
+    return right_bbox.x0 - left_bbox.x1 <= 0.1 * right["size"]
+
+
+def _join_script_boundary(left, right):
+    """Keep a recovered sup/sub span attached to its neighboring token."""
+    left_script = _style_state(left)[0]
+    right_script = _style_state(right)[0]
+    if not (left_script or right_script):
+        return False
+    if left.get("_reconstructed_line") != right.get("_reconstructed_line"):
+        return False
+    if not left.get("text") or not right.get("text"):
+        return False
+    if left["text"][-1].isspace() or right["text"][0].isspace():
+        return False
+    left_bbox = pymupdf.Rect(left["bbox"])
+    right_bbox = pymupdf.Rect(right["bbox"])
+    if left_bbox.x0 > right_bbox.x0 or left_bbox.x1 > right_bbox.x1:
+        return False
+    return right_bbox.x0 - left_bbox.x1 <= 0.1 * max(
+        left["size"], right["size"]
+    )
+
+
+_STYLE_MARKERS = {
+    "superscript": ("<sup>", "</sup>"),
+    "subscript": ("<sub>", "</sub>"),
+    "bold": ("**", "**"),
+    "strikeout": ("~~", "~~"),
+    "underline": ("<u>", "</u>"),
+    "highlight": ("<mark>", "</mark>"),
+}
+
+
+def _boundary_separator(left, right):
+    """Return the source separator represented by a pair of adjacent spans."""
+    left_text = left.get("text", "")
+    right_text = right.get("text", "")
+    if (left_text and left_text[-1].isspace()) or (
+        right_text and right_text[0].isspace()
+    ):
+        return " "
+    if _join_styled_boundary(left, right) or _join_script_boundary(left, right):
+        return ""
+    return " "
+
+
+def _literal_text(text):
+    """Escape source characters that can collide with emitted style markers."""
+    escaped = []
+    for character in text:
+        if character in r"\`*~<>":
+            escaped.append("\\")
+        escaped.append(character)
+    return "".join(escaped)
+
+
+def _longest_backtick_run(text):
+    longest = current = 0
+    for character in text:
+        if character == "`":
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    return longest
+
+
+def _nonempty_styled_spans(spans):
+    """Drop empty style intervals while preserving their whitespace boundary.
+
+    The dropped whitespace span itself is kept as the boundary value (a
+    truthy dict standing in for the previous boolean): its style state
+    tells the serializer which decorations the gap between two runs does
+    NOT carry, so separately drawn decoration runs are not fused.
+    """
+    result = []
+    whitespace_before = None
+    for span in spans:
+        if span.get("text", "").strip():
+            result.append((span, whitespace_before))
+            whitespace_before = None
+        elif span.get("text", ""):
+            whitespace_before = span
+    return result
+
+
+def _italic_markers(items):
+    """Choose an unambiguous delimiter for each continuous italic run."""
+    markers = {}
+    position = 0
+    while position < len(items):
+        if not _style_state(items[position][0])[2]:
+            position += 1
+            continue
+        stop = position + 1
+        while stop < len(items) and _style_state(items[stop][0])[2]:
+            stop += 1
+
+        bold_states = {
+            _style_state(items[index][0])[1]
+            for index in range(position, stop)
+        }
+        use_html = len(bold_states) > 1
+        use_asterisk = any(
+            "_" in items[index][0]["text"] for index in range(position, stop)
+        )
+        if position:
+            left = items[position - 1][0]
+            right, forced_space = items[position]
+            separator = " " if forced_space else _boundary_separator(left, right)
+            use_asterisk = use_asterisk or bool(
+                not separator
+                and (
+                    (
+                        left["text"].strip()[-1].isalnum()
+                        and right["text"].strip()[0].isalnum()
+                    )
+                    or left["text"].strip().endswith("_")
+                )
+            )
+        if stop < len(items):
+            left = items[stop - 1][0]
+            right, forced_space = items[stop]
+            separator = " " if forced_space else _boundary_separator(left, right)
+            use_asterisk = use_asterisk or bool(
+                not separator
+                and (
+                    (
+                        left["text"].strip()[-1].isalnum()
+                        and right["text"].strip()[0].isalnum()
+                    )
+                    or right["text"].strip().startswith("_")
+                )
+            )
+        marker = ("<em>", "</em>") if use_html else (
+            ("*", "*") if use_asterisk else ("_", "_")
+        )
+        for index in range(position, stop):
+            markers[index] = marker
+        position = stop
+    return markers
+
+
+def _monospace_markers(items):
+    """Choose a CommonMark code-span fence that cannot occur in its text."""
+    markers = {}
+    position = 0
+    while position < len(items):
+        if not _style_state(items[position][0])[-1]:
+            position += 1
+            continue
+        stop = position + 1
+        while stop < len(items) and _style_state(items[stop][0])[-1]:
+            stop += 1
+        longest = max(
+            _longest_backtick_run(items[index][0]["text"].strip())
+            for index in range(position, stop)
+        )
+        marker = "`" * (longest + 1)
+        for index in range(position, stop):
+            markers[index] = (marker, marker)
+        position = stop
+    return markers
+
+
+def _reorder_open_styles(active, stack):
+    """Keep already-open styles open when the new span still wants them.
+
+    The canonical order alone closes and reopens a continuing outer style
+    whenever a style above it in canonical order appears or disappears -
+    a superscript inside an italic run would split the run into fragments.
+    Starting the target stack with the still-wanted prefix of the active
+    stack keeps continuing runs open; only genuinely new styles nest inside.
+
+    A code span is literal: nothing may render inside it, so the monospace
+    marker stays pinned innermost and is never kept open across any other
+    style transition - the code run is cut and reopened instead.
+    """
+    mono = [item for item in stack if item[0] == "monospace"]
+    remaining = [item for item in stack if item[0] != "monospace"]
+    kept = []
+    for item in active:
+        if item[0] == "monospace":
+            break
+        if item in remaining:
+            kept.append(item)
+            remaining.remove(item)
+        else:
+            break
+    return kept + remaining + mono
+
+
+def _style_stack(span, italic_marker, monospace_marker):
+    """Return the canonical, explicitly tracked Markdown style stack."""
+    script, bold, italic, strikeout, underline, highlight, mono = _style_state(span)
+    stack = []
+    if script in ("superscript", "subscript"):
+        stack.append((script, *_STYLE_MARKERS[script]))
+    if bold:
+        stack.append(("bold", *_STYLE_MARKERS["bold"]))
+    if italic:
+        stack.append(("italic", *italic_marker))
+    if strikeout:
+        stack.append(("strikeout", *_STYLE_MARKERS["strikeout"]))
+    if underline:
+        stack.append(("underline", *_STYLE_MARKERS["underline"]))
+    if highlight:
+        stack.append(("highlight", *_STYLE_MARKERS["highlight"]))
+    if mono:
+        stack.append(("monospace", *monospace_marker))
+    return stack
+
+
+def _italic_run_ranges(items):
+    """Maximal runs of consecutive italic items as {index: (start, stop)}."""
+    runs = {}
+    position = 0
+    while position < len(items):
+        if not _style_state(items[position][0])[2]:
+            position += 1
+            continue
+        stop = position + 1
+        while stop < len(items) and _style_state(items[stop][0])[2]:
+            stop += 1
+        for index in range(position, stop):
+            runs[index] = (position, stop)
+        position = stop
+    return runs
+
+
+def _emit(items, italic_markers, monospace_markers, italic_runs):
+    """One serialization pass; returns (output, suffix, invalid_runs).
+
+    invalid_runs collects the italic runs whose "_" markers landed where
+    CommonMark's flanking rules leave them literal - the reordered stack
+    can place a marker flush against a word inside a continuing outer run,
+    which the source-level marker choice cannot foresee. Such runs are
+    re-emitted with unambiguous HTML emphasis by the caller.
     """
     output = ""
-    prefix = ""
-    suffix = ""
-    old_line = 0
-    old_block = 0
+    active = []
+    previous = None
+    previous_state = None
+    invalid = set()
+    close_checks = []  # (position of "_" close, run)
 
-    for i, s in enumerate(spans):
-        # decode font flags and char_flags properties
-        superscript = s["flags"] & pymupdf.TEXT_FONT_SUPERSCRIPT
-        mono = s["flags"] & pymupdf.TEXT_FONT_MONOSPACED and not utils.is_ocr_text(s)
-        bold = (
-            s["flags"] & pymupdf.TEXT_FONT_BOLD
-            or s["char_flags"] & pymupdf.mupdf.FZ_STEXT_BOLD
-        )
-        italic = s["flags"] & pymupdf.TEXT_FONT_ITALIC
-        strikeout = s["char_flags"] & pymupdf.mupdf.FZ_STEXT_STRIKEOUT
-        underline = s["char_flags"] & pymupdf.mupdf.FZ_STEXT_UNDERLINE
-        highlight = s["char_flags"] & pymupdf.mupdf.FZ_STEXT_HIGHLIGHT
+    def open_item(item, index):
+        nonlocal output
+        if (
+            item[0] == "italic"
+            and item[1] == "_"
+            and output
+            and (output[-1].isalnum() or output[-1] == "_")
+        ):
+            invalid.add(italic_runs.get(index))
+        output += item[1]
 
-        # compute styling prefix and suffix
-        prefix = []
-        suffix = []
+    def close_item(item, index):
+        nonlocal output
+        if item[0] == "italic" and item[2] == "_":
+            close_checks.append((len(output), italic_runs.get(index)))
+        output += item[2]
 
-        if superscript:
-            prefix.append("<sup>")
-            suffix.append("</sup>")
+    for index, (span, forced_space) in enumerate(items):
+        state = _style_state(span)
+        stack = _reorder_open_styles(active, _style_stack(
+            span,
+            italic_markers.get(index, ("_", "_")),
+            monospace_markers.get(index, ("`", "`")),
+        ))
 
-        if bold:
-            prefix.append("**")
-            suffix.append("**")
-
-        if italic:
-            prefix.append("_")
-            suffix.append("_")
-
-        if strikeout:
-            prefix.append("~~")
-            suffix.append("~~")
-
-        if underline:
-            prefix.append("<u>")
-            suffix.append("</u>")
-
-        if highlight:
-            prefix.append("<mark>")
-            suffix.append("</mark>")
-
-        if mono:
-            prefix.append("`")
-            suffix.append("`")
-
-        prefix = "".join(prefix)
-        suffix = "".join(reversed(suffix))
-
-        span_text = s["text"].strip()  # remove leading/trailing spaces
-        # convert intersecting link to markdown syntax
-        # ltext = resolve_links(parms.links, s)
-        # ltext = ""  # TODO: implement link resolution
-        # if ltext:
-        #     text = f"{hdr_string}{prefix}{ltext}{suffix} "
-        # else:
-        #     text = f"{prefix}{span_text}{suffix} "
-        text = f"{prefix}{span_text}{suffix} "
-        # Extend output string taking care of styles staying the same.
-        if output.endswith(f"{suffix} "):
-            output = output[: -len(suffix) - 1]
-            # resolve hyphenation if old_block and old_line are not the same
+        separator = ""
+        if previous is not None:
+            separator = (
+                " " if forced_space else _boundary_separator(previous, span)
+            )
             if (
-                1
-                and (old_block, old_line) != (s["block"], s["line"])
+                previous_state == state
+                and (previous["block"], previous["line"])
+                != (span["block"], span["line"])
+                and previous["text"].strip().endswith("-")
+                and len(previous["text"].strip().split()[-1]) > 2
                 and output.endswith("-")
-                and len(output.split()[-1]) > 2
             ):
                 output = output[:-1]
-                text = span_text + suffix + " "
-            elif superscript:
-                text = span_text + suffix + " "
-            else:
-                text = " " + span_text + suffix + " "
+                separator = ""
 
-        old_line = s["line"]
-        old_block = s["block"]
-        if superscript:
-            output = output.rstrip(" ")
-        output += text
+        if previous is not None and active:
+            # An undecorated whitespace span, or a wide same-line gap whose
+            # whitespace was swallowed upstream, separates two independently
+            # drawn line-decoration runs: close those decorations so the
+            # serializer does not fuse them into one run. A highlight is an
+            # area decoration whose box covers in-run gaps, so a plain gap
+            # does not break it - only an explicit unhighlighted space does.
+            broken = set()
+            if forced_space:
+                ws_state = _style_state(forced_space)
+                for name, state_index in (
+                    ("strikeout", 3), ("underline", 4), ("highlight", 5),
+                ):
+                    if not ws_state[state_index]:
+                        broken.add(name)
+            elif (
+                (previous["block"], previous["line"])
+                == (span["block"], span["line"])
+                and span["bbox"][0] - previous["bbox"][2] > 0.6 * span["size"]
+            ):
+                broken.update(("strikeout", "underline"))
+            if broken:
+                cut = next(
+                    (
+                        position
+                        for position, item in enumerate(active)
+                        if item[0] in broken
+                    ),
+                    len(active),
+                )
+                for item in reversed(active[cut:]):
+                    close_item(item, max(index - 1, 0))
+                active = active[:cut]
+
+        common = 0
+        while (
+            common < len(active)
+            and common < len(stack)
+            and active[common] == stack[common]
+        ):
+            common += 1
+        closing_monospace = any(
+            item[0] == "monospace" for item in active[common:]
+        )
+        opening_monospace = any(
+            item[0] == "monospace" for item in stack[common:]
+        )
+        if (
+            closing_monospace
+            and previous is not None
+            and previous["text"].strip().endswith("`")
+        ):
+            output += " "
+        for item in reversed(active[common:]):
+            close_item(item, max(index - 1, 0))
+        output += separator
+        for item in stack[common:]:
+            open_item(item, index)
+
+        span_text = span["text"].strip()
+        if state[-1]:
+            if opening_monospace and span_text.startswith("`"):
+                output += " "
+        else:
+            span_text = _literal_text(span_text)
+        output += span_text
+
+        active = stack
+        previous = span
+        previous_state = state
+
+    if (
+        active
+        and active[-1][0] == "monospace"
+        and previous["text"].strip().endswith("`")
+    ):
+        output += " "
+    suffix = "".join(item[2] for item in reversed(active))
+    for item in reversed(active):
+        close_item(item, len(items) - 1)
+    output += " "
+
+    for position, run in close_checks:
+        following = output[position + 1] if position + 1 < len(output) else ""
+        if following.isalnum() or following == "_":
+            invalid.add(run)
+    invalid.discard(None)
+    return output, suffix, invalid
+
+
+def get_styled_text(spans):
+    """Serialize style metadata with an explicit style stack.
+
+    At most two passes: if the first pass placed an "_" italic marker in a
+    flanking-invalid position (possible when a continuing outer run keeps
+    tags from separating the marker and a word), the affected runs are
+    re-emitted with HTML emphasis, which renders in any position.
+    """
+    items = _nonempty_styled_spans(spans)
+    if not items:
+        return "", ""
+
+    italic_markers = _italic_markers(items)
+    monospace_markers = _monospace_markers(items)
+    italic_runs = _italic_run_ranges(items)
+    output, suffix, invalid = _emit(
+        items, italic_markers, monospace_markers, italic_runs
+    )
+    if invalid:
+        italic_markers = dict(italic_markers)
+        for start, stop in invalid:
+            for index in range(start, stop):
+                italic_markers[index] = ("<em>", "</em>")
+        output, suffix, _ = _emit(
+            items, italic_markers, monospace_markers, italic_runs
+        )
     return output, suffix
 
 
@@ -567,14 +934,13 @@ def list_item_to_md(textlines, level):
     indent = "   " * (level - 1)  # indentation based on level
     line = textlines[0]
     x0 = line["bbox"][0]  # left of first line
-    spans = line["spans"]
-    span0 = line["spans"][0]
+    spans = [dict(span) for span in line["spans"]]
+    span0 = spans[0]
     span0_text = span0["text"].strip()
 
     starter = "- "
     if utils.startswith_bullet(span0_text):
-        span0_text = span0_text[1:].strip()
-        line["spans"][0]["text"] = span0_text
+        span0["text"] = span0["text"].lstrip()[1:].lstrip()
     elif span0_text.endswith(".") and span0_text[:-1].isdigit():
         starter = ""
     elif " " in span0_text:
@@ -594,11 +960,11 @@ def list_item_to_md(textlines, level):
         if this_x0 < x0 - 2:
             line_output, suffix = get_styled_text(spans)
             output += line_output + f"\n\n{indent}{starter}"
-            spans = line["spans"]
+            spans = [dict(span) for span in line["spans"]]
             if not omit_if_pua_char(spans[0]["text"].strip()):
                 spans.pop(0)
         else:
-            spans.extend(line["spans"])
+            spans.extend(dict(span) for span in line["spans"])
         x0 = this_x0  # store this left coordinate
     line_output, suffix = get_styled_text(spans)
     output += line_output
@@ -642,7 +1008,17 @@ def section_hdr_to_md(header_level, textlines):
     for l in textlines:
         for s in l["spans"]:
             assert isinstance(s, dict)
-            spans.append(s)
+            # Geometric script recovery is intentionally suppressed in
+            # headings: a smaller raised section number is structural heading
+            # typography, not a superscript. Native MuPDF superscript flags are
+            # still consumed through ``flags``.
+            heading_span = dict(s)
+            heading_span.pop("script", None)
+            heading_span["char_flags"] &= ~(
+                getattr(pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0)
+                | getattr(pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0)
+            )
+            spans.append(heading_span)
     output, suffix = get_styled_text(spans)
     return f"{'#' * header_level} {output}\n\n"
 
@@ -657,7 +1033,13 @@ def title_to_md(header_level, textlines):
     for l in textlines:
         for s in l["spans"]:
             assert isinstance(s, dict)
-            spans.append(s)
+            heading_span = dict(s)
+            heading_span.pop("script", None)
+            heading_span["char_flags"] &= ~(
+                getattr(pymupdf.mupdf, "FZ_STEXT_SUPERSCRIPT", 0)
+                | getattr(pymupdf.mupdf, "FZ_STEXT_SUBSCRIPT", 0)
+            )
+            spans.append(heading_span)
     output, suffix = get_styled_text(spans)
     return f"{'#' * header_level} {output}\n\n"
 
@@ -700,17 +1082,12 @@ def text_to_md(textlines, ignore_code: bool = False):
 
 
 def picture_text_to_md(textlines, ignore_code: bool = False, clip=None):
-    """Convert text extracted from images to plain text format.
-
-    In case text has been written inside a picture bbxox, we want to output it
-    in some form. Because we cannot be sure about the formatting we simply
-    write it line by line wrapped by markers.
-    """
+    """Convert text extracted from images, including available style metadata."""
     if not textlines:
         return "\n"
     output = "<!-- Start of picture text -->\n"
     for tl in textlines:
-        line_text = " ".join([s["text"] for s in tl["spans"]])
+        line_text, _ = get_styled_text(tl["spans"])
         output += line_text.rstrip() + "<br>"
     output += "<!-- End of picture text -->\n"
     return output + "\n"
@@ -980,6 +1357,7 @@ class ParsedDocument:
         else:
             document_output = ""
 
+
         if show_progress and len(self.pages) > 5:
             print(f"Generating markdown text...")
             this_iterator = ProgressBar(self.pages)
@@ -1053,9 +1431,10 @@ class ParsedDocument:
                 elif btype == "footnote":
                     md_string += footnote_to_md(box.textlines)
                     string_lengths.append(len(md_string))
-                else:  # treat as normal MD text
+                else:
                     md_string += text_to_md(
-                        box.textlines, ignore_code=ignore_code or page.full_ocred
+                        box.textlines,
+                        ignore_code=ignore_code or page.full_ocred,
                     )
                     string_lengths.append(len(md_string))
             if page_separators:
@@ -1443,6 +1822,16 @@ def parse_document(
 
         textpage = page.get_textpage(flags=FLAGS, clip=pymupdf.INFINITE_RECT())
         blocks = textpage.extractDICT()["blocks"]
+        # Style recovery belongs to the text-extraction layer. PyMuPDF augments
+        # these blocks with script metadata and exact decorator char_flags;
+        # this module only consumes those values while building Markdown.
+        pymupdf.recover_text_styles(
+            page,
+            blocks,
+            textpage=textpage,
+            raster=True,
+            dpi=300,
+        )
 
         # Execute the Layout module AFTER any OCR.
         layout_kwargs = {"return_raw": True}
