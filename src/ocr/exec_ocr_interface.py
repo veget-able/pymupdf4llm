@@ -1,4 +1,6 @@
 import inspect
+import math
+import unicodedata
 
 import numpy as np
 import pymupdf
@@ -12,9 +14,17 @@ except Exception as e:
 
 FONT = pymupdf.Font("cjk")  # this is the "Droid Sans Fallback" font
 FONTNAME = "myfont"  # its reference name in the page
+DEVANAGARI_FONTNAME = "devanagari_font"
+DEVANAGARI_SCRIPT = pymupdf.mupdf.UCDN_SCRIPT_DEVANAGARI
 REPLACEMENT_UNICODE = chr(0xFFFD)  # Unicode Replacement Character
 STROKED_TEXT = pymupdf.mupdf.FZ_STEXT_STROKED
 FILLED_TEXT = pymupdf.mupdf.FZ_STEXT_FILLED
+
+_devanagari_font = None
+
+
+class OCRFontCoverageError(RuntimeError):
+    """Raised when no declared write-back font covers an OCR string."""
 
 
 def ocr_text(span) -> bool:
@@ -27,16 +37,217 @@ def ocr_text(span) -> bool:
     return True
 
 
-def adjust_width(text, fontsize, rect):
+def adjust_width(text, fontsize, rect, font=FONT):
     """Compute matrix to adjust text width.
 
     We must ensure that inserted text has the width of the rectangle.
     The computed matrix will do this scaling.
     """
-    tl = FONT.text_length(text, fontsize)
+    tl = font.text_length(text, fontsize)
     if tl > 0:
         return pymupdf.Matrix(rect.width / tl, 1)
     return pymupdf.Matrix(1, 1)
+
+
+def _contains_devanagari(text):
+    return any(0x0900 <= ord(char) <= 0x097F for char in text)
+
+
+def _font_covers(font, text):
+    """Return whether *font* covers every non-control codepoint in *text*."""
+    return all(
+        unicodedata.category(char) == "Cc" or font.has_glyph(ord(char)) != 0
+        for char in text
+    )
+
+
+def _get_devanagari_font():
+    """Lazily load MuPDF's built-in Noto Serif Devanagari font."""
+    global _devanagari_font
+    if _devanagari_font is None:
+        font = pymupdf.Font(script=DEVANAGARI_SCRIPT)
+        if not _font_covers(font, "".join(map(chr, range(0x0900, 0x0980)))):
+            raise OCRFontCoverageError("MuPDF Devanagari font is incomplete")
+        _devanagari_font = font
+    return _devanagari_font
+
+
+def _select_writeback_font(text):
+    """Return the declared write-back font and page resource for an OCR string.
+
+    Existing RapidOCR write-back has always used the CJK font without a
+    preflight coverage check.  Preserve that path exactly for strings that do
+    not contain Devanagari: MuPDF's glyph probe is not authoritative for every
+    legacy OCR result (for example U+2206).  The stricter, glyph-complete
+    choice is only needed for strings which require the Devanagari fallback.
+    """
+    if not _contains_devanagari(text):
+        return FONT, FONTNAME
+
+    if "\x00" in text or REPLACEMENT_UNICODE in text:
+        raise OCRFontCoverageError(
+            "OCR output contains a forbidden control or replacement glyph"
+        )
+    if _font_covers(FONT, text):
+        return FONT, FONTNAME
+    if _contains_devanagari(text):
+        font = _get_devanagari_font()
+        if _font_covers(font, text):
+            return font, DEVANAGARI_FONTNAME
+    raise OCRFontCoverageError("no declared write-back font covers OCR output")
+
+
+def _grapheme_clusters(text):
+    """Return the write-back clusters that must not be split between fonts.
+
+    OCR strings are already Unicode text, so this intentionally needs only the
+    cluster extensions relevant to the two declared fonts. Combining marks,
+    Devanagari virama, variation selectors, and join controls stay with the
+    preceding base. A virama or ZWJ also keeps the following base in that
+    cluster; ZWNJ remains with its preceding base but breaks the conjunct.
+    """
+    clusters = []
+    attach_next = False
+    for char in text:
+        codepoint = ord(char)
+        variation_selector = 0xFE00 <= codepoint <= 0xFE0F or 0xE0100 <= codepoint <= 0xE01EF
+        extender = (
+            unicodedata.category(char).startswith("M")
+            or codepoint in (0x094D, 0x200C, 0x200D)
+            or variation_selector
+        )
+        if not clusters:
+            clusters.append(char)
+        elif extender or attach_next:
+            clusters[-1] += char
+        else:
+            clusters.append(char)
+        attach_next = codepoint in (0x094D, 0x200D)
+    return clusters
+
+
+def _plan_mixed_devanagari_runs(text):
+    """Choose maximal CJK/Devanagari font runs for a valid mixed string.
+
+    The dynamic program minimizes font transitions. If multiple solutions have
+    the same transition count, the lexicographically first CJK-preferred
+    selection wins, which makes the legacy CJK choice deterministic whenever a
+    cluster is covered by both declared fonts.
+    """
+    devanagari_font = _get_devanagari_font()
+    candidates = []
+    for cluster in _grapheme_clusters(text):
+        choices = []
+        if _font_covers(FONT, cluster):
+            choices.append((FONT, FONTNAME))
+        if _font_covers(devanagari_font, cluster):
+            choices.append((devanagari_font, DEVANAGARI_FONTNAME))
+        if not choices:
+            raise OCRFontCoverageError("no declared write-back font covers OCR cluster")
+        candidates.append((cluster, choices))
+
+    # Each state stores (transition_count, CJK-preference tuple, selected runs).
+    states = {}
+    for cluster, choices in candidates:
+        next_states = {}
+        for font, fontname in choices:
+            preference = 0 if fontname == FONTNAME else 1
+            if not states:
+                value = (0, (preference,), [(cluster, font, fontname)])
+                next_states[fontname] = value
+                continue
+            for previous_name, (changes, preferences, selected) in states.items():
+                value = (
+                    changes + (previous_name != fontname),
+                    preferences + (preference,),
+                    selected + [(cluster, font, fontname)],
+                )
+                old = next_states.get(fontname)
+                if old is None or value[:2] < old[:2]:
+                    next_states[fontname] = value
+        states = next_states
+
+    _changes, _preferences, selected = min(states.values(), key=lambda value: value[:2])
+    runs = []
+    for cluster, font, fontname in selected:
+        if runs and runs[-1][2] == fontname:
+            runs[-1] = (runs[-1][0] + cluster, font, fontname)
+        else:
+            runs.append((cluster, font, fontname))
+    return runs
+
+
+def _plan_writeback_runs(text):
+    """Return the existing single-font plan or a safe mixed-font plan."""
+    if not _contains_devanagari(text):
+        # Keep every legacy no-Devanagari decision and write-back path exact.
+        font, fontname = _select_writeback_font(text)
+        return [(text, font, fontname)]
+
+    if "\x00" in text or REPLACEMENT_UNICODE in text:
+        raise OCRFontCoverageError("OCR output contains a forbidden control or replacement glyph")
+    if _font_covers(FONT, text):
+        return [(text, FONT, FONTNAME)]
+    devanagari_font = _get_devanagari_font()
+    if _font_covers(devanagari_font, text):
+        return [(text, devanagari_font, DEVANAGARI_FONTNAME)]
+    return _plan_mixed_devanagari_runs(text)
+
+
+def _prepare_writeback(text, rect):
+    """Preflight all font runs and their finite natural widths before mutation."""
+    fontsize = float(rect.height)
+    if not math.isfinite(fontsize) or fontsize <= 0 or not math.isfinite(float(rect.width)) or rect.width <= 0:
+        raise OCRFontCoverageError("OCR write-back rectangle has no finite positive size")
+    runs = []
+    natural_width = 0.0
+    for run_text, font, fontname in _plan_writeback_runs(text):
+        width = float(font.text_length(run_text, fontsize))
+        if not math.isfinite(width) or width <= 0:
+            raise OCRFontCoverageError("OCR write-back font run has no finite positive width")
+        natural_width += width
+        runs.append((run_text, font, fontname, width))
+    if not math.isfinite(natural_width) or natural_width <= 0:
+        raise OCRFontCoverageError("OCR write-back has no finite positive natural width")
+    return runs, natural_width
+
+
+def _insert_writeback(page, rect, text, prepared, inserted_fontnames):
+    """Insert a preflighted plan, preserving the existing one-font path exactly."""
+    runs, natural_width = prepared
+    for _run_text, font, fontname, _width in runs:
+        if fontname not in inserted_fontnames:
+            page.insert_font(fontname=fontname, fontbuffer=font.buffer)
+            inserted_fontnames.add(fontname)
+
+    fontsize = rect.height
+    baseline = rect.bl + (0, -0.2 * fontsize)
+    if len(runs) == 1:
+        # This is precisely the prior selected-font insertion operation.
+        _run_text, font, fontname, _width = runs[0]
+        mat = adjust_width(text, fontsize, rect, font=font)
+        page.insert_text(
+            baseline,
+            text,
+            fontsize=fontsize,
+            fontname=fontname,
+            morph=(rect.bl, mat),
+        )
+        return
+
+    scale = rect.width / natural_width
+    if not math.isfinite(scale) or scale <= 0:
+        raise OCRFontCoverageError("OCR write-back scale is not finite and positive")
+    cursor = baseline
+    for run_text, _font, fontname, width in runs:
+        page.insert_text(
+            cursor,
+            run_text,
+            fontsize=fontsize,
+            fontname=fontname,
+            morph=(cursor, pymupdf.Matrix(scale, 1)),
+        )
+        cursor += (width * scale, 0)
 
 
 # prepare for more advanced use of Tesseract by checking a function signature
@@ -157,6 +368,29 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
             "Detection-only function must return a list of (box, score) tuples."
         )
 
+    # Execute Tesseract's text Recognizer
+    # List of Tesseract text results
+    writeback_items = []
+
+    for box, score in result:
+        irect = pymupdf.IRect(
+            min(p[0] for p in box),
+            min(p[1] for p in box),
+            max(p[0] for p in box),
+            max(p[1] for p in box),
+        )
+        text = get_text(pix, irect, language=language)
+        if not text.strip():
+            continue
+        rect = pymupdf.Rect(irect) * matrix
+        prepared = _prepare_writeback(text, rect)
+        writeback_items.append((rect, text, prepared))
+
+    if not writeback_items:
+        return
+
+    # All font selection above is a preflight: an uncovered result must not
+    # redact existing page text before the callback fails closed.
     # Remove all OCR spans and spans containing a U+FFFD.
     # The OCR engine will restore them according to its best ability.
     redaction_rects = fffd_spans + ocr_spans
@@ -169,36 +403,12 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
             text=pymupdf.PDF_REDACT_TEXT_REMOVE,
         )
 
-    # Execute Tesseract's text Recognizer
-    # List of Tesseract text results
-    tess_results = _recognize_detection_boxes(pix, result, language)
-
-    if not tess_results:
-        return
-
     # insert the OCR font into the page
     page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
+    inserted_fontnames = {FONTNAME}
 
-    for irect, text in tess_results:
-        # this is the line box
-        rect = pymupdf.Rect(irect) * matrix
-
-        # this matrix will ensure text width = rect width
-        mat = adjust_width(text, rect.height, rect)
-
-        # Insert one line of text. Insertion point is the bottom-left box
-        # corner adjusted slightly upwards to account for the descender. Note
-        # that the original is unknown, so descender -0.2 is best guess only.
-        # Also true for the font size: guessed to be rectangle height.
-        # NOTE: Guesses could be improved by checking actual text content for
-        # the presence of descenders and uppercase letters.
-        page.insert_text(
-            rect.bl + (0, -0.2 * rect.height),  # insertion point
-            text,  # text to render
-            fontsize=rect.height,  # take this as font size
-            fontname=FONTNAME,  # fallback font
-            morph=(rect.bl, mat),  # adjust width to fit the line box
-        )
+    for rect, text, prepared in writeback_items:
+        _insert_writeback(page, rect, text, prepared, inserted_fontnames)
 
 
 def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
@@ -261,6 +471,29 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
         raise RuntimeError(
             "Full OCR function must return a list of (box, text, score) tuples."
         )
+
+    # Select all write-back fonts before mutating the page. In particular, an
+    # uncovered Devanagari-mixed string must fail closed rather than redact
+    # existing OCR text and then write an incomplete replacement.
+    writeback_items = []
+    for box, text, conf in result:
+        if not text.strip():
+            continue
+        rect = (
+            pymupdf.Rect(
+                min(p[0] for p in box),
+                min(p[1] for p in box),
+                max(p[0] for p in box),
+                max(p[1] for p in box),
+            )
+            * matrix
+        )
+        prepared = _prepare_writeback(text, rect)
+        writeback_items.append((rect, text, conf, prepared))
+
+    if not writeback_items:
+        return
+
     # Remove all OCR and illegible spans from the page.
     # The OCR engine will restore them according to its best ability.
     redaction_rects = fffd_spans + ocr_spans
@@ -275,30 +508,8 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
 
     # insert the font into the page if not already present
     page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
+    inserted_fontnames = {FONTNAME}
 
     # Insert recognized text
-    for box, text, conf in result:
-        rect = (
-            pymupdf.Rect(
-                min(p[0] for p in box),
-                min(p[1] for p in box),
-                max(p[0] for p in box),
-                max(p[1] for p in box),
-            )
-            * matrix
-        )
-
-        if not text.strip():
-            continue
-
-        fontsize = rect.height
-        # Text width scaling matrix ensures text width = box width
-        mat = adjust_width(text, fontsize, rect)
-
-        page.insert_text(
-            rect.bl + (0, -0.2 * fontsize),
-            text,
-            fontsize=fontsize,
-            fontname=FONTNAME,
-            morph=(rect.bl, mat),
-        )
+    for rect, text, conf, prepared in writeback_items:
+        _insert_writeback(page, rect, text, prepared, inserted_fontnames)
