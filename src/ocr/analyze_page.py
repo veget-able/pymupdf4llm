@@ -171,6 +171,7 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
     txt_rect = +img_rect  # joined text span bboxes
     vec_rect = +img_rect  # joined suspicious vector bboxes
     chars_total = 0  # total character count
+    visible_chars = 0
     chars_bad = 0  # bad character count
     bad_areas = 0.0  # sum of areas of text spans having bad characters
     img_area = 0.0  # sum of image block areas
@@ -201,6 +202,8 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
                     if not text or text.isspace():
                         continue  # ignore spans having no relevant text
                     chars_total += len(text)  # total character count
+                    if s.get("alpha", 255) != 0:
+                        visible_chars += len(text)
                     # OCR layer / invisible text
                     if is_ocr_span(s):
                         ocr_spans += 1
@@ -253,6 +256,7 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
             "vec_area": 0.0,
             "vec_norects": 0,
             "chars_total": 0,
+            "visible_chars": 0,
             "chars_bad": 0,
             "bad_areas": 0.0,
             "ocr_spans": 0,
@@ -283,6 +287,7 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
         "vec_joins": (abs(vec_rect) / cover_area) if cover_area else 0.0,
         "vec_area": vec_area / cover_area if cover_area else 0.0,
         "chars_total": chars_total,
+        "visible_chars": visible_chars,
         "chars_bad": chars_bad,
         "bad_areas": bad_areas / cover_area if cover_area else 0.0,
         "ocr_spans": ocr_spans,

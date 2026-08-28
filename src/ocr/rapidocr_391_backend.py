@@ -31,6 +31,13 @@ def init_engine():
     return ENGINE
 
 
+def recognize_crops(crops):
+    """Recognize pre-cropped lines through the existing version-pinned engine."""
+    from rapidocr.ch_ppocr_rec.typings import TextRecInput
+
+    return init_engine().text_rec(TextRecInput(img=crops)).txts
+
+
 # ------------------------------------------------------------
 # Full OCR: Detection + Recognition
 # ------------------------------------------------------------

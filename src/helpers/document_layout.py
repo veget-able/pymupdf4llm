@@ -1,4 +1,5 @@
 import base64
+import copy
 import io
 import json
 import math
@@ -16,6 +17,8 @@ from pymupdf import mupdf
 from pymupdf4llm.helpers import utils
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines
 from pymupdf4llm.ocr import OCRMode
+from pymupdf4llm.ocr.analyze_page import is_ocr_span
+from pymupdf4llm import _prior_ocr_trust_preflight as prior_ocr_preflight
 
 try:
     from tqdm import tqdm as ProgressBar
@@ -1614,6 +1617,8 @@ def update_header_tags(pages, header_fontsizes):
     """Update title/section-header boxes with HTML header tags."""
     # List of up to 6 integer font sizes in descending order
     header_fontsizes = sorted(header_fontsizes, reverse=True)[:6]
+    if not header_fontsizes:
+        return
     for page in pages:
         for box in page.boxes:
             if box.boxclass in ("title", "section-header"):
@@ -1652,7 +1657,31 @@ def make_ocr_decision(page, use_ocr):
         # return True if old OCR should be dropped and new OCR done
         return True, ocr_spans, only_text
 
+    # Keep the trained selector as the first decision. Its false-negative
+    # recovery is deliberately restricted to a textless visible page.
+    if use_ocr != OCRMode.NEVER and not needs_ocr and ocr_spans == 0 and not page_analysis.get("visible_chars", 0) > 0:
+        pix = page.get_pixmap(colorspace=pymupdf.csGRAY, alpha=False)
+        if any(sample < 245 for sample in pix.samples):
+            return True, ocr_spans, only_text
     return needs_ocr, ocr_spans, only_text
+
+
+def _page_markdown_is_exactly_empty(document, page_layout):
+    """Run the existing serializer on one detached page, never on the document.
+
+    Markdown serializers may alter span lists while handling bullets. The probe keeps
+    that mutation in a page-local clone; it is called only for retained-prior pages.
+    """
+    probe = copy.copy(document)
+    probe.pages = [copy.deepcopy(page_layout)]
+    return probe.to_markdown() == ""
+
+
+def _page_has_unconditionally_emitting_heading(page_layout):
+    """Whether the default serializer must emit for a title/header box."""
+    return any(
+        box.boxclass in ("title", "section-header") for box in page_layout.boxes
+    )
 
 
 def parse_document(
@@ -1790,14 +1819,32 @@ def parse_document(
         print(f"Parsing {len(page_filter)} pages of '{document.filename}'...")
         page_filter = ProgressBar(page_filter)
 
+    retained_prior_page_numbers = set()
+    preflight_events = {}
     for pno in page_filter:
         page = mydoc.load_page(pno)
         page.remove_rotation()
-        page_full_ocred = False
+        preflight_event = None
+        if document.use_ocr is True or document.use_ocr == OCRMode.SELECT_KEEP_OLD:
+            preflight_event = prior_ocr_preflight.check(
+                page, source=document.filename, page_number=pno,
+                use_ocr=document.use_ocr, ocr_dpi=ocr_dpi, ocr_function=ocr_function,
+                ocr_language=ocr_language,
+            )
+            preflight_events[pno] = preflight_event
+        page_full_ocred = bool(preflight_event and preflight_event["selected"])
         PAGE_ANALYSIS = {}
         OCR_SPANS = 0
         ONLY_TEXT = False
-        needs_ocr, OCR_SPANS, ONLY_TEXT = make_ocr_decision(page, document.use_ocr)
+        if preflight_event and preflight_event["selected"]:
+            needs_ocr, OCR_SPANS, ONLY_TEXT = False, 0, False
+        else:
+            needs_ocr, OCR_SPANS, ONLY_TEXT = make_ocr_decision(page, document.use_ocr)
+
+        # This inventory is from the decision's pre-writeback analysis. A page
+        # that takes ordinary OCR must never be reclassified from its fresh
+        # writeback spans as a retained-prior recovery candidate.
+        retained_prior_eligible = OCR_SPANS > 0 and not needs_ocr
 
         if needs_ocr:
             # execute OCR for the page replacing any previous OCR spans
@@ -1807,7 +1854,13 @@ def parse_document(
                 language=ocr_language,
                 keep_ocr_text=False,
             )
+            page_full_ocred = True
+            if preflight_event:
+                preflight_event["normal_full_ocr_calls"] += 1
             print(f"OCR on {page.number=}/{page.number+1}.", file=INFO_MESSAGES)
+
+        if retained_prior_eligible:
+            retained_prior_page_numbers.add(pno)
 
         textpage = page.get_textpage(flags=FLAGS, clip=pymupdf.INFINITE_RECT())
         blocks = textpage.extractDICT()["blocks"]
@@ -2052,6 +2105,51 @@ def parse_document(
 
             pagelayout.boxes.append(layoutbox)
         document.pages.append(pagelayout)
+
+    # Retained OCR is normally kept. Recover only the exceptional state where its
+    # completed page serializes to exactly no Markdown despite a visible raster.
+    # Reparse only that page through the ordinary pipeline with OCR disabled.
+    for index, page_layout in enumerate(document.pages):
+        page_number = page_layout.page_number - 1
+        preflight_event = preflight_events.get(page_number)
+        if preflight_event and preflight_event["selected"]:
+            preflight_event["v3_exact_empty_skipped"] = True
+            continue
+        if page_number not in retained_prior_page_numbers:
+            continue
+        if _page_has_unconditionally_emitting_heading(page_layout):
+            continue
+        page = mydoc.load_page(page_number)
+        if not _page_markdown_is_exactly_empty(document, page_layout):
+            continue
+        pix = page.get_pixmap(dpi=72)
+        if not any(sample < 250 for sample in pix.samples):
+            continue
+        ocr_function(page, dpi=ocr_dpi, language=ocr_language, keep_ocr_text=False)
+        if preflight_event:
+            preflight_event["v3_recovery_full_ocr_calls"] += 1
+        repaired = parse_document(
+            mydoc,
+            image_dpi=image_dpi,
+            ocr_dpi=ocr_dpi,
+            image_format=image_format,
+            image_path=image_path,
+            pages=[page_number],
+            show_progress=False,
+            embed_images=embed_images,
+            write_images=write_images,
+            force_text=force_text,
+            use_ocr=OCRMode.NEVER,
+            force_ocr=False,
+            ocr_language=ocr_language,
+            ocr_function=ocr_function,
+            render_html_tables=render_html_tables,
+            edge_threshold=edge_threshold,
+        )
+        repaired.pages[0].full_ocred = True
+        document.pages[index] = repaired.pages[0]
+    for preflight_event in preflight_events.values():
+        prior_ocr_preflight.emit(preflight_event)
     if mydoc != doc:
         mydoc.close()
     msg_text = INFO_MESSAGES.getvalue()
