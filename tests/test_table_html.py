@@ -121,6 +121,20 @@ def test_raster_lines_feed_union_table_detection():
         doc.close()
 
 
+def test_reading_order_keeps_table_nested_in_picture():
+    boxes = [
+        (20.0, 20.0, 280.0, 220.0, "picture"),
+        (60.0, 80.0, 240.0, 180.0, "table"),
+    ]
+    ordered = document_layout.utils.find_reading_order(
+        pymupdf.Rect(0, 0, 300, 240),
+        [],
+        boxes,
+    )
+    assert boxes[0] in ordered
+    assert boxes[1] in ordered
+
+
 def test_to_markdown_table_output_html_uses_layout_path():
     if not FIND_TABLES_HAS_LAYOUT:
         print("Skipping test_to_markdown_table_output_html_uses_layout_path: Page.find_tables is too old")

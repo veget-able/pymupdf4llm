@@ -696,7 +696,14 @@ def find_reading_order(page_rect, blocks, boxes, vertical_gap: float = 12) -> li
         )
         result = []
         for r in sorted_boxes:
-            if not any(is_contained(r, other) for other in result):
+            # HTML table reconstruction can add a precise table bbox inside a
+            # coarse layout ``picture`` bbox (the common raster-table case).
+            # A non-table container must not discard that first-class table;
+            # only a larger table is allowed to subsume a nested table.
+            containers = [other for other in result if is_contained(r, other)]
+            if r[4] == "table":
+                containers = [other for other in containers if other[4] == "table"]
+            if not containers:
                 result.append(r)
         return result
 
