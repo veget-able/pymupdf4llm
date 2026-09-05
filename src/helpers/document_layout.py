@@ -131,6 +131,27 @@ def wrap_table_for_tabulate(table, max_width=100, min_col_width=10):
     return wrapped_table
 
 
+def _raw_gnn_table_metadata(layout_information) -> List[Dict]:
+    """Serialize table groups before find_tables / reading-order normalization."""
+    tables = []
+    for raw_index, item in enumerate(layout_information or []):
+        if not isinstance(item, dict) or item.get("class_name") != "table":
+            continue
+        bbox = item.get("group_bbox")
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            continue
+        tables.append(
+            {
+                "raw_index": raw_index,
+                "bbox": [float(value) for value in bbox],
+                "node_indices": [int(value) for value in item.get("indicies") or []],
+                "group_class": item.get("group_class"),
+                "tie_class": item.get("tie_class"),
+            }
+        )
+    return tables
+
+
 def make_page_chunk(doc, page, text, string_lengths) -> Dict:
     """Create a page chunk dictionary for output.
 
@@ -152,19 +173,43 @@ def make_page_chunk(doc, page, text, string_lengths) -> Dict:
     }
 
     chunk["toc_items"] = page_tocs
+    chunk["pred_source"] = page.pred_source
+    chunk["raw_gnn_tables"] = page.raw_gnn_tables
+    chunk["find_tables"] = page.find_tables
     page_boxes = []
     for i in range(len(page.boxes)):
         b = page.boxes[i]
         start = string_lengths[i - 1] if i > 0 else 0
         stop = string_lengths[i]
-        page_boxes.append(
-            {
-                "index": i,
-                "class": b.boxclass,
-                "bbox": tuple(pymupdf.IRect(b.x0, b.y0, b.x1, b.y1)),
-                "pos": (start, stop),
-            }
-        )
+        page_box = {
+            "index": i,
+            "class": b.boxclass,
+            "bbox": tuple(pymupdf.IRect(b.x0, b.y0, b.x1, b.y1)),
+            "pos": (start, stop),
+        }
+        if b.boxclass == "table" and isinstance(b.table, dict):
+            # Text provenance is page-scoped because OCR is selected and run
+            # before layout/table detection. Repeat it on every prediction so
+            # artifact consumers do not need to infer it from a pipeline name.
+            page_box["pred_source"] = page.pred_source
+            # Preserve the individual find_tables() results after several of
+            # them have been assigned to one normalized layout bbox. Keep only
+            # localization / shape metadata here: HTML is already represented
+            # by this page_box's pos slice and cells can be very large.
+            html_tables = []
+            for item in b.table.get("html_tables") or []:
+                if not isinstance(item, dict) or not item.get("bbox"):
+                    continue
+                html_tables.append(
+                    {
+                        "bbox": list(item["bbox"]),
+                        "rows": item.get("rows"),
+                        "cols": item.get("cols"),
+                    }
+                )
+            if html_tables:
+                page_box["html_tables"] = html_tables
+        page_boxes.append(page_box)
     chunk["page_boxes"] = page_boxes
     chunk["text"] = text
     return chunk
@@ -928,6 +973,7 @@ class LayoutBox:
 
     # if boxclass == 'table'
     table: Optional[Dict] = None
+    pred_source: Optional[str] = None
 
     # text line information for text-type boxclasses
     max_fontsize: Optional[int] = None
@@ -942,6 +988,9 @@ class PageLayout:
     height: float
     boxes: List[LayoutBox]
     full_ocred: bool = False  # whether the page is an OCR'd page
+    pred_source: str = "native"  # native, existing_ocr, or OCR run by this parse
+    raw_gnn_tables: Optional[List[Dict]] = None
+    find_tables: Optional[List[Dict]] = None
     fulltext: Optional[List[Dict]] = None  # full page text in extractDICT format
     words: Optional[List[Dict]] = None  # list of words with bbox
     links: Optional[List[Dict]] = None
@@ -1430,6 +1479,7 @@ def parse_document(
         OCR_SPANS = 0
         ONLY_TEXT = False
         needs_ocr, OCR_SPANS, ONLY_TEXT = make_ocr_decision(page, document.use_ocr)
+        pred_source = "ocr" if needs_ocr else "existing_ocr" if OCR_SPANS else "native"
 
         if needs_ocr:
             # execute OCR for the page replacing any previous OCR spans
@@ -1449,6 +1499,7 @@ def parse_document(
         if edge_threshold is not None:
             layout_kwargs["edge_threshold"] = edge_threshold
         get_layout_locked(page, **layout_kwargs)
+        raw_gnn_tables = _raw_gnn_table_metadata(page.layout_information)
 
         # Optionally render tables as HTML, reusing this raw GNN layout
         # (get_layout is guarded to reuse it, so no second GNN pass).
@@ -1475,6 +1526,17 @@ def parse_document(
                 page_html_tables_list = None
             finally:
                 page.layout_information = _saved_raw_layout
+
+        find_tables_metadata = []
+        for table_item in page_html_tables_list or []:
+            meta = _html_table_meta(table_item)
+            find_tables_metadata.append(
+                {
+                    "bbox": meta["bbox"],
+                    "rows": meta["rows"],
+                    "cols": meta["cols"],
+                }
+            )
 
         # Dictionary with details for all tables. Key is the bounding box
         # tuple, value is the original Layout info per table.
@@ -1540,6 +1602,9 @@ def parse_document(
             height=page.rect.height,
             boxes=[],
             full_ocred=page_full_ocred,
+            pred_source=pred_source,
+            raw_gnn_tables=raw_gnn_tables,
+            find_tables=find_tables_metadata,
             fulltext=fulltext,
             words=words,
             links=links,
@@ -1580,6 +1645,7 @@ def parse_document(
                     ]
 
             elif layoutbox.boxclass == "table":
+                layoutbox.pred_source = pred_source
                 search_key = (layoutbox.x0, layoutbox.y0, layoutbox.x1, layoutbox.y1)
                 html_tables = html_tables_by_box.get(tuple(pymupdf.IRect(clip)), [])
 

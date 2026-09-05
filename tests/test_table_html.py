@@ -196,6 +196,9 @@ def test_to_json_table_output_html_uses_layout_path():
     assert calls
     assert calls[0]["render_html_tables"] is True
     assert any(box["table"].get("html") for box in table_boxes)
+    assert {box["pred_source"] for box in table_boxes} == {"native"}
+    assert len(data["pages"][0]["raw_gnn_tables"]) == 2
+    assert len(data["pages"][0]["find_tables"]) == 2
 
 
 def test_layout_html_env_does_not_enable_table_html(monkeypatch):
