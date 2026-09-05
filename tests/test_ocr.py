@@ -2,6 +2,7 @@ import os
 
 import pymupdf
 import pymupdf4llm
+from pymupdf4llm.ocr.get_culled_pixmap import get_pixmap
 
 
 REPLACEMENT_UNICODE = chr(0xFFFD)
@@ -21,6 +22,20 @@ def _ocr_rapidocr_onnxruntime_available():
     except Exception:
         rapidocr_onnxruntime = None
     return bool(rapidocr_onnxruntime)
+
+
+def test_get_pixmap_empty_rects_keep_text():
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((36, 36), "visible text")
+    displaylist = page.get_displaylist()
+
+    _pix, empty = get_pixmap(displaylist, dpi=72, rects=[])
+    assert not empty
+
+    _pix, empty = get_pixmap(displaylist, dpi=72, rects=None)
+    assert empty
+    doc.close()
 
 
 def test_ocr_1():

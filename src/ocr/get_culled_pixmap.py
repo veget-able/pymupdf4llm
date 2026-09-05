@@ -48,9 +48,13 @@ def pixmap_is_empty(pix, threshold=250):
 
 
 def get_pixmap(displaylist, dpi=150, rects=None, empty_threshold=250):
-    """Make a pixmap from the page ignoring text in the rects."""
+    """Make a pixmap from the page ignoring text in the rects.
+
+    ``None`` preserves the default of culling all text. An empty iterable means
+    there are no text regions to cull.
+    """
     mediabox = displaylist.rect
-    if not rects:
+    if rects is None:
         rects = [mediabox]
     max_pixels = int(os.getenv("PYMUPDF_MAX_OCRSIZE", MAX_PIXELS)) * 10**6
     max_dpi = max_dpi_for_page(mediabox, max_pixels=max_pixels)
