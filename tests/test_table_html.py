@@ -1,14 +1,20 @@
+import importlib.util
 import inspect
 import json
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 
+import numpy as np
 import pymupdf
 import pymupdf4llm
 from pymupdf4llm.helpers import document_layout
 from pymupdf4llm.helpers.table_html import page_html_tables
 from pymupdf4llm.helpers.table_html.reconstruct import to_html
+from pymupdf4llm.helpers.table_html.raster_lines import (
+    _detect_grid_components,
+    detect_raster_table_lines,
+)
 
 
 g_root = os.path.normpath(f"{__file__}/../..")
@@ -49,6 +55,70 @@ def test_page_html_tables_uses_core_union_find_tables():
     assert calls[0]["use_layout"] is True
     assert calls[0]["union"] is True
     assert calls[0]["refine"] is True
+    assert "add_lines" in calls[0]
+
+
+def test_raster_line_detector_accepts_text_bearing_grid_and_rejects_empty_box():
+    if importlib.util.find_spec("cv2") is None:
+        print("Skipping test_raster_line_detector_accepts_text_bearing_grid_and_rejects_empty_box: OpenCV unavailable")
+        return
+    gray = np.full((180, 260), 255, dtype=np.uint8)
+    for y in (20, 90, 160):
+        gray[y - 1 : y + 2, 20:240] = 0
+    for x in (20, 130, 240):
+        gray[20:161, x - 1 : x + 2] = 0
+
+    assert _detect_grid_components(gray, scale=2.0, words=[]) == []
+
+    words = [
+        (35, 35, 80, 55, "top", 0, 0, 0),
+        (145, 105, 205, 125, "bottom", 0, 1, 0),
+    ]
+    components = _detect_grid_components(gray, scale=2.0, words=words)
+    assert len(components) == 1
+    horizontal, vertical = components[0]
+    assert len(horizontal) == 3
+    assert len(vertical) == 3
+
+
+def test_raster_lines_feed_union_table_detection():
+    if importlib.util.find_spec("cv2") is None:
+        print("Skipping test_raster_lines_feed_union_table_detection: OpenCV is unavailable")
+        return
+    width, height = 440, 280
+    samples = np.full((height, width), 255, dtype=np.uint8)
+    for y in (20, 140, 260):
+        samples[y - 2 : y + 2, 20:420] = 0
+    for x in (20, 220, 420):
+        samples[20:261, x - 2 : x + 2] = 0
+    image = pymupdf.Pixmap(
+        pymupdf.csGRAY,
+        width,
+        height,
+        samples.tobytes(),
+        False,
+    )
+    doc = pymupdf.open()
+    page = doc.new_page(width=300, height=260)
+    page.insert_image((30, 50, 270, 203), stream=image.tobytes("png"))
+    for row, y in enumerate((70, 145)):
+        for col, x in enumerate((55, 175)):
+            page.insert_text((x, y), f"r{row}c{col}")
+    page.layout_information = []
+    try:
+        lines = detect_raster_table_lines(page)
+        tables = page.find_tables(
+            use_layout=True,
+            union=True,
+            refine=True,
+            add_lines=lines,
+        ).tables
+        assert len(lines) == 6
+        assert len(tables) == 1
+        assert (tables[0].row_count, tables[0].col_count) == (2, 2)
+        assert tables[0].extract()[1][1] == "r1c1"
+    finally:
+        doc.close()
 
 
 def test_to_markdown_table_output_html_uses_layout_path():

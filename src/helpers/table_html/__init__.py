@@ -11,5 +11,6 @@ Public entry points:
 from __future__ import annotations
 
 from .reconstruct import to_html, page_html_tables
+from .raster_lines import detect_raster_table_lines
 
-__all__ = ["to_html", "page_html_tables"]
+__all__ = ["to_html", "page_html_tables", "detect_raster_table_lines"]
