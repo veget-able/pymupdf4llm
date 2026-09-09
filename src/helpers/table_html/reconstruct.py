@@ -11,6 +11,15 @@ from .core import html_document
 from .raster_lines import detect_raster_table_lines
 
 
+class TablePayload(tuple):
+    """Preserve the six-item public payload contract, carrying source metadata."""
+
+    def __new__(cls, values, provenance):
+        payload = super().__new__(cls, values)
+        payload.bbox_provenance = dict(provenance)
+        return payload
+
+
 def _raster_lines(page):
     return detect_raster_table_lines(page)
 
@@ -115,16 +124,22 @@ def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, i
         add_lines=raster_lines,
     )
     result = []
-    for tab in (getattr(tf, "tables", None) or []):
+    for index, tab in enumerate(getattr(tf, "tables", None) or []):
         row_count, col_count, cells, extract = _placement_grid_matrices(tab.placements)
+        provenance = dict(getattr(tab, "bbox_provenance", {}))
+        provenance.setdefault("bbox_source", "unknown")
+        provenance.setdefault("grid_source", "unknown")
+        provenance.setdefault("bbox_operation", "unknown")
+        provenance.setdefault("source_gnn_indices", [])
+        provenance["table_id"] = f"p{page.number}:table:{index}"
         result.append(
-            (
+            TablePayload((
                 pymupdf.Rect(tab.bbox),
                 tab.to_html(),
                 row_count,
                 col_count,
                 cells,
                 extract,
-            )
+            ), provenance)
         )
     return result

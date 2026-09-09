@@ -131,6 +131,27 @@ def wrap_table_for_tabulate(table, max_width=100, min_col_width=10):
     return wrapped_table
 
 
+_BBOX_PROVENANCE_FIELDS = (
+    "bbox_source", "grid_source", "bbox_operation", "source_gnn_indices",
+    "parent_bbox_source", "parent_bbox", "table_id", "layout_operation",
+    "bbox_owner_table_id",
+)
+
+
+def _bbox_provenance(value):
+    metadata = value if isinstance(value, dict) else getattr(value, "bbox_provenance", {})
+    return {key: metadata[key] for key in _BBOX_PROVENANCE_FIELDS if key in metadata}
+
+
+class _LayoutEntry(tuple):
+    """Retain bbox ownership through normalization and reading-order sorting."""
+
+    def __new__(cls, values, provenance):
+        entry = super().__new__(cls, values)
+        entry.bbox_provenance = dict(provenance)
+        return entry
+
+
 def _raw_gnn_table_metadata(layout_information) -> List[Dict]:
     """Serialize table groups before find_tables / reading-order normalization."""
     tables = []
@@ -147,6 +168,9 @@ def _raw_gnn_table_metadata(layout_information) -> List[Dict]:
                 "node_indices": [int(value) for value in item.get("indicies") or []],
                 "group_class": item.get("group_class"),
                 "tie_class": item.get("tie_class"),
+                "bbox_source": "gnn",
+                "bbox_operation": "gnn_detection",
+                "source_gnn_indices": [raw_index],
             }
         )
     return tables
@@ -187,6 +211,8 @@ def make_page_chunk(doc, page, text, string_lengths) -> Dict:
             "bbox": tuple(pymupdf.IRect(b.x0, b.y0, b.x1, b.y1)),
             "pos": (start, stop),
         }
+        if b.boxclass == "table":
+            page_box.update(b.bbox_provenance or {"bbox_source": "unknown"})
         if b.boxclass == "table" and isinstance(b.table, dict):
             # Text provenance is page-scoped because OCR is selected and run
             # before layout/table detection. Repeat it on every prediction so
@@ -205,6 +231,7 @@ def make_page_chunk(doc, page, text, string_lengths) -> Dict:
                         "bbox": list(item["bbox"]),
                         "rows": item.get("rows"),
                         "cols": item.get("cols"),
+                        **_bbox_provenance(item),
                     }
                 )
             if html_tables:
@@ -797,6 +824,7 @@ def _html_table_meta(table_item) -> Dict:
         ),
         "cells": table_item[4] if len(table_item) > 4 else None,
         "extract": table_item[5] if len(table_item) > 5 else None,
+        **_bbox_provenance(table_item),
     }
 
 
@@ -829,13 +857,17 @@ def _assign_html_tables_to_boxes(layout_boxes, html_tables, threshold: float = 0
                     best_key = key
                     best_score = score
         if best_key is None or best_score < threshold:
-            synthetic = (
+            synthetic = _LayoutEntry((
                 table_rect.x0,
                 table_rect.y0,
                 table_rect.x1,
                 table_rect.y1,
                 "table",
-            )
+            ), {
+                **_bbox_provenance(meta),
+                "layout_operation": "html_table_insert",
+                "bbox_owner_table_id": meta.get("table_id"),
+            })
             augmented_boxes.append(synthetic)
             best_key = tuple(pymupdf.IRect(table_rect))
             table_boxes.append((best_key, table_rect))
@@ -974,6 +1006,7 @@ class LayoutBox:
     # if boxclass == 'table'
     table: Optional[Dict] = None
     pred_source: Optional[str] = None
+    bbox_provenance: Optional[Dict] = None
 
     # text line information for text-type boxclasses
     max_fontsize: Optional[int] = None
@@ -1535,6 +1568,7 @@ def parse_document(
                     "bbox": meta["bbox"],
                     "rows": meta["rows"],
                     "cols": meta["cols"],
+                    **_bbox_provenance(meta),
                 }
             )
 
@@ -1545,7 +1579,7 @@ def parse_document(
         textlines_by_box = {}
 
         new_layout_info = []  # will contain Layout boxes in non-"raw" format
-        for b in page.layout_information:
+        for raw_index, b in enumerate(page.layout_information):
             gbbox = list(b["group_bbox"])
             if gbbox[2] - gbbox[0] <= 2 or gbbox[3] - gbbox[1] <= 2:
                 # skip tiny boxes
@@ -1554,6 +1588,13 @@ def parse_document(
                 # table without a grid: skip it
                 continue
             bbox = tuple(gbbox + [b["class_name"]])
+            if b["class_name"] == "table":
+                bbox = _LayoutEntry(bbox, {
+                    "bbox_source": "gnn",
+                    "bbox_operation": "gnn_detection",
+                    "source_gnn_indices": [raw_index],
+                    "layout_operation": "gnn_box",
+                })
             new_layout_info.append(bbox)
 
             # store table info for later use in table extraction
@@ -1611,6 +1652,8 @@ def parse_document(
         )
         for box in page.layout_information:
             layoutbox = LayoutBox(*box)
+            if layoutbox.boxclass == "table":
+                layoutbox.bbox_provenance = _bbox_provenance(box)
             clip = pymupdf.Rect(box[:4])
 
             if layoutbox.boxclass in ("picture", "formula"):
