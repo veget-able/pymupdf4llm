@@ -70,6 +70,33 @@ def _placement_grid_matrices(placements) -> tuple[int, int, list, list]:
     return row_count, col_count, bbox_grid, text_grid
 
 
+def _table_grid_matrices(tab, *, retain=False) -> tuple[int, int, list, list]:
+    """Borrow matrices for one table's current structural state (read-only).
+
+    Header tags/roles do not enter the matrices. Cell text, bbox, spans and
+    row membership do: snapshot those values to detect in-place edits as well
+    as grid replacement. Retain only the latest state on this Table, never a
+    page/global cache. Split/refine/stitch children own independent Tables.
+    Producers opt into retention; the final serializer only borrows results.
+    """
+    placements = tab.placements
+    previous = getattr(tab, "_placement_matrices_snapshot", None)
+    # Final serialization is a consumer: do not retain a first/last-use result.
+    if previous is None and not retain:
+        return _placement_grid_matrices(placements)
+    state = tuple(tuple((tuple(c.bbox) if c.bbox is not None else None,
+                         c.text, c.colspan, c.rowspan) for c in row)
+                  for row in placements)
+    if previous is not None and previous[0] is placements and previous[1] == state:
+        return previous[2]
+    result = _placement_grid_matrices(placements)
+    if retain:
+        tab._placement_matrices_snapshot = (placements, state, result)
+    elif previous is not None:
+        del tab._placement_matrices_snapshot
+    return result
+
+
 @_html_table_scope()
 def to_html(pdf, page_index=0):
     """Reconstruct the tables on one PDF page and return them as an HTML string.
@@ -128,7 +155,7 @@ def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, i
     )
     result = []
     for index, tab in enumerate(getattr(tf, "tables", None) or []):
-        row_count, col_count, cells, extract = _placement_grid_matrices(tab.placements)
+        row_count, col_count, cells, extract = _table_grid_matrices(tab)
         provenance = dict(getattr(tab, "bbox_provenance", {}))
         provenance.setdefault("bbox_source", "unknown")
         provenance.setdefault("grid_source", "unknown")
