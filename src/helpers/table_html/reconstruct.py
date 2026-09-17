@@ -15,9 +15,10 @@ from .raster_lines import detect_raster_table_lines
 class TablePayload(tuple):
     """Preserve the six-item public payload contract, carrying source metadata."""
 
-    def __new__(cls, values, provenance):
+    def __new__(cls, values, provenance, *, unresolved_content=()):
         payload = super().__new__(cls, values)
         payload.bbox_provenance = dict(provenance)
+        payload.unresolved_content = unresolved_content
         return payload
 
 
@@ -170,6 +171,6 @@ def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, i
                 col_count,
                 cells,
                 extract,
-            ), provenance)
+            ), provenance, unresolved_content=getattr(tab, "unresolved_content", ()))
         )
     return result

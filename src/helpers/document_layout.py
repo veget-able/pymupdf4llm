@@ -825,6 +825,8 @@ def _html_table_meta(table_item) -> Dict:
         "cells": table_item[4] if len(table_item) > 4 else None,
         "extract": table_item[5] if len(table_item) > 5 else None,
         **_bbox_provenance(table_item),
+        **({"unresolved_content": list(table_item.unresolved_content)}
+           if getattr(table_item, "unresolved_content", ()) else {}),
     }
 
 
@@ -1569,6 +1571,8 @@ def parse_document(
                     "rows": meta["rows"],
                     "cols": meta["cols"],
                     **_bbox_provenance(meta),
+                    **({"unresolved_content": meta["unresolved_content"]}
+                       if meta.get("unresolved_content") else {}),
                 }
             )
 
