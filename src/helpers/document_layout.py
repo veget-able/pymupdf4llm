@@ -17,7 +17,11 @@ from pymupdf import mupdf
 from pymupdf4llm.helpers import utils
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines
 from pymupdf4llm.ocr import OCRMode
-from pymupdf4llm.ocr.analyze_page import is_ocr_span
+from pymupdf4llm.ocr.span_provenance import (
+    annotate_page_ocr_spans,
+    get_runtime_ocr_rects,
+    has_runtime_ocr_record,
+)
 from pymupdf4llm import _prior_ocr_trust_preflight as prior_ocr_preflight
 
 try:
@@ -1334,7 +1338,15 @@ def parse_document(
     ocr_function=None,
     render_html_tables=None,
     edge_threshold=None,
+    _runtime_ocr_pages=None,
+    _runtime_ocr_rects_by_page=None,
 ) -> ParsedDocument:
+    # Internal recursion uses this set after exact-empty OCR recovery.  The
+    # repaired page is parsed with OCR disabled, so without this explicit
+    # hand-off its newly written spans would be mistaken for a source layer.
+    runtime_ocr_pages = frozenset(_runtime_ocr_pages or ())
+    runtime_ocr_rects_by_page = dict(_runtime_ocr_rects_by_page or {})
+
     original_path = None
     if isinstance(doc, pymupdf.Document):
         mydoc = doc
@@ -1464,7 +1476,11 @@ def parse_document(
                 ocr_language=ocr_language,
             )
             preflight_events[pno] = preflight_event
-        page_full_ocred = bool(preflight_event and preflight_event["selected"])
+        page_full_ocred = bool(
+            pno in runtime_ocr_pages
+            or preflight_event
+            and preflight_event["selected"]
+        )
         PAGE_ANALYSIS = {}
         OCR_SPANS = 0
         ONLY_TEXT = False
@@ -1496,6 +1512,13 @@ def parse_document(
 
         textpage = page.get_textpage(flags=FLAGS, clip=pymupdf.INFINITE_RECT())
         blocks = textpage.extractDICT()["blocks"]
+        annotate_page_ocr_spans(
+            page,
+            blocks,
+            runtime_ocr_applied=page_full_ocred,
+            runtime_ocr_rects=runtime_ocr_rects_by_page.get(pno),
+            language=ocr_language,
+        )
 
         # Execute the Layout module AFTER any OCR.
         layout_kwargs = {"return_raw": True}
@@ -1748,6 +1771,8 @@ def parse_document(
         if not any(sample < 250 for sample in pix.samples):
             continue
         ocr_function(page, dpi=ocr_dpi, language=ocr_language, keep_ocr_text=False)
+        recovered_runtime_rects = get_runtime_ocr_rects(page)
+        has_recovered_runtime_record = has_runtime_ocr_record(page)
         if preflight_event:
             preflight_event["v3_recovery_full_ocr_calls"] += 1
         repaired = parse_document(
@@ -1767,6 +1792,12 @@ def parse_document(
             ocr_function=ocr_function,
             render_html_tables=render_html_tables,
             edge_threshold=edge_threshold,
+            _runtime_ocr_pages={page_number},
+            _runtime_ocr_rects_by_page=(
+                {page_number: recovered_runtime_rects}
+                if has_recovered_runtime_record
+                else None
+            ),
         )
         repaired.pages[0].full_ocred = True
         document.pages[index] = repaired.pages[0]

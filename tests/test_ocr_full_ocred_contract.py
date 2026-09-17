@@ -80,6 +80,14 @@ def test_selected_preflight_replacement_marks_provenance_and_blocks_reentry(monk
 def test_exact_empty_recovery_restores_provenance_after_ocr_disabled_reparse(monkeypatch):
     layout, doc = _parse_fixture(monkeypatch)
     event, preflight_calls, callbacks = _event(), [], []
+    annotation_runtime_flags = []
+    original_annotator = layout.annotate_page_ocr_spans
+
+    def capture_annotation(*args, **kwargs):
+        annotation_runtime_flags.append(kwargs.get("runtime_ocr_applied", False))
+        return original_annotator(*args, **kwargs)
+
+    monkeypatch.setattr(layout, "annotate_page_ocr_spans", capture_annotation)
     monkeypatch.setattr(layout.prior_ocr_preflight, "check", lambda _page, **_k: preflight_calls.append(True) or event)
     monkeypatch.setattr(layout, "make_ocr_decision", lambda _page, use_ocr: (False, 1 if use_ocr is True else 0, False))
     monkeypatch.setattr(layout, "_page_markdown_is_exactly_empty", lambda *_a: True)
@@ -92,6 +100,7 @@ def test_exact_empty_recovery_restores_provenance_after_ocr_disabled_reparse(mon
     assert len(callbacks) == 1
     assert event["normal_full_ocr_calls"] == 0
     assert event["v3_recovery_full_ocr_calls"] == 1
+    assert annotation_runtime_flags == [False, True]
 
 
 def test_no_ocr_or_ineligible_prior_path_leaves_provenance_false(monkeypatch):

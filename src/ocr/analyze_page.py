@@ -7,6 +7,7 @@ import pymupdf
 from pymupdf import mupdf
 
 from .compute_ocr_features import FEATURE_NAMES, compute_features
+from .span_provenance import annotate_page_ocr_spans, is_ocr_span
 
 FLAGS = (
     0
@@ -16,10 +17,7 @@ FLAGS = (
 )
 GRAY = mupdf.fz_device_gray()  # MuPDF version of standard gray colorspace
 TYPE3_FONT_NAME = "Type3"  # MuPDF starts Type 3 fontnames with this string
-TESSERACT_FONT_NAME = "GlyphLessFont"
 REPLACEMENT_CHARACTER = chr(0xFFFD)
-TEXT_STROKED = mupdf.FZ_STEXT_STROKED
-TEXT_FILLED = mupdf.FZ_STEXT_FILLED
 BLOCK_TEXT = mupdf.FZ_STEXT_BLOCK_TEXT
 BLOCK_IMAGE = mupdf.FZ_STEXT_BLOCK_IMAGE
 BLOCK_VECTOR = mupdf.FZ_STEXT_BLOCK_VECTOR
@@ -96,18 +94,6 @@ def check_images(image_blocks, prob, threshold=OCR_MODEL_THRESHOLD):
     return False, best_prob, i
 
 
-def is_ocr_span(span):
-    """If this is an OCR text span."""
-    return (
-        span["font"] == TESSERACT_FONT_NAME
-        or span["alpha"] == 0
-        or (
-            span["char_flags"] & TEXT_STROKED == 0
-            and span["char_flags"] & TEXT_FILLED == 0
-        )
-    )
-
-
 def intersect_rects(r1, r2, bbox_only=False):
     """Speedy version using indices."""
     bbox = (max(r1[0], r2[0]), max(r1[1], r2[1]), min(r1[2], r2[2]), min(r1[3], r2[3]))
@@ -166,6 +152,10 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
             clip=pymupdf.INFINITE_RECT(),
         )["blocks"]
 
+    # Publish one OCR contract for conventional source layers and page-aware
+    # non-standard layers before OCR selection consumes the spans.
+    annotate_page_ocr_spans(page, blocks)
+
     page_rect = page.rect
     img_rect = pymupdf.EMPTY_RECT()  # joined image bboxes
     txt_rect = +img_rect  # joined text span bboxes
@@ -202,13 +192,13 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
                     if not text or text.isspace():
                         continue  # ignore spans having no relevant text
                     chars_total += len(text)  # total character count
-                    if s.get("alpha", 255) != 0:
-                        visible_chars += len(text)
                     # OCR layer / invisible text
                     if is_ocr_span(s):
                         ocr_spans += 1
                         ocr_span_boxes.append(s["bbox"])
                         continue
+                    if s.get("alpha", 255) != 0:
+                        visible_chars += len(text)
 
                     # bad character count
                     bad_chars = sum(1 for c in text if c == REPLACEMENT_CHARACTER)

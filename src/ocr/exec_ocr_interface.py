@@ -4,6 +4,12 @@ import numpy as np
 import pymupdf
 
 from .get_culled_pixmap import get_pixmap
+from .span_provenance import (
+    annotate_page_ocr_spans,
+    begin_runtime_ocr_record,
+    is_ocr_span,
+    record_runtime_ocr_rects,
+)
 
 try:
     TESSDATA = pymupdf.get_tessdata()
@@ -13,18 +19,11 @@ except Exception as e:
 FONT = pymupdf.Font("cjk")  # this is the "Droid Sans Fallback" font
 FONTNAME = "myfont"  # its reference name in the page
 REPLACEMENT_UNICODE = chr(0xFFFD)  # Unicode Replacement Character
-STROKED_TEXT = pymupdf.mupdf.FZ_STEXT_STROKED
-FILLED_TEXT = pymupdf.mupdf.FZ_STEXT_FILLED
 
 
 def ocr_text(span) -> bool:
-    if (
-        span["alpha"]
-        or (span["char_flags"] & STROKED_TEXT)
-        or (span["char_flags"] & FILLED_TEXT)
-    ):
-        return False
-    return True
+    """Backward-compatible span-local OCR provenance check."""
+    return is_ocr_span(span)
 
 
 def adjust_width(text, fontsize, rect):
@@ -98,6 +97,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
     installed and available in the system path.
     """
 
+    begin_runtime_ocr_record(page)
     if TESSDATA is None:
         raise RuntimeError("Tesseract unavailable.")
 
@@ -112,6 +112,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
     stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
     textpage = pymupdf.TextPage(stextpage)
     text_blocks = textpage.extractDICT()["blocks"]
+    annotate_page_ocr_spans(page, text_blocks, language=language)
 
     # get bboxes with multiple text categories on page
     spans = []  # bboxes with good text
@@ -179,6 +180,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
     # insert the OCR font into the page
     page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
 
+    written_rects = []
     for irect, text in tess_results:
         # this is the line box
         rect = pymupdf.Rect(irect) * matrix
@@ -199,11 +201,14 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
             fontname=FONTNAME,  # fallback font
             morph=(rect.bl, mat),  # adjust width to fit the line box
         )
+        written_rects.append(rect)
+    record_runtime_ocr_rects(page, written_rects)
 
 
 def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
     """OCR callback with flexible OCR engine backend."""
 
+    begin_runtime_ocr_record(page)
     if not callable(full_ocr):
         raise RuntimeError("OCR engine is unavailable - no callable provided.")
 
@@ -215,6 +220,11 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
     stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
     textpage = pymupdf.TextPage(stextpage)
     text_blocks = textpage.extractDICT()["blocks"]
+    annotate_page_ocr_spans(
+        page,
+        text_blocks,
+        language=language or "eng",
+    )
 
     # get bboxes with multiple text categories on page
     spans = []  # spans with legible text
@@ -277,6 +287,7 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
     page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
 
     # Insert recognized text
+    written_rects = []
     for box, text, conf in result:
         rect = (
             pymupdf.Rect(
@@ -302,3 +313,5 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
             fontname=FONTNAME,
             morph=(rect.bl, mat),
         )
+        written_rects.append(rect)
+    record_runtime_ocr_rects(page, written_rects)

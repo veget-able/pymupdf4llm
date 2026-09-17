@@ -1,6 +1,12 @@
 import pymupdf
 
 from .get_culled_pixmap import get_pixmap
+from .span_provenance import (
+    annotate_page_ocr_spans,
+    begin_runtime_ocr_record,
+    is_ocr_span,
+    record_runtime_ocr_rects,
+)
 
 TESSDATA = pymupdf.get_tessdata()
 if TESSDATA is None:
@@ -9,14 +15,11 @@ if TESSDATA is None:
     )
 
 REPLACEMENT_UNICODE = chr(0xFFFD)  # Unicode Replacement Character
-STROKED_TEXT = pymupdf.mupdf.FZ_STEXT_STROKED
-FILLED_TEXT = pymupdf.mupdf.FZ_STEXT_FILLED
 
 
 def ocr_text(span) -> bool:
-    if (span["char_flags"] & STROKED_TEXT) or (span["char_flags"] & FILLED_TEXT):
-        return False
-    return True
+    """Backward-compatible span-local OCR provenance check."""
+    return is_ocr_span(span)
 
 
 def exec_ocr(page, dpi=150, pixmap=None, language="eng", keep_ocr_text=False):
@@ -33,12 +36,14 @@ def exec_ocr(page, dpi=150, pixmap=None, language="eng", keep_ocr_text=False):
     on page we make a temporary copy without such text and perform OCR
     on that copy.
     """
+    begin_runtime_ocr_record(page)
     if TESSDATA is None:
         return
     displaylist = page.get_displaylist()
     stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
     textpage = pymupdf.TextPage(stextpage)
     text_blocks = textpage.extractDICT()["blocks"]
+    annotate_page_ocr_spans(page, text_blocks, language=language)
 
     # get bboxes with multiple text categories on page
     spans = []  # spans with legible text
@@ -74,5 +79,15 @@ def exec_ocr(page, dpi=150, pixmap=None, language="eng", keep_ocr_text=False):
         graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED,
         text=pymupdf.PDF_REDACT_TEXT_NONE,
     )
+    temp_to_page = temp_page.rect.torect(page.rect)
+    runtime_rects = [
+        pymupdf.Rect(span["bbox"]) * temp_to_page
+        for block in temp_page.get_text("dict")["blocks"]
+        if block.get("type") == 0
+        for line in block.get("lines", ())
+        for span in line.get("spans", ())
+        if str(span.get("text") or "").strip()
+    ]
     # insert the OCR text layer into the original page
     page.show_pdf_page(page.rect, temp_pdf, 0)
+    record_runtime_ocr_rects(page, runtime_rects)

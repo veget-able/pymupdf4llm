@@ -4,8 +4,8 @@ import numpy as np
 import pymupdf
 from pymupdf import mupdf
 from pymupdf4llm.ocr.analyze_page import analyze_page
+from pymupdf4llm.ocr.span_provenance import is_ocr_span
 
-TESSERACT_FONT_NAME = "GlyphLessFont"  # Tesseract's font for OCR text layers
 WHITE_CHARS = set(
     [chr(i) for i in range(33)]
     + [
@@ -241,22 +241,8 @@ def startswith_bullet(text):
 
 
 def is_ocr_text(span) -> bool:
-    """Check if text span was created by some OCR engine.
-
-    This is a simplified check: We actually return whether the text was neither
-    stroked nor filled. This corresponds to PDF text rendering mode 3, which
-    is typically used for OCR text layers. Strictly speaking it can also be
-    used for other purposes than OCR. In rare cases some OCR engines might
-    use other techniques to ensure the generated text layer is invisible.
-    """
-    if span["font"] == TESSERACT_FONT_NAME:
-        # This is a safe bet for OCR by Tesseract
-        return True
-    if (span["char_flags"] & pymupdf.mupdf.FZ_STEXT_STROKED) or (
-        span["char_flags"] & pymupdf.mupdf.FZ_STEXT_FILLED
-    ):
-        return False
-    return True
+    """Return conventional, runtime, or page-verified source OCR provenance."""
+    return is_ocr_span(span)
 
 
 def is_white(text) -> bool:

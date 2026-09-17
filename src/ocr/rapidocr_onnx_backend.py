@@ -41,6 +41,14 @@ def full_ocr(img: np.ndarray):
     return [(box, text, float(score)) for box, text, score in results]
 
 
+def recognize_crops(crops):
+    """Recognize pre-cropped lines through the process-local engine."""
+    outputs = []
+    for crop in crops:
+        outputs.append(" ".join(text for _box, text, _score in full_ocr(crop)))
+    return outputs
+
+
 # ------------------------------------------------------------
 # Detection only
 # ------------------------------------------------------------

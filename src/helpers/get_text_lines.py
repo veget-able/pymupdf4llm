@@ -93,10 +93,14 @@ def get_raw_lines(
             if s0["bbox"].x1 + delta < s1["bbox"].x0 or (
                 s0["flags"],
                 s0["char_flags"] & ~2,
+                s0.get("is_ocr", False),
+                s0.get("ocr_origin"),
                 # s0["size"],
             ) != (
                 s1["flags"],
                 s1["char_flags"] & ~2,
+                s1.get("is_ocr", False),
+                s1.get("ocr_origin"),
                 # s1["size"],
             ):
                 continue  # no joining

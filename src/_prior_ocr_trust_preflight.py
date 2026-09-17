@@ -11,8 +11,11 @@ from pathlib import Path
 import pymupdf
 
 from pymupdf4llm.ocr import OCRMode
-from pymupdf4llm.ocr.analyze_page import is_ocr_span
 from pymupdf4llm.ocr.detect_rapidocr import detect_rapidocr_backend
+from pymupdf4llm.ocr.span_provenance import (
+    annotate_page_ocr_spans,
+    is_ocr_span,
+)
 
 
 def _compact(text: str) -> str:
@@ -79,10 +82,19 @@ def check(page, *, source: str, page_number: int, use_ocr, ocr_dpi: int, ocr_fun
         import numpy as np
         from pymupdf4llm.ocr.rapidocr_391_backend import recognize_crops
 
+        blocks = page.get_text(
+            "dict", flags=pymupdf.TEXT_MEDIABOX_CLIP
+        )["blocks"]
+        annotate_page_ocr_spans(
+            page,
+            blocks,
+            language=ocr_language,
+        )
+
         lines = []
         saw_relevant_text = False
         all_prior_ocr = True
-        for block in page.get_text("dict", flags=pymupdf.TEXT_MEDIABOX_CLIP)["blocks"]:
+        for block in blocks:
             if block["type"] != 0:
                 continue
             for line in block["lines"]:
