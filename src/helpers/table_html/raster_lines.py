@@ -387,10 +387,13 @@ def detect_raster_table_lines(page: pymupdf.Page, *, dpi: int = DEFAULT_DPI) -> 
     inverse = ~matrix
     page_words = _page_words(page)
     layout_tables = _layout_table_rects(page)
+    # Use pre-OCR pixels only for ruling detection. Text/layout support must
+    # still come from the live page above; never alter its rendering or nodes.
+    ruling_image = getattr(page, "_pymupdf4llm_ruling_displaylist", page)
     lines = []
     seen = set()
     for clip in _image_regions(page):
-        pix = page.get_pixmap(
+        pix = ruling_image.get_pixmap(
             matrix=matrix,
             clip=clip,
             colorspace=pymupdf.csGRAY,
