@@ -143,6 +143,12 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
             "Detection-only function must return a list of (box, score) tuples."
         )
 
+    # Raster ruling detection alone renders this pre-OCR display list.
+    # Keep the live page (and therefore OCR/GNN inputs) unchanged.
+    if not hasattr(page, "_pymupdf4llm_ruling_displaylist"):
+        page._pymupdf4llm_ruling_displaylist = displaylist
+    page.__dict__.pop("_pymupdf4llm_raster_table_lines", None)
+
     # Remove all OCR spans and spans containing a U+FFFD.
     # The OCR engine will restore them according to its best ability.
     redaction_rects = fffd_spans + ocr_spans
@@ -257,6 +263,12 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
         raise RuntimeError(
             "Full OCR function must return a list of (box, text, score) tuples."
         )
+    # Raster ruling detection alone renders this pre-OCR display list.
+    # Keep the live page (and therefore OCR/GNN inputs) unchanged.
+    if not hasattr(page, "_pymupdf4llm_ruling_displaylist"):
+        page._pymupdf4llm_ruling_displaylist = displaylist
+    page.__dict__.pop("_pymupdf4llm_raster_table_lines", None)
+
     # Remove all OCR and illegible spans from the page.
     # The OCR engine will restore them according to its best ability.
     redaction_rects = fffd_spans + ocr_spans
