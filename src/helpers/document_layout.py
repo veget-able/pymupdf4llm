@@ -829,6 +829,8 @@ def _html_table_meta(table_item) -> Dict:
         "cells": table_item[4] if len(table_item) > 4 else None,
         "extract": table_item[5] if len(table_item) > 5 else None,
         **_bbox_provenance(table_item),
+        "cell_sources": list(getattr(table_item, "cell_sources", ())),
+        "external_content": list(getattr(table_item, "external_content", ())),
         **({"unresolved_content": list(table_item.unresolved_content)}
            if getattr(table_item, "unresolved_content", ()) else {}),
     }
@@ -1571,6 +1573,17 @@ def parse_document(
             finally:
                 page.layout_information = _saved_raw_layout
 
+        # Preserve source identity before normalize_layout_boxes/get_raw_lines
+        # mutate span bboxes and join text. Reuse the RAWDICT already required
+        # by table extraction; pages without external delivery keep its timing.
+        table_blocks = None
+        needs_external_sources = any(getattr(item, "external_content", ())
+                                     for item in page_html_tables_list or [])
+        if needs_external_sources:
+            table_blocks = [b for b in textpage.extractRAWDICT()["blocks"] if b["type"] == 0]
+            from .table_text_sources import attach_word_sources
+            attach_word_sources(blocks, table_blocks, getattr(page, "_refine_words_cache", []))
+
         find_tables_metadata = []
         for table_item in page_html_tables_list or []:
             meta = _html_table_meta(table_item)
@@ -1641,14 +1654,15 @@ def parse_document(
             page.rect, blocks, page.layout_information
         )
         fulltext = [b for b in blocks if b["type"] == 0]
-        if tables_exist:
+        if tables_exist and table_blocks is None:
             table_blocks = [
                 b for b in textpage.extractRAWDICT()["blocks"] if b["type"] == 0
             ]
-        else:
-            table_blocks = None
 
-        words = []  # not yet activated
+        # Borrow the same post-OCR producer cache for physical span reuse.
+        # Only pages with external delivery need to transport this source list.
+        words = (getattr(page, "_refine_words_cache", []) if any(
+            getattr(item, "external_content", ()) for item in page_html_tables_list or []) else [])
         links = [l for l in page.get_links() if l["kind"] == pymupdf.LINK_URI]
         pagelayout = PageLayout(
             page_number=page.number + 1,
@@ -1796,6 +1810,9 @@ def parse_document(
                     layoutbox.max_fontsize = max_fontsize
 
             pagelayout.boxes.append(layoutbox)
+        if page_html_tables_list:
+            from .table_external_text import emit_external_text
+            emit_external_text(pagelayout)
         document.pages.append(pagelayout)
     if mydoc != doc:
         mydoc.close()

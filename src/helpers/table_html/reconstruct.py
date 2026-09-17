@@ -15,10 +15,12 @@ from .raster_lines import detect_raster_table_lines
 class TablePayload(tuple):
     """Preserve the six-item public payload contract, carrying source metadata."""
 
-    def __new__(cls, values, provenance, *, unresolved_content=()):
+    def __new__(cls, values, provenance, *, unresolved_content=(), external_content=(), cell_sources=()):
         payload = super().__new__(cls, values)
         payload.bbox_provenance = dict(provenance)
         payload.unresolved_content = unresolved_content
+        payload.external_content = external_content
+        payload.cell_sources = cell_sources
         return payload
 
 
@@ -162,6 +164,11 @@ def page_html_tables(
         add_lines=raster_lines,
     )
     result = []
+    source_sets = {}
+    def source_record(source):
+        key = (source.kind, source.scope if source.kind == "gnn_node" else id(source.collection))
+        scope = source_sets.setdefault(key, len(source_sets))
+        return dict(source.to_record(), source_set=scope)
     for index, tab in enumerate(getattr(tf, "tables", None) or []):
         row_count, col_count, cells, extract = _table_grid_matrices(tab)
         provenance = dict(getattr(tab, "bbox_provenance", {}))
@@ -170,6 +177,15 @@ def page_html_tables(
         provenance.setdefault("bbox_operation", "unknown")
         provenance.setdefault("source_gnn_indices", [])
         provenance["table_id"] = f"p{page.number}:table:{index}"
+        cell_sources = []
+        for ri, row in enumerate(tab.placements or []):
+            for ci, cell in enumerate(row):
+                cell.validate_source_content()
+                content = cell.source_content
+                cell_sources.append(dict(row=ri, placement=ci,
+                    bbox=list(cell.bbox) if cell.bbox is not None else None,
+                    produced_text=content.text if content is not None else None,
+                    sources=[source_record(r) for r in content.sources] if content is not None else []))
         result.append(
             TablePayload((
                 pymupdf.Rect(tab.bbox),
@@ -178,7 +194,8 @@ def page_html_tables(
                 col_count,
                 cells,
                 extract,
-            ), provenance, unresolved_content=getattr(tab, "unresolved_content", ()))
+            ), provenance, unresolved_content=getattr(tab, "unresolved_content", ()),
+               external_content=getattr(tab, "external_content", ()), cell_sources=cell_sources)
         )
     if include_union_evidence:
         evidence = getattr(tf, "table_union_evidence", {})

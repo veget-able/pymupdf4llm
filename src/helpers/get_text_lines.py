@@ -100,10 +100,19 @@ def get_raw_lines(
                 # s1["size"],
             ):
                 continue  # no joining
+            # Only carry claims whose source text still matches this input.
+            # A previous formatter may have removed a prefix from a span.
+            word_sources = [ref for span in (s0, s1)
+                            if span.get("_source_text") == span["text"]
+                            for ref in span.get("_word_sources", [])]
             # We need to join bbox and text of two consecutive spans
             # Sometimes, spans may also be duplicated.
             if s0["text"] != s1["text"] or s0["bbox"] != s1["bbox"]:
                 s0["text"] += s1["text"]
+            if "_word_sources" in s0 or "_word_sources" in s1:
+                s0["_word_sources"] = word_sources
+                # Rendering still uses the original joining contract above.
+                s0["_source_text"] = s0["text"]
             s0["bbox"] |= s1["bbox"]  # join boundary boxes
             del line[i]  # delete the joined-in span
             line[i - 1] = s0  # update the span
