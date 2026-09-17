@@ -7,6 +7,7 @@ Builds the per-page table payload consumed by the markdown/JSON renderers
 union=True, refine=True)``.
 """
 import pymupdf
+from pymupdf.table import _html_table_scope
 from .core import html_document
 from .raster_lines import detect_raster_table_lines
 
@@ -69,6 +70,7 @@ def _placement_grid_matrices(placements) -> tuple[int, int, list, list]:
     return row_count, col_count, bbox_grid, text_grid
 
 
+@_html_table_scope()
 def to_html(pdf, page_index=0):
     """Reconstruct the tables on one PDF page and return them as an HTML string.
 
@@ -98,6 +100,7 @@ def to_html(pdf, page_index=0):
     return html_document([{"html": h} for h in tables])
 
 
+@_html_table_scope()
 def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, int, list, list]]:
     """Reconstruct one already-open page's tables as payload tuples.
 
