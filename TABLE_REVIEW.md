@@ -4,6 +4,9 @@ Local branch: `review/table-vall-20260917`.
 Base: `6e511542f672438215cbde2363199b864e772987` (benchmark source).
 No remote push or PR has been performed.
 
+Per-feature contracts, dependencies and removal effects:
+[Table feature specification](docs/table-features.md).
+
 ## Scope
 
 - Raster ruling detection/virtual geometry passed to find_tables.
