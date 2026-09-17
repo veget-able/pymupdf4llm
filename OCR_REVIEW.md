@@ -4,6 +4,9 @@ Local branch: `review/ocr-input-fixes-20260917`.
 Base: `6e511542f672438215cbde2363199b864e772987`.
 No Table implementation changes, remote push or PR are included.
 
+Independent OCR contracts and removal effects:
+[OCR feature specification](docs/ocr-features.md).
+
 1. `rects=[]` means no native spans are culled; `rects=None` retains the existing
    full-text culling behavior. Replacement-glyph input is not erased merely
    because its culling list is empty. This is not a new /ToUnicode-only trigger.
