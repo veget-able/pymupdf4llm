@@ -129,12 +129,19 @@ def to_html(pdf, page_index=0):
 
 
 @_html_table_scope()
-def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, int, list, list]]:
+def page_html_tables(
+    page: pymupdf.Page, *, include_union_evidence: bool = False
+) -> list[tuple[pymupdf.Rect, str, int, int, list, list]] | tuple[
+    list[tuple[pymupdf.Rect, str, int, int, list, list]], dict
+]:
     """Reconstruct one already-open page's tables as payload tuples.
 
-    Returns one ``(bbox, html, rows, cols, cells, extract)`` tuple per table, in
-    reading order, for the markdown/JSON renderers to drive table emission,
-    reading order and body-text exclusion:
+    By default, returns one ``(bbox, html, rows, cols, cells, extract)`` tuple
+    per table, in reading order, for the markdown/JSON renderers to drive table
+    emission, reading order and body-text exclusion. With the keyword-only
+    ``include_union_evidence=True`` opt-in, returns ``(tables, evidence)`` from
+    the same single finder call; missing or invalid evidence is represented by
+    the empty-dict transport sentinel.
 
     * ``bbox``    -- ``tab.bbox`` (a grid-ref table keeps its reported layout box);
     * ``html``    -- ``tab.to_html()``;
@@ -173,4 +180,7 @@ def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, i
                 extract,
             ), provenance, unresolved_content=getattr(tab, "unresolved_content", ()))
         )
+    if include_union_evidence:
+        evidence = getattr(tf, "table_union_evidence", {})
+        return result, evidence if isinstance(evidence, dict) else {}
     return result

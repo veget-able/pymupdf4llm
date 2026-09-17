@@ -200,6 +200,10 @@ def make_page_chunk(doc, page, text, string_lengths) -> Dict:
     chunk["pred_source"] = page.pred_source
     chunk["raw_gnn_tables"] = page.raw_gnn_tables
     chunk["find_tables"] = page.find_tables
+    table_union_evidence = getattr(page, "table_union_evidence", None)
+    chunk["table_union_evidence"] = (
+        table_union_evidence if isinstance(table_union_evidence, dict) else {}
+    )
     page_boxes = []
     for i in range(len(page.boxes)):
         b = page.boxes[i]
@@ -1029,6 +1033,7 @@ class PageLayout:
     fulltext: Optional[List[Dict]] = None  # full page text in extractDICT format
     words: Optional[List[Dict]] = None  # list of words with bbox
     links: Optional[List[Dict]] = None
+    table_union_evidence: Optional[Dict] = None
 
 
 @dataclass
@@ -1541,13 +1546,16 @@ def parse_document(
         # Save/restore layout_information so table_html's internal normalization
         # does not disturb the layout path below.
         page_html_tables_list = None
+        table_union_evidence = {}
         _render_html_tables = bool(render_html_tables)
         if _render_html_tables:
             _saved_raw_layout = page.layout_information
             try:
                 from pymupdf4llm.helpers.table_html import page_html_tables
 
-                page_html_tables_list = list(page_html_tables(page))
+                page_html_tables_list, table_union_evidence = page_html_tables(
+                    page, include_union_evidence=True
+                )
             except Exception as exc:
                 # HTML table rendering failed on this page -> fall back to the
                 # layout table path, but surface the reason (flushed to
@@ -1559,6 +1567,7 @@ def parse_document(
                     file=INFO_MESSAGES,
                 )
                 page_html_tables_list = None
+                table_union_evidence = {}
             finally:
                 page.layout_information = _saved_raw_layout
 
@@ -1650,6 +1659,7 @@ def parse_document(
             pred_source=pred_source,
             raw_gnn_tables=raw_gnn_tables,
             find_tables=find_tables_metadata,
+            table_union_evidence=table_union_evidence,
             fulltext=fulltext,
             words=words,
             links=links,
