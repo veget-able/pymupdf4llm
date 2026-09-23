@@ -3,6 +3,8 @@ import io
 import json
 import math
 import threading
+from functools import wraps as _wraps
+from inspect import signature as _signature
 from dataclasses import dataclass
 from collections import defaultdict
 from pathlib import Path
@@ -135,6 +137,8 @@ _BBOX_PROVENANCE_FIELDS = (
     "bbox_source", "grid_source", "bbox_operation", "source_gnn_indices",
     "parent_bbox_source", "parent_bbox", "table_id", "layout_operation",
     "bbox_owner_table_id",
+    "grid_sources", "recovery_steps", "recovery_revision",
+    "recovery_parent_bbox", "recovery_base_bbox", "recovery_source_bboxes",
 )
 
 
@@ -1378,7 +1382,7 @@ def make_ocr_decision(page, use_ocr):
     return needs_ocr, ocr_spans, only_text
 
 
-def parse_document(
+def _parse_document_impl(
     doc,
     filename="",
     image_dpi=150,
@@ -1826,6 +1830,21 @@ def parse_document(
     # Update title/section-header boxes with html header tags
     update_header_tags(document.pages, header_fontsizes)
     return document
+
+
+_PARSE_SIGNATURE = _signature(_parse_document_impl)
+
+
+@_wraps(_parse_document_impl)
+def parse_document(*args, **kwargs):
+    # The same entry is used by to_markdown and to_json. Keep non-HTML callers
+    # free of model initialization and import the structured runtime lazily.
+    bound = _PARSE_SIGNATURE.bind(*args, **kwargs)
+    if bound.arguments.get("render_html_tables"):
+        from pymupdf4llm._table_pipeline.runtime import structured_tables
+        with structured_tables():
+            return _parse_document_impl(*args, **kwargs)
+    return _parse_document_impl(*args, **kwargs)
 
 
 if __name__ == "__main__":

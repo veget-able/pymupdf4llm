@@ -1,5 +1,9 @@
 # PyMuPDF4LLM Table 기능 명세
 
+2026-09-23 제품 내부 이식: 아래는 동결된 기능 명세이며, PB 어댑터의 외부 설치·활성화
+설명은 [제품 내부 배선 문서](native-table-pipeline.md)로 대체한다. 알고리즘·상수는 유지하고
+일반 HTML 제품 API에서 실행하도록 옮겼다. OCR은 별도 브랜치다.
+
 이 파일은 pb_table의 기능 명세에서 이 저장소의 변경과 필요한 공통 계약을 발췌한 동결본이다.
 원문: PB:docs/benchmarks/table-feature-specification.md (2026-09-17). 절 번호는 원문과 같다.
 PM=PyMuPDF, LL=PyMuPDF4LLM Table, OCR=별도 OCR 브랜치, PB=pb_table 실행 어댑터다.
