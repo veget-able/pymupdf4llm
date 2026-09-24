@@ -1,5 +1,8 @@
 # PyMuPDF4LLM Table 기능 명세
 
+2026-09-24 래스터 교차부 보완·V7 목록 과분할 제한과 통합 점수는
+[통합 리뷰 묶음](table-regression-fixes-20260924.md)을 참조한다.
+
 2026-09-23 제품 내부 이식: 아래는 동결된 기능 명세이며, PB 어댑터의 외부 설치·활성화
 설명은 [제품 내부 배선 문서](native-table-pipeline.md)로 대체한다. 알고리즘·상수는 유지하고
 일반 HTML 제품 API에서 실행하도록 옮겼다. OCR은 별도 브랜치다.
@@ -66,6 +69,33 @@ page text / native rules / image pixels
   추가 이미지 렌더링·영상 처리는 있지만 이 기능 자체가 OCR/GNN/TGIF를 호출하지 않는다.
 - **구현/확인**: `LL:src/helpers/table_html/raster_lines.py::detect_raster_table_lines`;
   `tests/test_raster_ruling_ocr_pixels.py`. 원본 픽셀 계약 (원문 PB:docs/benchmarks 기준 상대 경로: ../experiments/raster-ruling-pre-ocr-pixels-20260916.md).
+
+#### 2026-09-24 보완: 기존 세로선 위치의 교차부 연결
+
+`raster-rule-detection` 내부 버그 수정이며 새 버전/독립 검출기는 아니다.
+
+- **문제/개입 단계**: Canny 교차부에서 끊긴 짧은 세로 조각이 최소 길이 opening으로
+  지워지면 뒤의 선 병합은 이를 복구하지 못한다. 기존 긴 세로 mask가 확인한 x 위치에
+  기존 horizontal mask의 교차 픽셀을 공급한 뒤, 같은 gap/min_length의 close/open을 적용한다.
+- **보호**: 최소 길이 임계값을 낮추지 않고 새 x 위치도 만들지 않는다. 긴 세로 seed가
+  없거나 본문 세로 조각이 없는 통제 입력은 보존한다. 이 조건이 모든 merged cell을
+  보호한다는 보장은 아니며 개발 사례 DP110 보존과 합성 통제로 검증한 범위다.
+- **재사용/비용**: 이미 계산된 Canny·가로·세로 mask를 재사용한다. 새 PDF 추출,
+  이미지 렌더링, OCR/GNN/TGIF 호출은 없다. 영상 close/open 두 연산은 추가되므로
+  속도 향상을 주장하지 않는다. OCR 원본 픽셀 계약과 downstream 승인 정책은 그대로다.
+- **적용/제거**: 기존 HTML raster 경로에 항상 적용하며 별도 공개 스위치는 없다.
+  이 보완 블록만 제거하면 기존 raster 검출은 남고 교차부 누락이 재현된다.
+- **실측**: DP200에서 DP122 한 문서만 변화. 해당 표 TEDS
+  `0.6700721154 -> 0.8388221154`, TEDS-S `0.8125 -> 1.0`.
+  전체 matched-table 평균 TEDS `0.9398212215 -> 0.9431300450`,
+  F1 `0.7846153846` 불변(검출 개수 변화 없음). TEDS는 미대응 표를 포함한 전체 점수가 아니다.
+  PB503 raw/정규화 출력과 전 지표 동일, GTRM `0.8098682258124252` 유지.
+  짝 PyMuPDF의 stroke 수정과 결합한 공개 API 재추론으로도 같은 결과를 확인했다.
+- **검증 경계**: DP122는 수정에 사용한 사례라 독립 held-out 개선이 아니다.
+  차트 FP·V7 과분할·P1 대체는 이번 수정에 포함하지 않았다. 추가 full CF/VG 채점도 하지 않았다.
+- **테스트**: `tests/test_table_pipeline/test_raster_crossings.py` 3건.
+  Canny mask를 고정한 positive는 패치 전 실패/패치 후 성공하고 negative 2건은 양쪽 통과한다.
+  재현 자료: PB `runs/laura-ruling-fixes-20260924/README.md`.
 
 ### 7.1 셀의 원문 참조 보존 — `table-provenance.cell-sources`
 

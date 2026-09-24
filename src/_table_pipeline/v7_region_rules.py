@@ -38,9 +38,32 @@ def _region_band_split(
     centers = [((n["bbox"][0] + n["bbox"][2]) / 2,
                 (n["bbox"][1] + n["bbox"][3]) / 2) for n in nodes]
 
+    def continuing_label_value_rows(cn):
+        # A repeated label in one field is not a repeated table header. When
+        # the same two fields continue through a candidate gap with an ordered
+        # integer value column, spatial anchors alone cannot establish a new
+        # table. Independent header/border evidence remains eligible below.
+        cols, _ = _cluster_intervals([
+            (nodes[i]["bbox"][0], nodes[i]["bbox"][2], i) for i in cn
+        ])
+        if len(cols) != 2:
+            return False
+        labels, values = cols
+        if not all(any(c.isalpha() for c in (nodes[i].get("text") or ""))
+                   for i in labels):
+            return False
+        ordered = sorted(values, key=lambda i: centers[i][1])
+        texts = [(nodes[i].get("text") or "").strip() for i in ordered]
+        if len(texts) < 2 or not all(text.isdecimal() for text in texts):
+            return False
+        numbers = [int(text) for text in texts]
+        return (numbers[0] < numbers[-1]
+                and all(a <= b for a, b in zip(numbers, numbers[1:])))
+
     def scan(cn: list[int], axes: tuple[str, ...]):
         fired = []
         cn_set = set(cn)
+        continuous_labels = continuing_label_value_rows(cn) if "y" in axes else False
         for axis, lo_i, hi_i in (("y", 1, 3), ("x", 0, 2)):
             if axis not in axes:
                 continue
@@ -292,6 +315,9 @@ def _region_band_split(
                                and (not border_family or rhythm >= 1.5))
                 period_fire = (len(next_tokens) >= 2 and header_contain >= 0.7
                                and rhythm >= 1.0)
+                if axis == "y" and spatial and not (header_fire or border_fire or period_fire):
+                    if continuous_labels:
+                        spatial = False
                 if spatial or header_fire or border_fire or period_fire:
                     fired.append((axis, band_lo, band_hi))
                     if record is not None:
@@ -448,7 +474,6 @@ def _region_band_split(
              min(nodes[i]["bbox"][1] for i in g),
              max(nodes[i]["bbox"][2] for i in g),
              max(nodes[i]["bbox"][3] for i in g)] for g in final_groups]
-
 # ---------------------------------------------------------------------------
 # Refactored architecture: merge_detect -> split
 # ---------------------------------------------------------------------------

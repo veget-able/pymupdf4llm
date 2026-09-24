@@ -282,6 +282,18 @@ def _detect_grid_components(gray, *, scale, words=(), table_rects=()):
         cv2.MORPH_OPEN,
         cv2.getStructuringElement(cv2.MORPH_RECT, (1, min_length)),
     )
+    # Fill edge gaps at horizontal crossings only in columns already
+    # supported by a long vertical rule. No new vertical position is invented.
+    seed_columns = np.any(vertical_mask, axis=0)
+    crossing_pixels = horizontal_mask & seed_columns[None, :].astype(np.uint8) * 255
+    connected = cv2.morphologyEx(
+        binary | crossing_pixels, cv2.MORPH_CLOSE,
+        cv2.getStructuringElement(cv2.MORPH_RECT, (1, gap)),
+    )
+    vertical_mask |= cv2.morphologyEx(
+        connected, cv2.MORPH_OPEN,
+        cv2.getStructuringElement(cv2.MORPH_RECT, (1, min_length)),
+    )
     # Scaled scans commonly turn one rule into a pair of Canny edges. Collapse
     # that pair without merging genuinely adjacent row/column rules.
     coordinate_tolerance = max(2.0, 2.5 * scale)

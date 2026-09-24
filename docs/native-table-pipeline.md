@@ -1,5 +1,11 @@
 # Native HTML table pipeline (review integration, 2026-09-23)
 
+September 24 follow-up: [consolidated review bundle](table-regression-fixes-20260924.md)
+adds raster/stroke repair, protected candidate admission and V7 listing restraint.
+The integration-only parity below is historical: the final bundle changes three
+PB outputs without changing PB scores, and improves DP detection and DP122 cells.
+See that document also for the standalone PyMuPDF compatibility changes.
+
 ## What this changes
 
 This branch makes the September 17 reviewed table composition run inside the
