@@ -254,47 +254,76 @@ def _detect_grid_components(gray, *, scale, words=(), table_rects=()):
     if gray.ndim != 2 or min(gray.shape) < 8:
         return []
     gray = np.ascontiguousarray(gray, dtype=np.uint8)
-    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-    # Work from luminance edges rather than a dark-pixel mask. Filled / banded
-    # cells otherwise become large foreground blobs and swallow their vertical
-    # borders during connected-component extraction.
-    binary = cv2.Canny(blurred, 30, 120)
+    # Original 1-D [-1, 0, 1] gradients; improve masks before length rejection.
+    image = gray.astype(np.float32)
+    padded = np.pad(image, ((1, 1), (1, 1)), mode="edge")
+    signed_dx = padded[1:-1, 2:] - padded[1:-1, :-2]
+    signed_dy = padded[2:, 1:-1] - padded[:-2, 1:-1]
+    dx = np.abs(signed_dx)
+    dy = np.abs(signed_dy)
+    horizontal_binary = dy >= 20
+    vertical_binary = dx >= 20
+    # A thin stroke has two nearby edges with opposite gradient signs.
+    # Use the existing physical thickness limit; broad fill boundaries alone
+    # do not establish a ruling. Preserve evidence clipped by the image rim.
+    stroke_span = max(3, int(round(MAX_RULE_THICKNESS_PT * scale))) + 1
+    h_neg, h_pos = signed_dy <= -20, signed_dy >= 20
+    v_neg, v_pos = signed_dx <= -20, signed_dx >= 20
+    h_pair = np.zeros_like(horizontal_binary)
+    v_pair = np.zeros_like(vertical_binary)
+    for offset in range(1, stroke_span + 1):
+        if offset < gray.shape[0]:
+            pairs = (h_neg[:-offset, :] & h_pos[offset:, :]) | (h_pos[:-offset, :] & h_neg[offset:, :])
+            h_pair[:-offset, :] |= pairs
+            h_pair[offset:, :] |= pairs
+        if offset < gray.shape[1]:
+            pairs = (v_neg[:, :-offset] & v_pos[:, offset:]) | (v_pos[:, :-offset] & v_neg[:, offset:])
+            v_pair[:, :-offset] |= pairs
+            v_pair[:, offset:] |= pairs
+    h_pair[:stroke_span, :] |= horizontal_binary[:stroke_span, :]
+    h_pair[-stroke_span:, :] |= horizontal_binary[-stroke_span:, :]
+    v_pair[:, :stroke_span] |= vertical_binary[:, :stroke_span]
+    v_pair[:, -stroke_span:] |= vertical_binary[:, -stroke_span:]
+    horizontal_binary &= h_pair
+    vertical_binary &= v_pair
+    # Keep one ridge across each edge, before nearby glyph responses can join it.
+    xp = np.pad(dx, ((0, 0), (1, 1)), mode="constant")
+    yp = np.pad(dy, ((1, 1), (0, 0)), mode="constant")
+    vertical_binary &= (dx > xp[:, :-2]) & (dx >= xp[:, 2:])
+    horizontal_binary &= (dy > yp[:-2, :]) & (dy >= yp[2:, :])
+    horizontal_binary = horizontal_binary.astype(np.uint8) * 255
+    vertical_binary = vertical_binary.astype(np.uint8) * 255
     min_length = max(12, int(round(MIN_RULE_LENGTH_PT * scale)))
     max_thickness = max(3, int(round(MAX_RULE_THICKNESS_PT * scale)))
     gap = max(2, int(round(1.5 * scale)))
     horizontal_mask = cv2.morphologyEx(
-        binary,
-        cv2.MORPH_CLOSE,
+        horizontal_binary, cv2.MORPH_CLOSE,
         cv2.getStructuringElement(cv2.MORPH_RECT, (gap, 1)),
     )
     horizontal_mask = cv2.morphologyEx(
-        horizontal_mask,
-        cv2.MORPH_OPEN,
+        horizontal_mask, cv2.MORPH_OPEN,
         cv2.getStructuringElement(cv2.MORPH_RECT, (min_length, 1)),
     )
     vertical_mask = cv2.morphologyEx(
-        binary,
-        cv2.MORPH_CLOSE,
+        vertical_binary, cv2.MORPH_CLOSE,
         cv2.getStructuringElement(cv2.MORPH_RECT, (1, gap)),
     )
     vertical_mask = cv2.morphologyEx(
-        vertical_mask,
-        cv2.MORPH_OPEN,
+        vertical_mask, cv2.MORPH_OPEN,
         cv2.getStructuringElement(cv2.MORPH_RECT, (1, min_length)),
     )
-    # Fill edge gaps at horizontal crossings only in columns already
-    # supported by a long vertical rule. No new vertical position is invented.
+    # Reuse the validated long-vertical-seed crossing repair, on directional masks.
     seed_columns = np.any(vertical_mask, axis=0)
     crossing_pixels = horizontal_mask & seed_columns[None, :].astype(np.uint8) * 255
     connected = cv2.morphologyEx(
-        binary | crossing_pixels, cv2.MORPH_CLOSE,
+        vertical_binary | crossing_pixels, cv2.MORPH_CLOSE,
         cv2.getStructuringElement(cv2.MORPH_RECT, (1, gap)),
     )
     vertical_mask |= cv2.morphologyEx(
         connected, cv2.MORPH_OPEN,
         cv2.getStructuringElement(cv2.MORPH_RECT, (1, min_length)),
     )
-    # Scaled scans commonly turn one rule into a pair of Canny edges. Collapse
+    # Scaled scans commonly turn one rule into a pair of gradient edges. Collapse
     # that pair without merging genuinely adjacent row/column rules.
     coordinate_tolerance = max(2.0, 2.5 * scale)
     gap_tolerance = max(3.0, 3.0 * scale)

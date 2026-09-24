@@ -2,6 +2,10 @@
 
 September 24 follow-up: [consolidated review bundle](table-regression-fixes-20260924.md)
 adds raster/stroke repair, protected candidate admission and V7 listing restraint.
+The subsequent [Sobel replacement](raster-sobel-20260924.md) preserves those fixes
+and raises PB GTRM to **81.02316394788731%**, DP matched-table TEDS to **94.6901%**.
+It changes only raster masks, not OCR or models. Known individual-table loss,
+reading-order changes and processing cost are documented with that replacement.
 The integration-only parity below is historical: the final bundle changes three
 PB outputs without changing PB scores, and improves DP detection and DP122 cells.
 See that document also for the standalone PyMuPDF compatibility changes.

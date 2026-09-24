@@ -1,5 +1,10 @@
 # Table regression fixes: review bundle (2026-09-24)
 
+This records the delivered Canny-based bundle through `b104403`. The subsequent
+[Sobel mask replacement](raster-sobel-20260924.md) retains admission, V7, stroke
+and crossing repair, and supersedes the final scores below. These historical
+measurements are not claims about the later Sobel output.
+
 This is one follow-up delivery for the paired `review/table-native-20260923`
 branches. It consolidates the previously unpushed raster/stroke fixes with the
 reviewed admission and V7 fixes. Intermediate rejected rules and counterexample

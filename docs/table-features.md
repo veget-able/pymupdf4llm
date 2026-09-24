@@ -70,7 +70,7 @@ page text / native rules / image pixels
 - **구현/확인**: `LL:src/helpers/table_html/raster_lines.py::detect_raster_table_lines`;
   `tests/test_raster_ruling_ocr_pixels.py`. 원본 픽셀 계약 (원문 PB:docs/benchmarks 기준 상대 경로: ../experiments/raster-ruling-pre-ocr-pixels-20260916.md).
 
-#### 2026-09-24 보완: 기존 세로선 위치의 교차부 연결
+#### 2026-09-24 보완: 기존 세로선 위치의 교차부 연결 (Canny 기준 이력)
 
 `raster-rule-detection` 내부 버그 수정이며 새 버전/독립 검출기는 아니다.
 
@@ -93,9 +93,33 @@ page text / native rules / image pixels
   짝 PyMuPDF의 stroke 수정과 결합한 공개 API 재추론으로도 같은 결과를 확인했다.
 - **검증 경계**: DP122는 수정에 사용한 사례라 독립 held-out 개선이 아니다.
   차트 FP·V7 과분할·P1 대체는 이번 수정에 포함하지 않았다. 추가 full CF/VG 채점도 하지 않았다.
-- **테스트**: `tests/test_table_pipeline/test_raster_crossings.py` 3건.
-  Canny mask를 고정한 positive는 패치 전 실패/패치 후 성공하고 negative 2건은 양쪽 통과한다.
+- **당시 테스트**: Canny mask를 고정한 positive는 패치 전 실패/패치 후 성공하고
+  negative 2건은 양쪽 통과했다. 아래 Sobel 교체와 함께 실제 픽셀 기반 테스트로 교체했다.
   재현 자료: PB `runs/laura-ruling-fixes-20260924/README.md`.
+
+#### 2026-09-24 후속: 양쪽 경계 기반 Sobel 괘선 추출
+
+`raster-rule-detection`의 영상 mask 생성기를 교체한다. 새 버전이나 추가 검출기가 아니다.
+
+- **문제/개입 위치**: 약한 괘선·채움 배경에서 선 응답이 누락되거나 넓은 경계가
+  괘선으로 남는 문제를 최초 영상 처리 단계에서 고친다. 후단 표 삭제/병합을 추가하지 않는다.
+- **입력/처리**: 같은 gray crop에서 1D `[-1, 0, 1]` 차분과 임계값 20으로 방향별
+  응답을 구한다. 최대 두께 5pt 범위 내 반대 부호 경계 쌍을 확인하고 응답을 얇게 한 뒤,
+  기존 끊김 연결·긴 세로선 교차부 복구를 적용한다. crop 끝의 잘린 경계는 보존한다.
+- **재사용**: 기존 crop, words/layout 지지, PDF 좌표 변환, 선 병합, 문자 겹침 제거,
+  component 승인을 그대로 쓴다. 신규 공용 helper/framework, 추가 렌더링·OCR·GNN·TGIF 없음.
+- **비용**: gradient 배열 및 경계 쌍 탐색 비용이 추가된다. 대표 5페이지 API 평균
+  +23.3ms는 작은 표본 관측이며 전체 처리량 증가율로 해석하지 않는다.
+- **적용/제거**: HTML raster 경로에 적용. 공개 스위치는 추가하지 않는다.
+  이전 Canny 동작 복원은 `_detect_grid_components`를 `b104403` 판으로 되돌리면 된다.
+  raster 기능 전체나 P1/V7/vector 수정까지 제거할 필요는 없다.
+- **최신 푸시판 대비**: DP200 FP 13 유지, TEDS 94.3130% -> 94.6901%(대응 51표 평균).
+  PB503 FP 52 유지, GTRM 80.9868% -> 81.0232%. DP110 및 PB 두 페이지가 개선된다.
+  BRWS1113의 개별 GT 하나는 CON 0.619048 -> 0.615385로 하락한다.
+  CA2600의 표/그림 텍스트 출력 순서도 바뀌므로 출력 완전 불변이라고 하지 않는다.
+- **검증/한계**: `tests/test_table_pipeline/test_raster_crossings.py`는 실제 영상의
+  교차부, 밝은/어두운/약한 선, blank/넓은 채움 통제를 검사한다. 독립 문서군 검증은 아니다.
+  [전체 기능 계약과 평가 범위](raster-sobel-20260924.md).
 
 ### 7.1 셀의 원문 참조 보존 — `table-provenance.cell-sources`
 
