@@ -1,5 +1,11 @@
 # Native HTML table pipeline (review integration, 2026-09-23)
 
+October 4 follow-up: [PDF clip-backed cell restoration](clip-table-restoration-20261004.md)
+adds live source-backed cell/row/region repair before output routing. On the Sobel
+baseline, PB503 GTRM becomes 81.3543781245%; six pages improve and no page quality
+metric decreases. DP200 HTML, text and metrics remain unchanged. This supersedes
+the current-score statement below; the original integration history is retained.
+
 September 24 follow-up: [consolidated review bundle](table-regression-fixes-20260924.md)
 adds raster/stroke repair, protected candidate admission and V7 listing restraint.
 The subsequent [Sobel replacement](raster-sobel-20260924.md) preserves those fixes

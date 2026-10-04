@@ -91,10 +91,14 @@ class TableRuntime:
             if finder is None or not defer:
                 return finder
             pipeline._pending_parent_roles = pending
+            from .clip_restoration import prepare, restore
+            clip_raw, clip_evidence = prepare(page, finder)
             children = [child for tab in finder.tables for child in pipeline.split_table(page, tab)]
             if pending:
                 raise RuntimeError('Unconsumed parent header decisions')
-            finder.tables = pipeline.finalize_tables(page, children)
+            finder.tables = pipeline.finalize_tables(
+                page, children, restore_clips=lambda tables: restore(
+                    page, tables, clip_raw, clip_evidence, header))
             for child in finder.tables:
                 grid, decision = header.decisions[id(child.placements)]
                 if grid is not child.placements or decision['status'] != 'onnx':

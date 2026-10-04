@@ -63,7 +63,7 @@ class ContentRestorationPipeline(FragmentConsolidationPipeline):
                                 status='rollback',children=len(children),recovered=len(outside)))
         return rebuilt
 
-    def finalize_tables(self, page, tables):
+    def finalize_tables(self, page, tables, *, restore_clips=None):
         edges = next((t._ruling_edges for t in tables if hasattr(t, "_ruling_edges")), ())
         tables = super().finalize_tables(page, tables)
         for (pn, key), context in self.restoration_contexts.items():
@@ -126,6 +126,8 @@ class ContentRestorationPipeline(FragmentConsolidationPipeline):
                     ],
                 )
             )
+        if restore_clips is not None:
+            tables = restore_clips(tables)
         # All parent restoration/role decisions are final before output routing.
         from pymupdf4llm._table_pipeline.cell_output_boundary import external_content
         words = getattr(page, "_refine_words_cache", None)
