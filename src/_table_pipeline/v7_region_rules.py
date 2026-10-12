@@ -359,7 +359,7 @@ def _region_band_split(
                        if re.search(r"\.{3,}|\s{3,}\S|\t", t))
         return with_sep / len(texted) >= 0.5
 
-    def _row_segments(row_nodes: list[int], h_ref: float) -> list[set]:
+    def _row_segments(row_nodes: list[int], h_ref: float) -> list[tuple[set, Optional[str]]]:
         ordered = sorted(row_nodes, key=lambda i: nodes[i]["bbox"][0])
         segs: list[list[int]] = [[ordered[0]]] if ordered else []
         for i in ordered[1:]:
@@ -370,9 +370,14 @@ def _region_band_split(
                 segs[-1].append(i)
         out = []
         for s in segs:
-            ts = _tokens([nodes[i].get("text") for i in s])
-            if ts:
-                out.append(ts)
+            texts = [nodes[i].get("text") or "" for i in s]
+            ts = _tokens(texts)
+            # Preserve years only in the shared-header consumer. Do not change
+            # the tokenizer used for repeated-body anchors or similarity.
+            raw = " ".join(texts).strip()
+            year = raw if re.fullmatch(r"(?:19|20)\d{2}", raw) else None
+            if ts or year:
+                out.append((ts, year))
         return out
 
     def _top_header_row(g: list[int], h_ref: float, top_n: int = 3):
@@ -382,27 +387,43 @@ def _region_band_split(
             [(nodes[i]["bbox"][1], nodes[i]["bbox"][3], i) for i in g])
         for row in rows_cl[:top_n]:
             segs = _row_segments(row, h_ref)
-            if len(segs) >= 2:
-                return set().union(*segs)
+            text_segs = [ts for ts, _ in segs if ts]
+            if len(text_segs) >= 2:
+                return set().union(*text_segs)
+            # A label beside one year-valued record is not a multi-column
+            # header. Require at least two separately positioned year labels.
+            years = [year for _, year in segs if year is not None]
+            if len(years) >= 2:
+                return set(years)
         return None
 
-    def _y_cut_header_restated(glist: list[list[int]], h_ref: float) -> bool:
+    def _y_cut_header_groups(glist: list[list[int]], h_ref: float):
         """공유 헤더 방어: 영역 상단에 '문자 다열 헤더'가 존재하는데
         아래 블록들이 자체 문자 다열 행 없이 그 헤더에 의존(공유)하면
         단일 표의 섹션 여백이므로 수평 절단을 기각한다 (10-K류).
-        영역 상단 헤더가 숫자(연도) 등으로 문자 다열이 아니면 검사
-        비적용 — 이질 스택은 헤더가 재진술되지 않는 것이 정상이므로
-        전칭 재진술을 요구하지 않는다."""
+        서로 분리된 순수 연도 라벨 2개 이상도 공유 헤더로 인정한다.
+        문자 다열 헤더의 기존 전체 승인 계약은 유지한다. 연도 공유
+        헤더는 헤더 없는 이어지는 구획만 앞 블록에 붙이고, 자체
+        헤더가 다시 나오는 경계는 보존한다."""
         ordered = sorted(glist, key=lambda g: min(
             nodes[i]["bbox"][1] for i in g))
         region_header = _top_header_row(
             [i for g in ordered for i in g], h_ref)
         if region_header is None:
-            return True
+            return glist
+        if all(re.fullmatch(r"(?:19|20)\d{2}", t) for t in region_header):
+            kept = [ordered[0]]
+            for blk in ordered[1:]:
+                if _top_header_row(blk, h_ref, top_n=3) is None:
+                    kept[-1] = kept[-1] + blk
+                else:
+                    kept.append(blk)
+            # Preserve original ordering when no boundary was removed.
+            return glist if len(kept) == len(glist) else kept
         for blk in ordered[1:]:
             if _top_header_row(blk, h_ref, top_n=3) is None:
-                return False
-        return True
+                return None
+        return glist
 
     _PERP = {"y": "x", "x": "y"}
     final_groups: list[list[int]] = []
@@ -440,9 +461,11 @@ def _region_band_split(
         if strict_gate and fired and all(a == "y" for a, _, _ in fired):
             h_ref = statistics.median(
                 nodes[i]["bbox"][3] - nodes[i]["bbox"][1] for i in cn)
-            if not _y_cut_header_restated(glist, h_ref):
+            protected = _y_cut_header_groups(glist, h_ref)
+            if protected is None:
                 final_groups.append(cn)
                 continue
+            glist = protected
         def _center(g):
             return (sum((nodes[i]["bbox"][0] + nodes[i]["bbox"][2]) / 2
                         for i in g) / len(g),

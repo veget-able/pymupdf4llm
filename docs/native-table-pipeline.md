@@ -1,5 +1,11 @@
 # Native HTML table pipeline (review integration, 2026-09-23)
 
+October 13 follow-up: [shared-year header protection](shared-year-header-protection-20261013.md)
+fixes premature region splitting while preserving later independent headers.
+PB503 GTRM becomes 81.4273713070%; two pages improve with no page regression.
+The selected external 616-page bbox F1 becomes 79.927536%. This updates the
+current-score statement below; OCR, models and M1 inclusion remain unchanged.
+
 October 4 follow-up: [PDF clip-backed cell restoration](clip-table-restoration-20261004.md)
 adds live source-backed cell/row/region repair before output routing. On the Sobel
 baseline, PB503 GTRM becomes 81.3543781245%; six pages improve and no page quality
