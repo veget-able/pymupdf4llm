@@ -33,7 +33,12 @@ def _image_regions(page: pymupdf.Page) -> list[pymupdf.Rect]:
     page_area = max(1.0, float(page_rect.width * page_rect.height))
     regions = []
     seen = set()
-    for info in page.get_image_info(hashes=False, xrefs=False):
+    image_info = page.get_image_info(hashes=False, xrefs=False)
+    # Preserve the producer's occurrence geometry before the raster-size filter.
+    # Device icons may be too small to merit a raster ruling render. They still
+    # provide ownership evidence. This adds no extraction or rendering call.
+    page._table_ruling_image_boxes = tuple(tuple(i['bbox']) for i in image_info)
+    for info in image_info:
         try:
             rect = pymupdf.Rect(info["bbox"]) & page_rect
         except (KeyError, TypeError, ValueError):

@@ -1,0 +1,44 @@
+Table region preservation and supported splitting
+
+Native HTML pipeline integration
+
+- Validate child regions before running child TGIF inference. Every original
+  node has exactly one child owner, and every child contains a node.
+- Preserve the original parent grid and provenance when a proposed partition
+  has missing, ambiguous or empty ownership. Coordinate and inference errors
+  remain errors rather than silently taking this fallback.
+- Reuse the original deferred prediction inputs for valid child regions.
+
+Split evidence and normal-table preservation
+
+- Require independent child headers for spatial-gap splits and protect
+  continuous ASCII frames and strong cross-boundary node connections.
+- Require repeated label support on both sides of a column gutter; preserve
+  paired columns that share a header instead of treating whitespace alone
+  as evidence of independent tables.
+- Check individually viable boundaries when a multi-boundary proposal fails.
+- Recognize character-spaced shared headers and years without rewriting the
+  original node text or changing the general tokenizer.
+- Validate proposed children using joint two-dimensional content support,
+  including multiline records, wide descriptions and typographic columns.
+  Reuse block geometry within the same proposal.
+
+Shared image evidence
+
+- Forward all image occurrence boxes already obtained by the raster-line
+  producer, before its size filter, to PyMuPDF table admission. Small device
+  icons can supply context without an extra extraction or raster render.
+
+Validation
+
+- Native API execution: PB503 and DocLayNet val 6489 pages, all successful.
+- Published combined stack: PB GTRM 81.6037738836%, GriTS_CON 88.9873010029%,
+  TRM 71.6801592285%. Against the preceding published output: 7 pages improve,
+  4 decline, 492 retain their GTRM. These are combined-stack results, not an
+  isolated contribution estimate for this repository.
+- DocLayNet individual HTML-table bbox F1 at IoU 0.60: 81.4449181064%;
+  with the additional single-GT constraint: 80.6820731434%.
+- Runtime behavior matches the validated integrated candidate on all 6992
+  pages. Repeated development-corpus checks do not certify unseen documents.
+- Focused tests cover ownership fallback, error propagation, shared headers,
+  listing protection and joint child support.

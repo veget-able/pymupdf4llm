@@ -4,6 +4,9 @@ Imported dependency closure only. No GT, cached graphs, V5-H, or other VG
 region detectors are part of this module. Independently measured as the
 region-only full-503 candidate before promotion.
 """
+# The description above records the original V7 provenance, not a current
+# freeze: the 2026-10-14 product revision integrates Lara's guarded spatial
+# cuts, column gaps, per-boundary fallback and paired-column protection.
 from __future__ import annotations
 import re
 import statistics
@@ -28,8 +31,14 @@ def _region_band_split(
     record: Optional[list] = None,
     strict_gate: bool = False,
     header_repeat: bool = False,
-    y_rules: tuple = ("p1",),  # 2026-09-10: gap(P2) 제거 — P1'(반복+밀도+연도 가족) 단독이 우세
+    y_rules: tuple = ("p1", "p2"),  # Spatial gaps require independent child-header evidence.
 ) -> list[list[float]]:
+    # One production policy, not a menu of experimental candidate flags.
+    min_spatial_y_rhythm = 0.0
+    repair_headers = protect_ascii = require_spatial_header = True
+    edge_veto_fraction = 1.0 / 3.0
+    atomic_candidates = column_gutter = protect_paired_columns = True
+    column_rhythm = 0.0
     drawing_rects = drawing_rects or []
     accepted = [
         (int(e["source"]), int(e["target"]), float(e["probability"]))
@@ -60,10 +69,17 @@ def _region_band_split(
         return (numbers[0] < numbers[-1]
                 and all(a <= b for a, b in zip(numbers, numbers[1:])))
 
+    spatial_only_bands = set()
+
     def scan(cn: list[int], axes: tuple[str, ...]):
         fired = []
         cn_set = set(cn)
         continuous_labels = continuing_label_value_rows(cn) if "y" in axes else False
+        # Existing ASCII rule glyphs join rows of one drawn layout. Ordinary
+        # blank line rhythm alone does not establish independent tables.
+        texts = [nodes[i].get("text") or "" for i in cn]
+        ascii_frame = (protect_ascii and sum("|" in t for t in texts) >= 4
+                       and any(re.search(r"[+|][-+]{3,}", t) for t in texts))
         for axis, lo_i, hi_i in (("y", 1, 3), ("x", 0, 2)):
             if axis not in axes:
                 continue
@@ -309,6 +325,31 @@ def _region_band_split(
                         nodes[i]["bbox"][3] - nodes[i]["bbox"][1] for i in cn)
                     spatial = (not rhythm_ok
                                and band_hi - band_lo >= 3.0 * h_med)
+                if axis == "x" and column_gutter and rhythm >= column_rhythm and band_hi-band_lo >= 1.5*h_med:
+                    mid = (band_lo+band_hi)/2
+                    # A page-column gutter must not cut any owned node. Each
+                    # side needs its own repeated leading labels, not merely
+                    # several numeric columns of one financial table.
+                    if not any(nodes[i]["bbox"][0] < mid < nodes[i]["bbox"][2] for i in cn):
+                        sides = [[i for i in cn if centers[i][0] <= mid],
+                                 [i for i in cn if centers[i][0] > mid]]
+                        independent = True
+                        for side in sides:
+                            if not _block_ok(side):
+                                independent = False
+                                break
+                            cols, _ = _cluster_intervals([(nodes[i]["bbox"][0],nodes[i]["bbox"][2],i) for i in side])
+                            labels = [i for i in cols[0] if sum(c.isalpha() for c in (nodes[i].get("text") or "")) >= 4]
+                            rows, _ = _cluster_intervals([(nodes[i]["bbox"][1],nodes[i]["bbox"][3],i) for i in labels])
+                            if len(rows) < 3:
+                                independent = False
+                                break
+                        if independent and protect_paired_columns:
+                            headers = [_top_header_row(side,h_med,enhanced=True) for side in sides]
+                            aligned = all(abs(fn(nodes[i]["bbox"][k] for i in sides[0])-fn(nodes[i]["bbox"][k] for i in sides[1])) <= 2*h_med for k,fn in ((1,min),(3,max)))
+                            if aligned and all(headers) and _jaccard(*headers) >= .65:
+                                independent = False
+                        spatial = spatial or independent
                 header_fire = (header_sim >= 0.65 and len(next_tokens) >= 2
                                and (not header_family or rhythm >= 1.5))
                 border_fire = (border and (header_sim >= 0.3 or rhythm >= 1.2)
@@ -316,9 +357,16 @@ def _region_band_split(
                 period_fire = (len(next_tokens) >= 2 and header_contain >= 0.7
                                and rhythm >= 1.0)
                 if axis == "y" and spatial and not (header_fire or border_fire or period_fire):
-                    if continuous_labels:
+                    if continuous_labels or rhythm < min_spatial_y_rhythm:
                         spatial = False
+                if spatial and not (header_fire or border_fire or period_fire):
+                    if not veto_pass(band_lo, band_hi, edge_veto_fraction):
+                        spatial = False
+                if ascii_frame and not (header_fire or border_fire or period_fire):
+                    spatial = False
                 if spatial or header_fire or border_fire or period_fire:
+                    if axis == "y" and spatial and not (header_fire or border_fire or period_fire):
+                        spatial_only_bands.add((tuple(sorted(cn)), band_lo, band_hi))
                     fired.append((axis, band_lo, band_hi))
                     if record is not None:
                         record.append({
@@ -329,7 +377,9 @@ def _region_band_split(
                             "n_nodes": len(cn)})
         return fired
 
-    def _block_ok(g: list[int]) -> bool:
+    block_geometry = {}
+
+    def _block_ok(g: list[int], joint=False) -> bool:
         """분할 블록의 표다움: 2행 x 2열 이상으로 구조화돼야 한다.
 
         열 증거는 두 층위 — (a) node 수준 x 클러스터 2개 이상, (b) 행이
@@ -338,19 +388,42 @@ def _region_band_split(
         """
         if len(g) < 2:
             return False
-        rows_cl, _ = _cluster_intervals(
-            [(nodes[i]["bbox"][1], nodes[i]["bbox"][3], i) for i in g])
+        key = tuple(g)
+        if key not in block_geometry:
+            rows_cl, _ = _cluster_intervals(
+                [(nodes[i]["bbox"][1], nodes[i]["bbox"][3], i) for i in g])
+            x0 = min(nodes[i]["bbox"][0] for i in g)
+            x1 = max(nodes[i]["bbox"][2] for i in g)
+            width = max(x1 - x0, 1e-9)
+            narrow = [i for i in g
+                      if nodes[i]["bbox"][2] - nodes[i]["bbox"][0] < 0.6 * width] or g
+            cols_cl, _ = _cluster_intervals(
+                [(nodes[i]["bbox"][0], nodes[i]["bbox"][2], i) for i in narrow])
+            block_geometry[key] = rows_cl, cols_cl
+        rows_cl, cols_cl = block_geometry[key]
         if len(rows_cl) < 2:
             return False
-        x0 = min(nodes[i]["bbox"][0] for i in g)
-        x1 = max(nodes[i]["bbox"][2] for i in g)
-        width = max(x1 - x0, 1e-9)
-        narrow = [i for i in g
-                  if nodes[i]["bbox"][2] - nodes[i]["bbox"][0] < 0.6 * width] or g
-        cols_cl, _ = _cluster_intervals(
-            [(nodes[i]["bbox"][0], nodes[i]["bbox"][2], i) for i in narrow])
         if len(cols_cl) >= 2:
-            return True
+            if not joint:
+                return True
+            # Independent x/y clusters do not prove a table: two staggered
+            # title fragments also satisfy that condition. Require actual
+            # multi-column support on at least two rows before making this
+            # fragment an independent reconstruction input.
+            # Wide descriptions still occupy a column next to a key. The
+            # width filter above finds candidate columns; it must not remove
+            # those descriptions from the row-support check.
+            supported_rows = sum(
+                len(_cluster_intervals([
+                    (nodes[i]["bbox"][0], nodes[i]["bbox"][2], i)
+                    for i in row
+                ])[0]) >= 2
+                for row in rows_cl
+            )
+            if supported_rows >= 2:
+                return True
+        # Keep the existing single-node-per-row typography path. Mixing
+        # wide and narrow nodes must not erase genuine within-node columns.
         texted = [(nodes[i].get("text") or "") for i in g]
         texted = [t for t in texted if len(t.strip()) >= 4]
         if not texted:
@@ -359,7 +432,7 @@ def _region_band_split(
                        if re.search(r"\.{3,}|\s{3,}\S|\t", t))
         return with_sep / len(texted) >= 0.5
 
-    def _row_segments(row_nodes: list[int], h_ref: float) -> list[tuple[set, Optional[str]]]:
+    def _row_segments(row_nodes: list[int], h_ref: float, enhanced=False) -> list[tuple[set, Optional[str]]]:
         ordered = sorted(row_nodes, key=lambda i: nodes[i]["bbox"][0])
         segs: list[list[int]] = [[ordered[0]]] if ordered else []
         for i in ordered[1:]:
@@ -371,25 +444,33 @@ def _region_band_split(
         out = []
         for s in segs:
             texts = [nodes[i].get("text") or "" for i in s]
+            if enhanced:
+                # Repair character-spaced PDF text only for shared-header
+                # recognition; preserve original nodes and anchor tokenization.
+                texts = [re.sub(r"\b(?:[A-Za-z]\s+){2,}[A-Za-z]\b",
+                                lambda m: re.sub(r"\s+", "", m.group()), t)
+                         for t in texts]
             ts = _tokens(texts)
             # Preserve years only in the shared-header consumer. Do not change
             # the tokenizer used for repeated-body anchors or similarity.
             raw = " ".join(texts).strip()
-            year = raw if re.fullmatch(r"(?:19|20)\d{2}", raw) else None
+            year_raw = re.sub(r"\s+", "", raw) if enhanced else raw
+            year = year_raw if re.fullmatch(r"(?:19|20)\d{2}", year_raw) else None
             if ts or year:
                 out.append((ts, year))
         return out
 
-    def _top_header_row(g: list[int], h_ref: float, top_n: int = 3):
+    def _top_header_row(g: list[int], h_ref: float, top_n: int = 3, enhanced=False):
         """블록/영역 상단 top_n행 중 다열 헤더 후보 행(비어있지 않은
         분절 >= 2; 연도 등 숫자 헤더 포함)의 토큰 합집합. 없으면 None."""
         rows_cl, _ = _cluster_intervals(
             [(nodes[i]["bbox"][1], nodes[i]["bbox"][3], i) for i in g])
         for row in rows_cl[:top_n]:
-            segs = _row_segments(row, h_ref)
+            segs = _row_segments(row, h_ref, enhanced=enhanced)
             text_segs = [ts for ts, _ in segs if ts]
             if len(text_segs) >= 2:
-                return set().union(*text_segs)
+                if not enhanced or len({frozenset(ts) for ts in text_segs}) >= 2:
+                    return set().union(*text_segs)
             # A label beside one year-valued record is not a multi-column
             # header. Require at least two separately positioned year labels.
             years = [year for _, year in segs if year is not None]
@@ -397,7 +478,7 @@ def _region_band_split(
                 return set(years)
         return None
 
-    def _y_cut_header_groups(glist: list[list[int]], h_ref: float):
+    def _y_cut_header_groups(glist: list[list[int]], h_ref: float, enhanced=False):
         """공유 헤더 방어: 영역 상단에 '문자 다열 헤더'가 존재하는데
         아래 블록들이 자체 문자 다열 행 없이 그 헤더에 의존(공유)하면
         단일 표의 섹션 여백이므로 수평 절단을 기각한다 (10-K류).
@@ -408,20 +489,20 @@ def _region_band_split(
         ordered = sorted(glist, key=lambda g: min(
             nodes[i]["bbox"][1] for i in g))
         region_header = _top_header_row(
-            [i for g in ordered for i in g], h_ref)
+            [i for g in ordered for i in g], h_ref, enhanced=enhanced)
         if region_header is None:
             return glist
         if all(re.fullmatch(r"(?:19|20)\d{2}", t) for t in region_header):
             kept = [ordered[0]]
             for blk in ordered[1:]:
-                if _top_header_row(blk, h_ref, top_n=3) is None:
+                if _top_header_row(blk, h_ref, top_n=3, enhanced=enhanced) is None:
                     kept[-1] = kept[-1] + blk
                 else:
                     kept.append(blk)
             # Preserve original ordering when no boundary was removed.
             return glist if len(kept) == len(glist) else kept
         for blk in ordered[1:]:
-            if _top_header_row(blk, h_ref, top_n=3) is None:
+            if _top_header_row(blk, h_ref, top_n=3, enhanced=enhanced) is None:
                 return None
         return glist
 
@@ -455,17 +536,57 @@ def _region_band_split(
         #  진짜 스택과 단일 표에 공유되어 held-out 오판을 되사온다.)
         glist = list(groups.values())
         if strict_gate and not all(_block_ok(g) for g in glist):
-            final_groups.append(cn)
-            continue
+            viable = []
+            if atomic_candidates:
+                h_ref = statistics.median(nodes[i]["bbox"][3]-nodes[i]["bbox"][1] for i in cn)
+                for band in fired:
+                    axis, lo, hi = band
+                    ci = 1 if axis == "y" else 0
+                    pair = [[i for i in cn if centers[i][ci] <= (lo+hi)/2],
+                            [i for i in cn if centers[i][ci] > (lo+hi)/2]]
+                    if not all(_block_ok(g) for g in pair):
+                        continue
+                    if axis == "y":
+                        protected = _y_cut_header_groups(pair, h_ref)
+                        if repair_headers and protected is not None:
+                            protected = _y_cut_header_groups(protected,h_ref,enhanced=True)
+                        if protected is None or len(protected) != 2:
+                            continue
+                        if require_spatial_header and (tuple(sorted(cn)),lo,hi) in spatial_only_bands:
+                            if _top_header_row(pair[1],h_ref,enhanced=True) is None:
+                                continue
+                    viable.append((hi-lo,band,pair))
+            if not viable:
+                final_groups.append(cn)
+                continue
+            _, band, glist = max(viable,key=lambda item:item[0])
+            fired = [band]
         # 수평 절단의 헤더 재진술 검증 (fired가 전부 y축일 때)
         if strict_gate and fired and all(a == "y" for a, _, _ in fired):
             h_ref = statistics.median(
                 nodes[i]["bbox"][3] - nodes[i]["bbox"][1] for i in cn)
             protected = _y_cut_header_groups(glist, h_ref)
+            if repair_headers and protected is not None:
+                protected = _y_cut_header_groups(protected, h_ref, enhanced=True)
             if protected is None:
                 final_groups.append(cn)
                 continue
             glist = protected
+            if require_spatial_header:
+                # Refine an already accepted partition, so rejecting one weak
+                # boundary cannot enable other cuts previously vetoed as a set.
+                ordered = sorted(glist, key=lambda g:min(nodes[i]["bbox"][1] for i in g))
+                kept = [ordered[0]]
+                for blk in ordered[1:]:
+                    upper = max(nodes[i]["bbox"][3] for i in kept[-1])
+                    lower = min(nodes[i]["bbox"][1] for i in blk)
+                    bands = [(lo,hi) for a,lo,hi in fired if a == "y" and upper <= (lo+hi)/2 <= lower]
+                    weak = bands and all((tuple(sorted(cn)),lo,hi) in spatial_only_bands for lo,hi in bands)
+                    if weak and _top_header_row(blk,h_ref,enhanced=True) is None:
+                        kept[-1] = kept[-1] + blk
+                    else:
+                        kept.append(blk)
+                glist = glist if len(kept) == len(glist) else kept
         def _center(g):
             return (sum((nodes[i]["bbox"][0] + nodes[i]["bbox"][2]) / 2
                         for i in g) / len(g),
@@ -486,6 +607,13 @@ def _region_band_split(
                 changed = True
                 break
         if len(glist) == 1:
+            final_groups.append(cn)
+            continue
+        # Validate the selected children, not candidate generation or the
+        # per-boundary retry. A stricter admission condition must not enable
+        # a different cut that the unchanged policy previously rejected.
+        # Reject this recursion level only; accepted ancestor cuts survive.
+        if strict_gate and not all(_block_ok(g, joint=True) for g in glist):
             final_groups.append(cn)
             continue
         child_axes = tuple({_PERP[a] for a, _, _ in fired})

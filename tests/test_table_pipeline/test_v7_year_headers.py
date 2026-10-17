@@ -27,7 +27,9 @@ def test_shared_year_headers_preserve_the_right_boundaries(name):
 
 
 def test_single_year_value_is_not_a_multicolumn_header():
-    inputs = listing(reset=True)
+    # Keep independent header evidence so this isolates the year-field guard,
+    # not the separate protection against unlabeled spatial gaps.
+    inputs = listing(reset=True, header=True)
     for row in range(4):
         inputs[0][row * 2 + 1]['text'] = str(2001 + row)
     assert len(_region_band_split(*inputs, strict_gate=True)) == 2

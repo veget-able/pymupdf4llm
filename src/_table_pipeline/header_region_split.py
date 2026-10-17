@@ -8,6 +8,9 @@ import numpy as np
 from pymupdf import table, _table_union as union
 from pymupdf4llm._table_pipeline.deferred_tgif import DeferredTGIFPipeline
 from pymupdf4llm._table_pipeline.v7_region_rules import _region_band_split
+from pymupdf4llm._table_pipeline.region_partition import (
+    InvalidRegionPartition, partition_node_centers,
+)
 
 
 def child_inputs(group, prediction, boxes):
@@ -23,12 +26,9 @@ def child_inputs(group, prediction, boxes):
     if not np.allclose(original_local_boxes + offset, node_boxes, atol=1e-4):
         raise ValueError("TGIF/page coordinate mismatch")
     centers = (node_boxes[:, :2] + node_boxes[:, 2:]) / 2
-    members = [[] for _ in boxes]
-    for i, (x, y) in enumerate(centers):
-        owners = [j for j, b in enumerate(boxes) if b[0] <= x <= b[2] and b[1] <= y <= b[3]]
-        if len(owners) != 1:
-            raise ValueError("Split boxes do not uniquely partition original nodes")
-        members[owners[0]].append(i)
+    members = partition_node_centers(centers, boxes)
+    if members is None:
+        raise InvalidRegionPartition("Split boxes do not uniquely partition original nodes into nonempty children")
     prepared = []
     px, py = max(0, int(parent[0])), max(0, int(parent[1]))
     for bbox, indices in zip(boxes, members):
@@ -68,7 +68,16 @@ class HeaderRegionSplitPipeline:
             if len(boxes) <= 1:
                 return [union._TableGridEntry(entry[0], entry[1].resolve(), entry.bbox_provenance)]
             boxes = sorted(boxes, key=lambda b: (b[1], b[0]))
-            children = child_inputs(group, prediction, boxes)
+            try:
+                children = child_inputs(group, prediction, boxes)
+            except InvalidRegionPartition:
+                # Reject only an invalid proposal, before any child inference.
+                # Alignment/crop/model errors remain errors, not fallbacks.
+                self.events.append({"stage": "region_split", "status": "preserved",
+                                    "reason": "nonunique_missing_or_empty_region_owner",
+                                    "parent_bbox": list(entry[0]), "children": boxes,
+                                    "source_gnn_indices": entry.bbox_provenance["source_gnn_indices"]})
+                return [union._TableGridEntry(entry[0], entry[1].resolve(), entry.bbox_provenance)]
             result = []
             for bbox, indices, image, local, child_texts in children:
                 grid, _ = prediction.predict(image, local, texts=child_texts)
