@@ -1581,12 +1581,15 @@ def _parse_document_impl(
         # mutate span bboxes and join text. Reuse the RAWDICT already required
         # by table extraction; pages without external delivery keep its timing.
         table_blocks = None
+        word_geometry = None
+        picture_text_blocks = None
         needs_external_sources = any(getattr(item, "external_content", ())
                                      for item in page_html_tables_list or [])
         if needs_external_sources:
             table_blocks = [b for b in textpage.extractRAWDICT()["blocks"] if b["type"] == 0]
             from .table_text_sources import attach_word_sources
-            attach_word_sources(blocks, table_blocks, getattr(page, "_refine_words_cache", []))
+            word_geometry = attach_word_sources(
+                blocks, table_blocks, getattr(page, "_refine_words_cache", []))
 
         find_tables_metadata = []
         for table_item in page_html_tables_list or []:
@@ -1634,6 +1637,16 @@ def _parse_document_impl(
                 table_infos[key] = b
 
         if _render_html_tables and page_html_tables_list:
+            # Preserve the same output TextPage state before normalization can
+            # join spans. RAWDICT is already required later for HTML tables.
+            picture_source_blocks = None
+            if any(b[4] == "picture" for b in new_layout_info):
+                from copy import deepcopy
+                picture_source_blocks = deepcopy([b for b in blocks if b["type"] == 0])
+                if table_blocks is None:
+                    table_blocks = [
+                        b for b in textpage.extractRAWDICT()["blocks"] if b["type"] == 0
+                    ]
             new_layout_info, html_tables_by_box, textlines_by_box = (
                 normalize_layout_boxes(
                     new_layout_info,
@@ -1641,6 +1654,14 @@ def _parse_document_impl(
                     fulltext=[b for b in blocks if b["type"] == 0],
                 )
             )
+            if picture_source_blocks is not None:
+                from .table_picture_content import prepare_picture_text
+                picture_text_blocks, _ = prepare_picture_text(
+                    picture_source_blocks, table_blocks,
+                    getattr(page, "_refine_words_cache", []),
+                    [t for tables in html_tables_by_box.values() for t in tables],
+                    word_geometry=word_geometry,
+                )
 
         page.layout_information = new_layout_info
         # Determine if any tables are present after HTML-table normalization.
@@ -1708,11 +1729,18 @@ def _parse_document_impl(
                     layoutbox.image = None
                 if layoutbox.boxclass in ("picture", "formula") and document.force_text:
                     # extract any text within the image box
+                    # Only picture text excludes proven cell-owned glyphs.
+                    # Keep the graphics envelope, image rendering and formula
+                    # output unchanged. Each formatter gets its own mutable view.
+                    picture_blocks = pagelayout.fulltext
+                    if layoutbox.boxclass == "picture" and picture_text_blocks is not None:
+                        from copy import deepcopy
+                        picture_blocks = deepcopy(picture_text_blocks)
                     layoutbox.textlines = [
                         {"bbox": l[0], "spans": l[1]}
                         for l in get_raw_lines(
                             textpage=None,
-                            blocks=pagelayout.fulltext,
+                            blocks=picture_blocks,
                             clip=clip,
                             ignore_invisible=False,
                             only_horizontal=False,

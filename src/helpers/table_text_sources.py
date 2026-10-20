@@ -30,3 +30,6 @@ def attach_word_sources(blocks, raw_blocks, words):
     for si, sources in by_span.items():
         spans[si]['_word_sources'] = sources
         spans[si]['_source_text'] = spans[si]['text']
+    # Same-state downstream consumers can borrow this correspondence rather
+    # than repeat glyph indexing. No process/page-global cache is introduced.
+    return chars, matches
