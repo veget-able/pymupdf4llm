@@ -52,7 +52,7 @@ def pixmap_is_empty(pix, threshold=250):
 def get_pixmap(displaylist, dpi=150, rects=None, empty_threshold=250):
     """Make a pixmap from the page ignoring text in the rects."""
     mediabox = displaylist.rect
-    if not rects:
+    if rects is None:
         rects = [mediabox]
     max_dpi = max_dpi_for_page(mediabox, max_pixels=MAX_PIXELS)
     if dpi > max_dpi:
