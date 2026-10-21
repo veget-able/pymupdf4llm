@@ -7,7 +7,25 @@ Builds the per-page table payload consumed by the markdown/JSON renderers
 union=True, refine=True)``.
 """
 import pymupdf
+from pymupdf.table import _html_table_scope
 from .core import html_document
+from .raster_lines import detect_raster_table_lines
+
+
+class TablePayload(tuple):
+    """Preserve the six-item public payload contract, carrying source metadata."""
+
+    def __new__(cls, values, provenance, *, unresolved_content=(), external_content=(), cell_sources=()):
+        payload = super().__new__(cls, values)
+        payload.bbox_provenance = dict(provenance)
+        payload.unresolved_content = unresolved_content
+        payload.external_content = external_content
+        payload.cell_sources = cell_sources
+        return payload
+
+
+def _raster_lines(page):
+    return detect_raster_table_lines(page)
 
 
 def _placement_grid_matrices(placements) -> tuple[int, int, list, list]:
@@ -55,6 +73,34 @@ def _placement_grid_matrices(placements) -> tuple[int, int, list, list]:
     return row_count, col_count, bbox_grid, text_grid
 
 
+def _table_grid_matrices(tab, *, retain=False) -> tuple[int, int, list, list]:
+    """Borrow matrices for one table's current structural state (read-only).
+
+    Header tags/roles do not enter the matrices. Cell text, bbox, spans and
+    row membership do: snapshot those values to detect in-place edits as well
+    as grid replacement. Retain only the latest state on this Table, never a
+    page/global cache. Split/refine/stitch children own independent Tables.
+    Producers opt into retention; the final serializer only borrows results.
+    """
+    placements = tab.placements
+    previous = getattr(tab, "_placement_matrices_snapshot", None)
+    # Final serialization is a consumer: do not retain a first/last-use result.
+    if previous is None and not retain:
+        return _placement_grid_matrices(placements)
+    state = tuple(tuple((tuple(c.bbox) if c.bbox is not None else None,
+                         c.text, c.colspan, c.rowspan) for c in row)
+                  for row in placements)
+    if previous is not None and previous[0] is placements and previous[1] == state:
+        return previous[2]
+    result = _placement_grid_matrices(placements)
+    if retain:
+        tab._placement_matrices_snapshot = (placements, state, result)
+    elif previous is not None:
+        del tab._placement_matrices_snapshot
+    return result
+
+
+@_html_table_scope()
 def to_html(pdf, page_index=0):
     """Reconstruct the tables on one PDF page and return them as an HTML string.
 
@@ -70,7 +116,13 @@ def to_html(pdf, page_index=0):
     try:
         page = doc[page_index]
         page.remove_rotation()
-        tf = page.find_tables(use_layout=True, union=True, refine=True)
+        raster_lines = _raster_lines(page)
+        tf = page.find_tables(
+            use_layout=True,
+            union=True,
+            refine=True,
+            add_lines=raster_lines,
+        )
         tables = [tab.to_html() for tab in (getattr(tf, "tables", None) or [])]
     finally:
         if owns_doc:
@@ -78,12 +130,20 @@ def to_html(pdf, page_index=0):
     return html_document([{"html": h} for h in tables])
 
 
-def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, int, list, list]]:
+@_html_table_scope()
+def page_html_tables(
+    page: pymupdf.Page, *, include_union_evidence: bool = False
+) -> list[tuple[pymupdf.Rect, str, int, int, list, list]] | tuple[
+    list[tuple[pymupdf.Rect, str, int, int, list, list]], dict
+]:
     """Reconstruct one already-open page's tables as payload tuples.
 
-    Returns one ``(bbox, html, rows, cols, cells, extract)`` tuple per table, in
-    reading order, for the markdown/JSON renderers to drive table emission,
-    reading order and body-text exclusion:
+    By default, returns one ``(bbox, html, rows, cols, cells, extract)`` tuple
+    per table, in reading order, for the markdown/JSON renderers to drive table
+    emission, reading order and body-text exclusion. With the keyword-only
+    ``include_union_evidence=True`` opt-in, returns ``(tables, evidence)`` from
+    the same single finder call; missing or invalid evidence is represented by
+    the empty-dict transport sentinel.
 
     * ``bbox``    -- ``tab.bbox`` (a grid-ref table keeps its reported layout box);
     * ``html``    -- ``tab.to_html()``;
@@ -96,18 +156,48 @@ def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, i
     shared Page: core caches word/vector extraction as attributes on the given
     ``page``, so concurrent calls must each use their own ``pymupdf.Page``.
     """
-    tf = page.find_tables(use_layout=True, union=True, refine=True)
+    raster_lines = _raster_lines(page)
+    tf = page.find_tables(
+        use_layout=True,
+        union=True,
+        refine=True,
+        add_lines=raster_lines,
+    )
     result = []
-    for tab in (getattr(tf, "tables", None) or []):
-        row_count, col_count, cells, extract = _placement_grid_matrices(tab.placements)
+    source_sets = {}
+    def source_record(source):
+        key = (source.kind, source.scope if source.kind == "gnn_node" else id(source.collection))
+        scope = source_sets.setdefault(key, len(source_sets))
+        return dict(source.to_record(), source_set=scope)
+    for index, tab in enumerate(getattr(tf, "tables", None) or []):
+        row_count, col_count, cells, extract = _table_grid_matrices(tab)
+        provenance = dict(getattr(tab, "bbox_provenance", {}))
+        provenance.setdefault("bbox_source", "unknown")
+        provenance.setdefault("grid_source", "unknown")
+        provenance.setdefault("bbox_operation", "unknown")
+        provenance.setdefault("source_gnn_indices", [])
+        provenance["table_id"] = f"p{page.number}:table:{index}"
+        cell_sources = []
+        for ri, row in enumerate(tab.placements or []):
+            for ci, cell in enumerate(row):
+                cell.validate_source_content()
+                content = cell.source_content
+                cell_sources.append(dict(row=ri, placement=ci,
+                    bbox=list(cell.bbox) if cell.bbox is not None else None,
+                    produced_text=content.text if content is not None else None,
+                    sources=[source_record(r) for r in content.sources] if content is not None else []))
         result.append(
-            (
+            TablePayload((
                 pymupdf.Rect(tab.bbox),
                 tab.to_html(),
                 row_count,
                 col_count,
                 cells,
                 extract,
-            )
+            ), provenance, unresolved_content=getattr(tab, "unresolved_content", ()),
+               external_content=getattr(tab, "external_content", ()), cell_sources=cell_sources)
         )
+    if include_union_evidence:
+        evidence = getattr(tf, "table_union_evidence", {})
+        return result, evidence if isinstance(evidence, dict) else {}
     return result

@@ -696,19 +696,14 @@ def find_reading_order(page_rect, blocks, boxes, vertical_gap: float = 12) -> li
         )
         result = []
         for r in sorted_boxes:
-            # A table nested in a "picture" box (e.g. an HTML-mode raster
-            # table inside a coarse layout picture box) is kept: the picture
-            # branch of parse_document has matching text-exclusion logic, so
-            # it will not duplicate the table's text. A table nested in any
-            # other container -- another table, or a text/title/list/formula
-            # box -- is discarded as before: a table inside a table is still
-            # a containment (a refine split can legitimately produce a
-            # parent/child pair), and the other branches have no exclusion
-            # logic, so keeping the nested table there would duplicate text.
-            if not any(
-                is_contained(r, other) and (r[4] != "table" or other[4] != "picture")
-                for other in result
-            ):
+            # HTML table reconstruction can add a precise table bbox inside a
+            # coarse layout ``picture`` bbox (the common raster-table case).
+            # A non-table container must not discard that first-class table;
+            # only a larger table is allowed to subsume a nested table.
+            containers = [other for other in result if is_contained(r, other)]
+            if r[4] == "table":
+                containers = [other for other in containers if other[4] == "table"]
+            if not containers:
                 result.append(r)
         return result
 
