@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "status": "specified_not_executed",
+  "baseline_main": {
+    "pymupdf": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "363f177ef50deb05f07db8bf2061e7b9c8102b07"
+  },
+  "runtime": "clean installed product; no pb_table adapter or monkeypatch",
+  "model": "RF+IMF1; exact artifact hashes to be frozen before evaluation",
+  "comparisons": [
+    "same-feature revision vs previous validated revision, dependencies fixed",
+    "feature plus minimal dependencies vs identical dependencies",
+    "explicit integration combination vs valid removal"
+  ],
+  "datasets": [
+    {
+      "id": "PB503",
+      "metrics": [
+        "bbox IoU>=0.60 one-to-one TP FP FN precision recall F1",
+        "GTRM",
+        "GriTS_CON",
+        "TRM"
+      ]
+    },
+    {
+      "id": "DL6489",
+      "metrics": [
+        "bbox IoU>=0.60 one-to-one TP FP FN precision recall F1"
+      ]
+    },
+    {
+      "id": "table_export_CURRENT",
+      "freeze": "CURRENT.json and manifest/GT hashes before evaluation",
+      "detection": "ignore exclude_for_detection; preserve valid GT geometry",
+      "structure": "honor per-table/per-cell evaluation permissions"
+    }
+  ],
+  "single_gt": "additional constraint scored separately, not mixed with IoU-only",
+  "page_evidence": [
+    "all improved pages",
+    "all regressed pages",
+    "component regressions despite composite gain",
+    "score-neutral output changes",
+    "recovered/lost GT IDs even if aggregate unchanged",
+    "text ownership/loss/duplication and reading order"
+  ],
+  "artifacts": [
+    "summary.json",
+    "page-deltas.jsonl.gz",
+    "improved.tsv",
+    "regressed.tsv",
+    "output-only.tsv",
+    "component-regressions.tsv"
+  ],
+  "gt_policy": "do not edit GT; distinguish GT-outside real tables and ambiguous labels",
+  "timing": "fixed model/data/OCR/native/threads; ABBA controls; calls and inclusive/exclusive scopes",
+  "validation_status": "pending; historical scores are not draft-branch scores"
+}
