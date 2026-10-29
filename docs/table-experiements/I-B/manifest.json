@@ -6,9 +6,9 @@
   "old_catalog_ids": [],
   "branch": "table-experiements/pre-ocr-ruling-image",
   "repository": "pymupdf4llm",
-  "status": "specification-draft",
-  "implemented": false,
-  "evaluation_status": "pending",
+  "status": "implemented-boundary-tested",
+  "implemented": true,
+  "evaluation_status": "unit-and-public-api-only",
   "base_main": "363f177ef50deb05f07db8bf2061e7b9c8102b07",
   "baseline_pair": {
     "pymupdf": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
@@ -20,10 +20,19 @@
   },
   "proposed_dependencies": [],
   "applied_dependencies": [],
-  "latest_validated_revision": null,
+  "latest_validated_revision": "3f34756bcb3da60673127426b90d1a40e365a633",
   "scores": null,
   "page_delta_artifacts": [],
-  "independent_execution_verified": false,
-  "runtime_changes": false,
-  "product_deployed": false
+  "independent_execution_verified": true,
+  "runtime_changes": true,
+  "product_deployed": false,
+  "evaluated_source_pair": {
+    "pymupdf": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "3f34756bcb3da60673127426b90d1a40e365a633"
+  },
+  "native_rebuilt": false,
+  "tests": {
+    "focused_pass": 4,
+    "public_api_pages": 3
+  }
 }
