@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "feature_id": "F13",
+  "title": "Parent and leaf header-band splitting",
+  "korean_name": "첫 행 부모·하위 셀 분리",
+  "old_catalog_ids": [
+    9
+  ],
+  "branch": "table-experiements/f13-header-band-split",
+  "repository": "pymupdf4llm",
+  "status": "specification-draft",
+  "implemented": false,
+  "evaluation_status": "pending",
+  "base_main": "363f177ef50deb05f07db8bf2061e7b9c8102b07",
+  "baseline_pair": {
+    "pymupdf": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "363f177ef50deb05f07db8bf2061e7b9c8102b07"
+  },
+  "current_product_reference": {
+    "pymupdf": "b93ce4c1a8490acd8dacb3f3d051328d2fedecdf",
+    "pymupdf4llm": "8838490f67068ab052278acba9e69cdd7804fe8e"
+  },
+  "proposed_dependencies": [
+    {
+      "id": "F01",
+      "branch": "table-experiements/f01-cell-source-output",
+      "repositories": [
+        "pymupdf",
+        "pymupdf4llm"
+      ],
+      "revision": null,
+      "status": "proposed_not_applied"
+    },
+    {
+      "id": "F09",
+      "branch": "table-experiements/f09-r6-header-classification",
+      "repositories": [
+        "pymupdf4llm"
+      ],
+      "revision": null,
+      "status": "proposed_not_applied"
+    }
+  ],
+  "applied_dependencies": [],
+  "latest_validated_revision": null,
+  "scores": null,
+  "page_delta_artifacts": [],
+  "independent_execution_verified": false,
+  "runtime_changes": false,
+  "product_deployed": false
+}
