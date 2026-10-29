@@ -1,0 +1,6 @@
+dataset	page_id	document	page	bbox_delta_pp	TP_delta	FP_delta	FN_delta	GTRM_delta_pp	CON_delta_pp	TRM_delta_pp	lost_GT	recovered_GT
+dl	5a8275e16f0c9f14c1e6a9983a1413117b85a20027845fb3eb4b334912ac9e85	amt_general_handbook.pdf	296	0.0	0	0	0	0	0	0	[]	[]
+dl	122ce8af75ed211566bf8e0f2c26d97a2ce9bc8edb49a349fe0b2c09065ad568	amt_general_handbook.pdf	306	0.0	0	0	0	0	0	0	[]	[]
+dl	727c596dcf205439d44baf45dbac5306858e1db171ea5ebcc17e0767684437b0	amt_general_handbook.pdf	114	0.0	0	0	0	0	0	0	[]	[]
+dl	08ea31249a048593e9195892dbd555ca1118eaef2c7241dd9bddd4195406ca79	amt_general_handbook.pdf	326	0.0	0	0	0	0	0	0	[]	[]
+pb	tabular_2_page2	tabular_2_page2	1	0.0	0	0	0	0.0	0.0	0.0	[]	[]

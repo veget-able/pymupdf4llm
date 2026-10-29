@@ -1,33 +1,52 @@
-# F04: Raster ruling extraction
+# F04: Supply raster ruling evidence to the existing table path
 
-Status: specification draft. No runtime implementation or benchmark result is included in this commit.
+Status: implemented-evaluated. Production and Viewer are unchanged.
+
+## Implemented behavior
+
+Reuse the production Sobel paired-edge detector and pass its lines to both HTML reconstruction entry points. Keep its constants and pixel/word handling unchanged. Uses I-B original pixels and live OCR words; no R6, admission, ownership, or general output policies are imported.
+
+## Source and dependencies
 
 Branch: table-experiements/f04-raster-ruling
+Evaluated source commit: 474d5533873164a70ac3436b18239bd29d8d79f5
+Paired PyMuPDF: 1d34e04da00b7673a0b2c3f68b5a5246793a50b8
+Paired pymupdf4llm: 474d5533873164a70ac3436b18239bd29d8d79f5
+Baseline: the frozen main pair in manifest.json. This is not the existing production stack.
+No full-tree overlay or pb_table policy adapter is used. Source bytes are checked against Git.
+Python sources use the pinned official draft 2.0_c native bindings/models. Native main was not rebuilt.
 
-Base: pymupdf4llm main at 363f177ef50deb05f07db8bf2061e7b9c8102b07.
+## Validation
 
-## Scope and execution boundary
+Focused tests: 13 passed. Public to_markdown / parse_document+serializer parity: 3 pages.
+Automatic OCR, original full pages, fixed RF+IMF1 weights, ORT/BLAS one thread.
+bbox: IoU >= 0.60 one-to-one; single-GT is reported separately.
+GTRM: original production ParseBench scorer source, unchanged normalization and metrics.
+Selection: CURRENT v12 r5, 998 pages, 2735 bbox GT; key_value included, exclude_for_detection ignored.
+Selection visible-text and per-cell evaluation contracts are preserved: 992 GTRM pages, 2724 tables.
 
-- LL raster_lines 및 add_lines 전달. 현재 채택 Sobel 구현 한 개만 포함함.
-- Canny→Sobel 과거 개발 순서를 여러 제품 기능으로 재연하지 않음.
-- 필수 기반: I-B, F02의 선 입력 전달. I-A는 제품 공통 입력 기준으로 유지함.
+Full actual API evaluation: PB503 + DL6489 + Selection998, 7,990 successful page runs for this variant.
+All improved/regressed and score-neutral changed pages are in evaluation-20261029/*.tsv; full identities and before/after metrics are in the compressed ledgers.
+PB verdicts (any metric or bbox count/GT identity): {'improved': 4, 'regressed': 0}.
+DL verdicts (bbox count/GT identity): {'improved': 2, 'regressed': 21}.
+Selection verdicts: {'improved': 2, 'regressed': 1, 'output_only': 2}.
+A page can be both improved and regressed when components or GT identities differ.
+Empty-GT pages with new FP are regressions even if their page F1 remains zero.
 
-## Dependencies
+Dependency: I-B only. Main already has the necessary line input and union/refine APIs; B1/F02 are not merged.
+No I-A change is included. This is F04+I-B versus main, not a separately isolated detector-only ablation.
+New DL false positives include plot panels, a container photograph and a corrosion illustration.
+Some GT-unmatched additions are actual forms/specification content; do not equate every GT FP with a non-table.
+amt_general_handbook p326 retains the user-confirmed GT-disagreement classification.
+Admission F05 interaction has not been tested; do not claim it fixes these cases.
 
-The following are proposed dependencies, not merged or independently validated revisions. Only necessary contracts are reused; unrelated policies must not be imported.
+## Limits and reproduction
 
-- B1: table-experiements/shared-runtime (revision pending).
-- F02: table-experiements/f02-ruling-gnn-union (revision pending).
-- I-B: table-experiements/pre-ocr-ruling-image (revision pending).
-
-## Validation and page-level attribution
-
-Follow [the evaluation contract](../evaluation-contract.json). For the initial implementation, compare against the same main and pinned prerequisite combination. For later changes, compare against this feature’s previous validated revision with identical dependencies.
-
-List every improved and regressed page, score-neutral output change, and per-metric regression. Keep TP loss/recovery identities, bbox/cell/header changes, original-source ownership and text output evidence. A positive aggregate or preserved table count does not prove preservation. No page improvement or regression has been measured for this draft.
-
-## Continued development
-
-Add implementation, wiring, tests and updated evidence in subsequent commits on this branch. Record compatibility pairs for cross-repository changes. Merge prerequisite updates explicitly and measure their effect separately. The working revision may be newer than the validated revision; do not report unmeasured work as validated. Do not create product feature flags merely to stage the port.
-
-The [branch index](../README.md) links the related feature drafts. Existing production branches remain unchanged.
+This is measured development-corpus behavior, not independent generalization or automatic adoption.
+Main does not expose raw GNN or CellSource in this public payload. Lexical deltas are diagnostics, not proof of glyph loss or preservation.
+Shared CPU concurrent evaluation is not a controlled runtime A/B; no feature speed claim is made.
+Local runner: scripts/analysis/run_feature_ports_20261029.py (prepare, inventory, run, score).
+Selection runner: scripts/analysis/evaluate_feature_selection_20261029.py.
+Page comparison: scripts/analysis/summarize_feature_ports_20261029.py.
+Exact source/model/scorer/data hashes are included in evaluation-contract.json; full local raw evidence: runs/laura-feature-ports-20261029/.
+Continue code and evidence commits on this branch; do not replace it with a new revision branch.

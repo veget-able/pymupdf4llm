@@ -8,9 +8,9 @@
   ],
   "branch": "table-experiements/f04-raster-ruling",
   "repository": "pymupdf4llm",
-  "status": "specification-draft",
-  "implemented": false,
-  "evaluation_status": "pending",
+  "status": "implemented-evaluated",
+  "implemented": true,
+  "evaluation_status": "PB503-DL6489-Selection998",
   "base_main": "363f177ef50deb05f07db8bf2061e7b9c8102b07",
   "baseline_pair": {
     "pymupdf": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
@@ -20,42 +20,417 @@
     "pymupdf": "b93ce4c1a8490acd8dacb3f3d051328d2fedecdf",
     "pymupdf4llm": "8838490f67068ab052278acba9e69cdd7804fe8e"
   },
-  "proposed_dependencies": [
-    {
-      "id": "B1",
-      "branch": "table-experiements/shared-runtime",
-      "repositories": [
-        "pymupdf",
-        "pymupdf4llm"
-      ],
-      "revision": null,
-      "status": "proposed_not_applied"
-    },
-    {
-      "id": "F02",
-      "branch": "table-experiements/f02-ruling-gnn-union",
-      "repositories": [
-        "pymupdf",
-        "pymupdf4llm"
-      ],
-      "revision": null,
-      "status": "proposed_not_applied"
-    },
+  "proposed_dependencies": [],
+  "applied_dependencies": [
     {
       "id": "I-B",
-      "branch": "table-experiements/pre-ocr-ruling-image",
-      "repositories": [
-        "pymupdf4llm"
-      ],
-      "revision": null,
-      "status": "proposed_not_applied"
+      "repository": "pymupdf4llm",
+      "revision": "3f34756bcb3da60673127426b90d1a40e365a633"
     }
   ],
-  "applied_dependencies": [],
-  "latest_validated_revision": null,
-  "scores": null,
-  "page_delta_artifacts": [],
-  "independent_execution_verified": false,
-  "runtime_changes": false,
-  "product_deployed": false
+  "latest_validated_revision": "474d5533873164a70ac3436b18239bd29d8d79f5",
+  "scores": {
+    "bbox": {
+      "pb": {
+        "iou060": {
+          "main": {
+            "pages": 503,
+            "gt": 893,
+            "pred": 839,
+            "tp": 710,
+            "fp": 129,
+            "fn": 183,
+            "precision": 0.8462455303933254,
+            "recall": 0.7950727883538634,
+            "f1": 0.8198614318706697
+          },
+          "feature": {
+            "pages": 503,
+            "gt": 893,
+            "pred": 849,
+            "tp": 720,
+            "fp": 129,
+            "fn": 173,
+            "precision": 0.8480565371024735,
+            "recall": 0.8062709966405375,
+            "f1": 0.8266360505166476
+          }
+        },
+        "single_gt": {
+          "main": {
+            "pages": 503,
+            "gt": 893,
+            "pred": 839,
+            "tp": 700,
+            "fp": 139,
+            "fn": 193,
+            "precision": 0.834326579261025,
+            "recall": 0.7838745800671892,
+            "f1": 0.8083140877598153
+          },
+          "feature": {
+            "pages": 503,
+            "gt": 893,
+            "pred": 849,
+            "tp": 710,
+            "fp": 139,
+            "fn": 183,
+            "precision": 0.8362779740871613,
+            "recall": 0.7950727883538634,
+            "f1": 0.8151549942594719
+          }
+        }
+      },
+      "dl": {
+        "iou060": {
+          "main": {
+            "pages": 6489,
+            "gt": 2269,
+            "pred": 2210,
+            "tp": 1782,
+            "fp": 428,
+            "fn": 487,
+            "precision": 0.8063348416289593,
+            "recall": 0.7853680035257823,
+            "f1": 0.7957133288680509
+          },
+          "feature": {
+            "pages": 6489,
+            "gt": 2269,
+            "pred": 2236,
+            "tp": 1785,
+            "fp": 451,
+            "fn": 484,
+            "precision": 0.7983005366726297,
+            "recall": 0.7866901718818863,
+            "f1": 0.7924528301886793
+          }
+        },
+        "single_gt": {
+          "main": {
+            "pages": 6489,
+            "gt": 2269,
+            "pred": 2210,
+            "tp": 1764,
+            "fp": 446,
+            "fn": 505,
+            "precision": 0.7981900452488688,
+            "recall": 0.7774349933891582,
+            "f1": 0.7876758204956463
+          },
+          "feature": {
+            "pages": 6489,
+            "gt": 2269,
+            "pred": 2236,
+            "tp": 1767,
+            "fp": 469,
+            "fn": 502,
+            "precision": 0.7902504472271914,
+            "recall": 0.7787571617452622,
+            "f1": 0.7844617092119867
+          }
+        }
+      }
+    },
+    "pb_metrics": {
+      "main": {
+        "avg_grits_con": 0.8451531129672083,
+        "min_grits_con": 0.0,
+        "max_grits_con": 1.0,
+        "avg_structural_consistency": 0.9908350305498982,
+        "min_structural_consistency": 0.0,
+        "max_structural_consistency": 1.0,
+        "avg_table_record_match": 0.6475670629707354,
+        "min_table_record_match": 0.0,
+        "max_table_record_match": 1.0,
+        "avg_table_record_match_perfect": 0.4658282296453271,
+        "min_table_record_match_perfect": 0.0,
+        "max_table_record_match_perfect": 1.0,
+        "avg_grits_trm_composite": 0.7586174679642924,
+        "min_grits_trm_composite": 0.0,
+        "max_grits_trm_composite": 1.0,
+        "avg_tables_expected": 1.7759674134419552,
+        "min_tables_expected": 1.0,
+        "max_tables_expected": 13.0,
+        "avg_tables_actual": 1.7067209775967414,
+        "min_tables_actual": 1.0,
+        "max_tables_actual": 12.0,
+        "avg_tables_unparseable_pred": 0.0,
+        "min_tables_unparseable_pred": 0.0,
+        "max_tables_unparseable_pred": 0.0,
+        "avg_tables_paired": 1.6395112016293278,
+        "min_tables_paired": 1.0,
+        "max_tables_paired": 10.0,
+        "avg_tables_unmatched_expected": 0.1364562118126273,
+        "min_tables_unmatched_expected": 0.0,
+        "max_tables_unmatched_expected": 8.0,
+        "avg_tables_unmatched_pred": 0.1120162932790224,
+        "min_tables_unmatched_pred": 0.0,
+        "max_tables_unmatched_pred": 5.0,
+        "avg_grits_con_predicted": 0.8658085861965494,
+        "min_grits_con_predicted": 0.02718591140159768,
+        "max_grits_con_predicted": 1.0,
+        "avg_table_record_match_predicted": 0.663393549234786,
+        "min_table_record_match_predicted": 0.0,
+        "max_table_record_match_predicted": 1.0,
+        "avg_table_record_match_perfect_predicted": 0.47721303362851225,
+        "min_table_record_match_perfect_predicted": 0.0,
+        "max_table_record_match_perfect_predicted": 1.0
+      },
+      "feature": {
+        "avg_grits_con": 0.8502743578903866,
+        "min_grits_con": 0.0,
+        "max_grits_con": 1.0,
+        "avg_structural_consistency": 0.9875420875420875,
+        "min_structural_consistency": 0.0,
+        "max_structural_consistency": 1.0,
+        "avg_table_record_match": 0.6502995402872872,
+        "min_table_record_match": 0.0,
+        "max_table_record_match": 1.0,
+        "avg_table_record_match_perfect": 0.4664909201688526,
+        "min_table_record_match_perfect": 0.0,
+        "max_table_record_match_perfect": 1.0,
+        "avg_grits_trm_composite": 0.7625443290841575,
+        "min_grits_trm_composite": 0.0,
+        "max_grits_trm_composite": 1.0,
+        "avg_tables_expected": 1.7878787878787878,
+        "min_tables_expected": 1.0,
+        "max_tables_expected": 13.0,
+        "avg_tables_actual": 1.713131313131313,
+        "min_tables_actual": 1.0,
+        "max_tables_actual": 12.0,
+        "avg_tables_unparseable_pred": 0.0,
+        "min_tables_unparseable_pred": 0.0,
+        "max_tables_unparseable_pred": 0.0,
+        "avg_tables_paired": 1.6464646464646464,
+        "min_tables_paired": 1.0,
+        "max_tables_paired": 10.0,
+        "avg_tables_unmatched_expected": 0.1414141414141414,
+        "min_tables_unmatched_expected": 0.0,
+        "max_tables_unmatched_expected": 8.0,
+        "avg_tables_unmatched_pred": 0.1111111111111111,
+        "min_tables_unmatched_pred": 0.0,
+        "max_tables_unmatched_pred": 5.0,
+        "avg_grits_con_predicted": 0.8640161656946758,
+        "min_grits_con_predicted": 0.02718591140159768,
+        "max_grits_con_predicted": 1.0,
+        "avg_table_record_match_predicted": 0.6608094318474859,
+        "min_table_record_match_predicted": 0.0,
+        "max_table_record_match_predicted": 1.0,
+        "avg_table_record_match_perfect_predicted": 0.4740301673635007,
+        "min_table_record_match_perfect_predicted": 0.0,
+        "max_table_record_match_perfect_predicted": 1.0
+      }
+    },
+    "selection": {
+      "all": {
+        "pages": 998,
+        "inference_failures": 0,
+        "gtrm_tables": 2724,
+        "gtrm_excluded": 11,
+        "gt": 2735,
+        "tp": 1740,
+        "fp": 442,
+        "fn": 995,
+        "pred": 2182,
+        "raw_pred": 2182,
+        "ignored_gt": 0,
+        "ignored_pred": 0,
+        "precision": 0.7974335472043996,
+        "recall": 0.6361974405850092,
+        "f1": 0.7077486272117145,
+        "metrics": {
+          "grits_con": {
+            "mean": 0.7538070130968502,
+            "pages": 992
+          },
+          "table_record_match": {
+            "mean": 0.5157224507449921,
+            "pages": 992
+          },
+          "grits_trm_composite": {
+            "mean": 0.6369551007843646,
+            "pages": 992
+          }
+        }
+      },
+      "fintabnet": {
+        "pages": 89,
+        "inference_failures": 0,
+        "gtrm_tables": 89,
+        "gtrm_excluded": 0,
+        "gt": 89,
+        "tp": 82,
+        "fp": 6,
+        "fn": 7,
+        "pred": 88,
+        "raw_pred": 88,
+        "ignored_gt": 0,
+        "ignored_pred": 0,
+        "precision": 0.9318181818181818,
+        "recall": 0.9213483146067416,
+        "f1": 0.9265536723163842,
+        "metrics": {
+          "grits_con": {
+            "mean": 0.7581086463371514,
+            "pages": 89
+          },
+          "table_record_match": {
+            "mean": 0.507170847876518,
+            "pages": 89
+          },
+          "grits_trm_composite": {
+            "mean": 0.6326397471068347,
+            "pages": 89
+          }
+        }
+      },
+      "parsebench": {
+        "pages": 84,
+        "inference_failures": 0,
+        "gtrm_tables": 253,
+        "gtrm_excluded": 0,
+        "gt": 253,
+        "tp": 176,
+        "fp": 38,
+        "fn": 77,
+        "pred": 214,
+        "raw_pred": 214,
+        "ignored_gt": 0,
+        "ignored_pred": 0,
+        "precision": 0.822429906542056,
+        "recall": 0.6956521739130435,
+        "f1": 0.7537473233404711,
+        "metrics": {
+          "grits_con": {
+            "mean": 0.7321534992122687,
+            "pages": 84
+          },
+          "table_record_match": {
+            "mean": 0.42069842012975917,
+            "pages": 84
+          },
+          "grits_trm_composite": {
+            "mean": 0.602293172915488,
+            "pages": 84
+          }
+        }
+      },
+      "pubtables": {
+        "pages": 241,
+        "inference_failures": 0,
+        "gtrm_tables": 354,
+        "gtrm_excluded": 0,
+        "gt": 354,
+        "tp": 282,
+        "fp": 39,
+        "fn": 72,
+        "pred": 321,
+        "raw_pred": 321,
+        "ignored_gt": 0,
+        "ignored_pred": 0,
+        "precision": 0.8785046728971962,
+        "recall": 0.7966101694915254,
+        "f1": 0.8355555555555556,
+        "metrics": {
+          "grits_con": {
+            "mean": 0.7613688345472006,
+            "pages": 241
+          },
+          "table_record_match": {
+            "mean": 0.4767848359487828,
+            "pages": 241
+          },
+          "grits_trm_composite": {
+            "mean": 0.6190768352479917,
+            "pages": 241
+          }
+        }
+      },
+      "serff": {
+        "pages": 286,
+        "inference_failures": 0,
+        "gtrm_tables": 1230,
+        "gtrm_excluded": 8,
+        "gt": 1238,
+        "tp": 662,
+        "fp": 164,
+        "fn": 576,
+        "pred": 826,
+        "raw_pred": 826,
+        "ignored_gt": 0,
+        "ignored_pred": 0,
+        "precision": 0.801452784503632,
+        "recall": 0.5347334410339257,
+        "f1": 0.6414728682170543,
+        "metrics": {
+          "grits_con": {
+            "mean": 0.7371387881066425,
+            "pages": 281
+          },
+          "table_record_match": {
+            "mean": 0.5424698952397309,
+            "pages": 281
+          },
+          "grits_trm_composite": {
+            "mean": 0.6398043416731867,
+            "pages": 281
+          }
+        }
+      },
+      "common_crawl": {
+        "pages": 298,
+        "inference_failures": 0,
+        "gtrm_tables": 798,
+        "gtrm_excluded": 3,
+        "gt": 801,
+        "tp": 538,
+        "fp": 195,
+        "fn": 263,
+        "pred": 733,
+        "raw_pred": 733,
+        "ignored_gt": 0,
+        "ignored_pred": 0,
+        "precision": 0.7339699863574352,
+        "recall": 0.6716604244694132,
+        "f1": 0.7014341590612777,
+        "metrics": {
+          "grits_con": {
+            "mean": 0.7682764476444324,
+            "pages": 297
+          },
+          "table_record_match": {
+            "mean": 0.5514498732697011,
+            "pages": 297
+          },
+          "grits_trm_composite": {
+            "mean": 0.6598631604570667,
+            "pages": 297
+          }
+        }
+      }
+    }
+  },
+  "page_delta_artifacts": [
+    "evaluation-20261029/feature-comparison.json",
+    "evaluation-20261029/page-deltas.jsonl.gz",
+    "evaluation-20261029/improved.tsv",
+    "evaluation-20261029/regressed.tsv",
+    "evaluation-20261029/output-only.tsv",
+    "evaluation-20261029/component-regressions.tsv",
+    "evaluation-20261029/gt-loss.tsv"
+  ],
+  "independent_execution_verified": true,
+  "runtime_changes": true,
+  "product_deployed": false,
+  "evaluated_source_pair": {
+    "pymupdf": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "474d5533873164a70ac3436b18239bd29d8d79f5"
+  },
+  "native_rebuilt": false,
+  "tests": {
+    "focused_pass": 13,
+    "public_api_pages": 3
+  },
+  "dependency_resolution": "Main already supplies add_lines and union/refine; B1/F02 drafts are not prerequisites. I-A is not applied in this comparison."
 }

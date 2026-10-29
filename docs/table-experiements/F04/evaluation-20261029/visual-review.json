@@ -1,0 +1,72 @@
+[
+  {
+    "page_id": "a839c53cdecc4aff6b7ba35929e4519ba266d1e7e1e37cb3959954be1c0c2cde",
+    "document": "1509.01054.pdf",
+    "page_no": 14,
+    "bbox_before": [],
+    "bbox_after": [
+      [
+        184.56,
+        73.2,
+        410.64,
+        297.84
+      ]
+    ],
+    "GT_tables": 0,
+    "observation": "Nine plot panels with S1..S9 labels; grid is a figure panel arrangement, not an independently labeled data table. New raster-only FP visually confirmed.",
+    "F05_resolution": "not tested"
+  },
+  {
+    "page_id": "74923c970949209570253d3919e06a3607f6df72c808bd3f59d0d728e4fcd759",
+    "document": "OTC_STKAF_2002.pdf",
+    "page_no": 20,
+    "bbox_before": [],
+    "bbox_after": [
+      [
+        318.72,
+        140.4,
+        374.4,
+        224.16
+      ]
+    ],
+    "GT_tables": 0,
+    "observation": "Container/railway photograph; no table in the predicted region. New raster-only FP visually confirmed.",
+    "F05_resolution": "not tested"
+  },
+  {
+    "document": "amt_general_handbook.pdf",
+    "page_no": 229,
+    "observation": "Predicted region covers two reproduced specification pages, with genuine key/value and tabular content. Region extent/annotation ambiguity; not confirmed non-table and not a suppression target.",
+    "F05_resolution": "not tested"
+  },
+  {
+    "document": "amt_general_handbook.pdf",
+    "page_no": 336,
+    "observation": "Predicted crop lies in a hatched corrosion illustration labeled Cathodic area, not a data table. New raster-only FP visually confirmed.",
+    "F05_resolution": "not tested"
+  },
+  {
+    "document": "amt_general_handbook.pdf",
+    "page_no": 259,
+    "observation": "Photographic material comparison array with alloy labels. Table/figure annotation ambiguity; not confirmed non-table and not a suppression target.",
+    "F05_resolution": "not tested"
+  },
+  {
+    "document": "amt_general_handbook.pdf",
+    "page_no": 230,
+    "observation": "Predicted region covers two reproduced specification pages with genuine tables plus notes. Region extent/annotation ambiguity; do not blanket-suppress.",
+    "F05_resolution": "not tested"
+  },
+  {
+    "document": "WO2020021007A1.pdf",
+    "page_no": 77,
+    "observation": "Ruled international search-report form with document/citation rows. GT has no table on this page, but visible form is real; not a confirmed non-table.",
+    "F05_resolution": "not tested"
+  },
+  {
+    "document": "amt_general_handbook.pdf",
+    "page_no": 326,
+    "observation": "User previously confirmed actual table/GT issue. Preserve as protected annotation-disagreement case; GT unchanged.",
+    "F05_resolution": "not tested"
+  }
+]
