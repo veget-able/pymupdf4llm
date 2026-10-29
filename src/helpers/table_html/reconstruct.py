@@ -8,6 +8,7 @@ union=True, refine=True)``.
 """
 import pymupdf
 from .core import html_document
+from .raster_lines import detect_raster_table_lines
 
 
 def _placement_grid_matrices(placements) -> tuple[int, int, list, list]:
@@ -70,7 +71,9 @@ def to_html(pdf, page_index=0):
     try:
         page = doc[page_index]
         page.remove_rotation()
-        tf = page.find_tables(use_layout=True, union=True, refine=True)
+        tf = page.find_tables(
+            use_layout=True, union=True, refine=True,
+            add_lines=detect_raster_table_lines(page))
         tables = [tab.to_html() for tab in (getattr(tf, "tables", None) or [])]
     finally:
         if owns_doc:
@@ -96,7 +99,9 @@ def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, i
     shared Page: core caches word/vector extraction as attributes on the given
     ``page``, so concurrent calls must each use their own ``pymupdf.Page``.
     """
-    tf = page.find_tables(use_layout=True, union=True, refine=True)
+    tf = page.find_tables(
+            use_layout=True, union=True, refine=True,
+            add_lines=detect_raster_table_lines(page))
     result = []
     for tab in (getattr(tf, "tables", None) or []):
         row_count, col_count, cells, extract = _placement_grid_matrices(tab.placements)
