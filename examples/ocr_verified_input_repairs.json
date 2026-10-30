@@ -1,0 +1,25 @@
+{
+  "schema": "ocr_verified_input_repairs.v1",
+  "scope": "Previously approved Form BBox correction in the requested score baseline; source PDF remains immutable",
+  "repairs": [
+    {
+      "page_index": 0,
+      "xref": 5,
+      "resource": "Fm1",
+      "before": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "after": [
+        0,
+        0,
+        612,
+        792
+      ],
+      "source_sha256": "08b3e3a7011f6451eda81b8163ce208e178e7ae050a2877d7869f03a3bf3acd6",
+      "Form_stream_sha256": "0c192fa2fa2195570aebfe6b61eccee2d8359019470e3ace8fd7807265599726"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+Independent OCR feature 3: Prepare verified Form BBox input
+
+Direct parent: fixed main of this repository. One final feature commit.
+
+Only the existing explicit, verified/hash-bound Form XObject BBox input preparation. It is applied before extraction only in this condition; no generic automatic repair or filename exception is added to to_markdown.
+
+Option contract
+- Extra gate/damage behavior is enabled only for literal bool use_ocr=True.
+- use_ocr=False without force stays OFF. Explicit SELECT_KEEP_OLD,
+  SELECT_DROP_OLD,FORCE_KEEP_OLD,FORCE_DROP_OLD keep main behavior; no new
+  damage priority runs. This does not mean those modes never perform OCR.
+- Public force_ocr=True is forwarded as main FORCE_KEEP_OLD, including main's
+  existing override when use_ocr=False. No new normalization/validation added.
+- No general old-layer bypass is bundled into a positive-damage feature.
+
+TODO: REPAIR policy/API naming
+- Defer REPAIR names, enum values and API binding to a separate reviewed task.
+- This branch does not introduce SELECT_REPAIR_OLD/FORCE_REPAIR_OLD or change
+  public defaults or existing KEEP/DROP/force precedence to support a name.
+- Features5 and6 work on main without feature4 or a REPAIR mode.
+- A future binding must specify default bool True versus explicit enum modes
+  and must not silently add other corrections or a new replacement algorithm.
+
+Fixed independent comparison
+- Same507PDF509pages;CF506/SF476supported456defined;scorer8c63e84.
+- RapidOCR3.10 PPv6small DET+REC/PPv4CLS,eng,nominal150DPI with existing cap.
+- Source overlays use existing matching MuPDF1.28.5 native libraries; no wheel.
+- Main core 1d34e04da00b7673a0b2c3f68b5a5246793a50b8;main LLM 363f177ef50deb05f07db8bf2061e7b9c8102b07.
+- i only/P2+ODM: CF 79.8276550132%, SF 56.7895024021%.
+- 0+i only/IMF2 ROI: CF 80.3891276725%, SF 57.6639560543%.
+- Feature effect i-main: CF +0.1567462481pp,SF +0.1321528684pp.
+- Feature effect (0+i)-0: CF +0.1567462481pp,SF +0.1321528684pp.
+- Selector effect (0+i)-i: CF +0.5614726593pp,SF +0.8744536521pp.
+- For feature0, main vs0 is the selector-only comparison; no correction i.
+- Counterpart/composed rows are temporary evaluation combinations, not
+  inherited feature commits. Do not add independent deltas to infer a total.
+- Per-document improvements/regressions are in ocr-independent-cases.json.
+
+Improvement/regression examples
+P2+ODM improved: text/text_multicolumns__2col(+79.3136pp)
+P2+ODM regressed: none
+IMF2 ROI improved: text/text_multicolumns__2col(+79.3136pp)
+IMF2 ROI regressed: none
+
+Validation and limits
+- Helper-only control has all509 original analyzer fields/render pixels equal
+  and507 fresh public API Markdown outputs plus188 actualRapid input hashes
+  equal to main. No helper-only CF/SF condition was added.
+-120 direct controlled mode cases and48 actual public forwarding cases pass.
+- Independent feature tests and source-boundary audit are attached. Model
+  conditions call no P2/ODM; common OCR_SPANS/ONLY_TEXT remain unchanged.
+- Only damage-negative, same whole tuple/PDF/downstream/options outputs are
+  reused. All damage-positive/control/multipage documents are freshly run.
+  Exact full ParseOutput/case/scorer/file SHA matches may reuse official scores.
+- Recorded evaluation stage time includes partial extraction/cache checks and
+  scoring. Not full507 fresh pipeline latency or a speed comparison. Concurrent
+  resource contention occurred; stage timings cannot establish speed advantage.
+- Removed shared-span, direct REC,white masking,OSD,fastText and new training
+  are excluded. GT/PDF/weights stay fixed; no product or viewer deployment.
+- Evidence: runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/ under pb_ocr;
+  report.json,neutral-validation.json,neutral-render-analysis.json,
+  option-contract-validation.json,source-validation.json and publication.json.

@@ -1,0 +1,9 @@
+Independent feature3: form-bbox-input
+
+Only the existing explicit, verified/hash-bound Form XObject BBox input preparation. It is applied before extraction only in this condition; no generic automatic repair or filename exception is added to to_markdown.
+
+Complete model-specific changes, including every CF/SF improvement and regression, are now directly in README.md.
+Machine-readable record: docs/ocr-independent-cases.json(schema2).
+Comparisons: Feature effect with P2+ODM: i versus main, Feature effect with IMF2 ROI: 0+i versus 0, Selector effect on this feature: 0+i versus i.
+
+REPAIR policy/API names remain TODO in README.md. No executable change or fresh scoring.
