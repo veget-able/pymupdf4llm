@@ -1309,11 +1309,15 @@ def make_ocr_decision(page, use_ocr):
     indicating whether OCR is needed, and ocr_spans is the number of
     existing OCR spans on the page (if any).
     """
+    from pymupdf4llm.ocr.selection_hooks import run_priority_checks
+    priority=run_priority_checks(page,use_ocr)
+    if priority is not None:return priority
     # OCR not desired at all
     if use_ocr == OCRMode.NEVER:
         return False, 0, False
 
-    page_analysis = utils.analyze_page(page)
+    from pymupdf4llm.ocr.model_selector import analyze_page as select_page
+    page_analysis = select_page(page)
 
     only_text = (
         page_analysis.get("img_area", 0) == 0

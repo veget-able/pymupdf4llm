@@ -1,0 +1,9 @@
+Independent feature0: imf2-roi-selector
+
+Replaces P2 heuristics+ODM selection with IMF2 ROI. Retains main existing-layer preservation and original OFF/KEEP/DROP/force, Rapid input and writeback. Shared state/policy/render helpers preserve main behavior; no correction is enabled. ROI never crops or filters downstream Rapid.
+
+Complete model-specific changes, including every CF/SF improvement and regression, are now directly in README.md.
+Machine-readable record: docs/ocr-independent-cases.json(schema2).
+Comparisons: Selector replacement: 0 versus main.
+
+REPAIR policy/API names remain TODO in README.md. No executable change or fresh scoring.

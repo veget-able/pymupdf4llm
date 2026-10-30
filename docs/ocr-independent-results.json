@@ -1,0 +1,127 @@
+{
+  "schema_version": 2,
+  "feature_no": 0,
+  "feature_id": "imf2-roi-selector",
+  "branch": "ocr/page-selector/imf2-roi-selector-20261027",
+  "fixed_main": {
+    "PyMuPDF": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "363f177ef50deb05f07db8bf2061e7b9c8102b07"
+  },
+  "documents": 507,
+  "pages": 509,
+  "CF_documents": 506,
+  "SF_defined": 456,
+  "model_scores": [
+    {
+      "no": 0,
+      "feature": "main",
+      "arm": "main",
+      "selector": "P2+ODM",
+      "included_features": [],
+      "CF_percent": 79.67090876509569,
+      "SF_percent": 56.657349533742305,
+      "feature_effect_reference": "main",
+      "feature_CF_pp": 0.0,
+      "feature_SF_pp": 0.0,
+      "model_effect_reference": "main",
+      "model_CF_pp": null,
+      "model_SF_pp": null,
+      "page_metrics": {
+        "TP": 82,
+        "FN": 18,
+        "TN": 97,
+        "FP": 3,
+        "precision": 0.9647058823529412,
+        "recall": 0.82,
+        "f1": 0.8864864864864865
+      },
+      "selected_pages": 188,
+      "actual_Rapid_pages": 188,
+      "measured_validation_seconds": 33.985252199927345,
+      "time_scope": "509 fresh public gate checks, fresh changed/control extraction, verified reuse and official scoring; four workers per batch. Not full507 fresh extraction or product latency."
+    },
+    {
+      "no": 0,
+      "feature": "imf2-roi-selector",
+      "arm": "imf2-roi",
+      "selector": "IMF2 ROI",
+      "included_features": [
+        0
+      ],
+      "CF_percent": 80.23238142438245,
+      "SF_percent": 57.53180318585676,
+      "feature_effect_reference": "0",
+      "feature_CF_pp": 0.0,
+      "feature_SF_pp": 0.0,
+      "model_effect_reference": "main",
+      "model_CF_pp": 0.5614726592867769,
+      "model_SF_pp": 0.8744536521144486,
+      "page_metrics": {
+        "TP": 99,
+        "FN": 1,
+        "TN": 90,
+        "FP": 10,
+        "precision": 0.908256880733945,
+        "recall": 0.99,
+        "f1": 0.9473684210526315
+      },
+      "selected_pages": 265,
+      "actual_Rapid_pages": 265,
+      "measured_validation_seconds": 45.42160243517719,
+      "time_scope": "509 fresh public gate checks, fresh changed/control extraction, verified reuse and official scoring; four workers per batch. Not full507 fresh extraction or product latency.",
+      "evaluation_feature_id": "main"
+    }
+  ],
+  "comparison_definitions": {
+    "feature_P2": "i-main",
+    "feature_IMF2": "(0+i)-0",
+    "selector": "(0+i)-i;feature0 uses0-main"
+  },
+  "quality_metric_granularity": "document;single-page document identified as page1;multi-page not attributed to individual page",
+  "processing_granularity": "1-based PDF page indices;selection and actual Rapid invocation are distinct from CF/SF score attribution",
+  "score_change_tolerance": 1e-12,
+  "source_provenance": {
+    "main": {
+      "score_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/scores-main/document-scores.jsonl",
+      "score_rows_sha256": "ae442472d7d72fd740f8d55616ce852e83371fda95447acd06c4020e5a39ad77",
+      "outputs_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/outputs-main/outputs.jsonl"
+    },
+    "imf2-roi": {
+      "score_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/scores-imf2-roi/document-scores.jsonl",
+      "score_rows_sha256": "e45b649cf8a7df880e88a2f892829ce8d260c5528aea37144ff0ce4e751f7555",
+      "outputs_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/outputs-imf2-roi/outputs.jsonl"
+    }
+  },
+  "freshly_scored": false,
+  "reaggregated_stored_official_scores": true,
+  "code_changed": false,
+  "comparison_summaries": [
+    {
+      "label": "Selector replacement: 0 versus main",
+      "kind": "selector_effect",
+      "before_arm": "main",
+      "after_arm": "imf2-roi",
+      "before_label": "main(P2+ODM)",
+      "after_label": "0:imf2-roi-selector(IMF2 ROI)",
+      "metric_counts": {
+        "CF": {
+          "unchanged": 453,
+          "regressed": 27,
+          "improved": 26
+        },
+        "SF": {
+          "unchanged": 432,
+          "improved": 16,
+          "regressed": 8
+        }
+      },
+      "changed_document_count": 54,
+      "direction_counts": {
+        "improved": 23,
+        "regressed": 24,
+        "mixed": 7
+      },
+      "multi_page_changed_documents": []
+    }
+  ]
+}

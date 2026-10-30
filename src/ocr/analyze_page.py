@@ -8,21 +8,24 @@ from pymupdf import mupdf
 
 from .compute_ocr_features import FEATURE_NAMES, compute_features
 
-FLAGS = (
-    0
-    | pymupdf.TEXT_ACCURATE_BBOXES
-    | pymupdf.TEXT_PRESERVE_IMAGES
-    | pymupdf.TEXT_COLLECT_VECTORS
+from .page_state import (
+    FLAGS,
+    TYPE3_FONT_NAME,
+    TESSERACT_FONT_NAME,
+    REPLACEMENT_CHARACTER,
+    TEXT_STROKED,
+    TEXT_FILLED,
+    BLOCK_TEXT,
+    BLOCK_IMAGE,
+    BLOCK_VECTOR,
+    collect_page_state,
+    is_ocr_span,
+    intersect_rects,
+    join_rects,
+    bbox_is_empty,
 )
-GRAY = mupdf.fz_device_gray()  # MuPDF version of standard gray colorspace
-TYPE3_FONT_NAME = "Type3"  # MuPDF starts Type 3 fontnames with this string
-TESSERACT_FONT_NAME = "GlyphLessFont"
-REPLACEMENT_CHARACTER = chr(0xFFFD)
-TEXT_STROKED = mupdf.FZ_STEXT_STROKED
-TEXT_FILLED = mupdf.FZ_STEXT_FILLED
-BLOCK_TEXT = mupdf.FZ_STEXT_BLOCK_TEXT
-BLOCK_IMAGE = mupdf.FZ_STEXT_BLOCK_IMAGE
-BLOCK_VECTOR = mupdf.FZ_STEXT_BLOCK_VECTOR
+
+GRAY = mupdf.fz_device_gray()
 # Thresholds
 BAD_CHAR_THRESHOLD = 0.10  # >=10% bad chars suggests OCR
 
@@ -98,234 +101,40 @@ def check_images(image_blocks, prob, threshold=OCR_MODEL_THRESHOLD):
     return False, best_prob, i
 
 
-def is_ocr_span(span):
-    """If this is an OCR text span."""
-    return (
-        span["font"] == TESSERACT_FONT_NAME
-        or span["alpha"] == 0
-        or (
-            span["char_flags"] & TEXT_STROKED == 0
-            and span["char_flags"] & TEXT_FILLED == 0
-        )
+def analyze_page(
+    page,
+    blocks=None,
+    replace_ocr=False,
+    ocr_dpi=200,
+    stats=None,
+    ignore_existing_ocr=False,
+):
+    """Compatibility API; correction owns state and existing-layer policy."""
+    state = collect_page_state(page, blocks)
+    from .legacy_policy import legacy_existing_ocr_result
+
+    decision = legacy_existing_ocr_result(
+        page, state, replace_ocr, ignore_existing_ocr, stats
     )
+    return decision if decision is not None else analyze_state(page, state, stats)
 
 
-def intersect_rects(r1, r2, bbox_only=False):
-    """Speedy version using indices."""
-    bbox = (max(r1[0], r2[0]), max(r1[1], r2[1]), min(r1[2], r2[2]), min(r1[3], r2[3]))
-    return bbox if bbox_only else pymupdf.Rect(*bbox)
-
-
-def join_rects(r1, r2, bbox_only=False):
-    """Speedy version using indices."""
-    bbox = (min(r1[0], r2[0]), min(r1[1], r2[1]), max(r1[2], r2[2]), max(r1[3], r2[3]))
-    return bbox if bbox_only else pymupdf.Rect(*bbox)
-
-
-def bbox_is_empty(bbox) -> bool:
-    """Speedy version using indices."""
-    return bbox[0] >= bbox[2] or bbox[1] >= bbox[3]
-
-
-def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) -> dict:
-    """Analyze the page for the OCR decision.
-
-    Args:
-        blocks: (dict) output of page.get_text("dict") if already available
-        replace_ocr: (bool) if True, we should make a new OCR text layer
-        stats: (dict) if given fill in execution information (debugging)
-    Returns:
-        A dict with analysis results. The area-related float values are
-        computed as fractions of the total covered area.
-
-        "covered": Rect, page area covered by content
-        "img_joins": float, fraction of area of the joined images
-        "img_area": float, fraction of sum of image area sizes
-        "txt_joins": float, fraction of area of the joined text spans
-        "txt_area": float, fraction of sum of text span bbox area sizes
-        "vec_joins": float, fraction of area of the joined vector characters
-        "vec_area": float, fraction of sum of vectors
-        "vec_norects": int, count of vectors with isrect=False (not in a rectangle)
-        "chars_total": int, count of visible characters
-        "chars_bad": int, count of Replacement Unicode characters
-        "bad_areas": float, fraction of text areas having bad characters
-        "ocr_spans": int, count: text spans with ignored text (render mode 3)
-        "pixmap": Pixmap of page with all "good" text removed - for OCR use
-        "needs_ocr": bool, final decision
-        "reason": str | None, reason for the OCR decision
-        "probability": float | None, OCR probability
-    """
-    # --------------------------------------------------------------------
-    # Main analysis
-    # --------------------------------------------------------------------
-    if blocks is None:  # make "dict" text extraction if not provided
-        # stextpage = displaylist.get_textpage(flags=FLAGS)
-        # textpage = pymupdf.TextPage(stextpage)
-        # blocks = textpage.extractDICT()["blocks"]
-        blocks = page.get_text(
-            "dict",
-            flags=FLAGS,
-            clip=pymupdf.INFINITE_RECT(),
-        )["blocks"]
-
+def analyze_state(page, state, stats=None):
+    """P2 heuristics plus ODM; preservation policy is handled by the caller."""
+    analysis = dict(state.analysis)
+    if bbox_is_empty(analysis["covered"]):
+        return {**analysis, "needs_ocr": False, "reason": None, "probability": None}
+    blocks = state.blocks
     page_rect = page.rect
-    img_rect = pymupdf.EMPTY_RECT()  # joined image bboxes
-    txt_rect = +img_rect  # joined text span bboxes
-    vec_rect = +img_rect  # joined suspicious vector bboxes
-    chars_total = 0  # total character count
-    chars_bad = 0  # bad character count
-    bad_areas = 0.0  # sum of areas of text spans having bad characters
-    img_area = 0.0  # sum of image block areas
-    txt_area = 0.0  # sum of all text span bbox areas
-    vec_area = 0.0  # sum of suspicious vector block areas
-    vec_norects = 0  # count of vectors with isrect=False (not in a rectangle)
-    ocr_spans = 0  # count text spans with OCR flags
-    ocr_span_boxes = []
-    bad_char_boxes = []
-    good_char_boxes = []
-    image_blocks = []  # currently not used
-
-    for b in blocks:
-        bbox = intersect_rects(page_rect, b["bbox"])
-        area = bbox.width * bbox.height
-        if not area:
-            continue
-
-        # Text block: we analyze text spans for bad characters and OCR flags.
-        if b["type"] == BLOCK_TEXT:
-            for l in b["lines"]:
-                for s in l["spans"]:
-                    sr = intersect_rects(bbox, s["bbox"])
-                    sr_area = sr.width * sr.height
-                    if not sr_area:
-                        continue
-                    text = s["text"].strip()
-                    if not text or text.isspace():
-                        continue  # ignore spans having no relevant text
-                    chars_total += len(text)  # total character count
-                    # OCR layer / invisible text
-                    if is_ocr_span(s):
-                        ocr_spans += 1
-                        ocr_span_boxes.append(s["bbox"])
-                        continue
-
-                    # bad character count
-                    bad_chars = sum(1 for c in text if c == REPLACEMENT_CHARACTER)
-                    chars_bad += bad_chars
-
-                    txt_rect = join_rects(txt_rect, sr)
-                    txt_area += sr_area
-                    if bad_chars:
-                        # add area of span area if it contains bad characters
-                        bad_areas += sr_area
-                        bad_char_boxes.append(s["bbox"])
-                    else:
-                        good_char_boxes.append(s["bbox"])
-            continue
-
-        # Image block: We only look at its area now.
-        # OCR decisions based on image content disabled for now.
-        if b["type"] == BLOCK_IMAGE:
-            # Image block
-            img_rect = join_rects(img_rect, bbox)
-            img_area += area
-            # if area / page_area > 0.10:  # image large enough for text?
-            #     image_blocks.append(b)
-            continue
-
-        if b["type"] == BLOCK_VECTOR:
-            # Vector block
-            vec_rect = join_rects(vec_rect, bbox)
-            vec_area += area
-            if not b["isrect"]:
-                vec_norects += 1
-            continue
-
-    # the rectangle on page covered by content
-    covered = img_rect | txt_rect | vec_rect
-    if bbox_is_empty(covered):
-        # no content at all → return early with empty covered area
-        return {
-            "covered": covered,
-            "img_joins": 0.0,
-            "img_area": 0.0,
-            "txt_joins": 0.0,
-            "txt_area": 0.0,
-            "vec_joins": 0.0,
-            "vec_area": 0.0,
-            "vec_norects": 0,
-            "chars_total": 0,
-            "chars_bad": 0,
-            "bad_areas": 0.0,
-            "ocr_spans": 0,
-            "pixmap": None,
-            "needs_ocr": False,
-            "reason": None,
-            "probability": None,
-        }
-
-    cover_area = (covered[2] - covered[0]) * (covered[3] - covered[1])
-    # The page is considered to have an OCR layer only if ALL text spans:
-    # - have been marked as render mode 3, or
-    # - have been written using the GlyphLessFont of Tesseract, or
-    # - are fully transparent (alpha = 0).
-    # We therefore return ocr_spans = 0 if any of the previous is not true.
-    ocr_spans = (
-        ocr_spans
-        if ocr_spans
-        and len(good_char_boxes) == 0
-        else 0
-    )
-    analysis = {
-        "covered": covered,
-        "img_joins": (abs(img_rect) / cover_area) if cover_area else 0.0,
-        "img_area": img_area / cover_area if cover_area else 0.0,
-        "txt_joins": (abs(txt_rect) / cover_area) if cover_area else 0.0,
-        "txt_area": txt_area / cover_area if cover_area else 0.0,
-        "vec_joins": (abs(vec_rect) / cover_area) if cover_area else 0.0,
-        "vec_area": vec_area / cover_area if cover_area else 0.0,
-        "chars_total": chars_total,
-        "chars_bad": chars_bad,
-        "bad_areas": bad_areas / cover_area if cover_area else 0.0,
-        "ocr_spans": ocr_spans,
-        "pixmap": None,
-        "vec_norects": vec_norects,
-    }
-
-    # --- final OCR decision ---
-
-    if ocr_spans:
-        # This page has previously been OCRed.
-        # If replace_ocr is False, we keep the existing OCR layer
-        # and accept the page as is.
-        if isinstance(stats, dict):
-            stats["old_ocr"] = stats.get("old_ocr", 0) + 1
-        if not replace_ocr:
-            # Accept the page with its current OCR layer
-            return {**analysis, "needs_ocr": False, "reason": None, "probability": None}
-
-        # Else remove old OCR text and request OCR
-        for r in ocr_span_boxes:
-            page.add_redact_annot(r)
-        page.apply_redactions(
-            images=pymupdf.PDF_REDACT_IMAGE_NONE,  # do not touch images
-            graphics=pymupdf.PDF_REDACT_LINE_ART_NONE,  # do not touch vectors
-            text=pymupdf.PDF_REDACT_TEXT_REMOVE,  # remove old OCR layer
-        )
-        return {
-            **analysis,
-            "needs_ocr": True,
-            "reason": "ocr_spans",
-            "probability": None,
-        }
-
-    # 2. Bad character check
-    # Too many bad characters result in early exit with OCR recommended.
+    chars_total, chars_bad = state.chars_total, state.chars_bad
+    txt_area, bad_areas = state.txt_area, state.bad_areas
+    img_area, vec_norects = state.img_area, state.vec_norects
+    image_blocks = state.image_blocks
     if (
         chars_total
         and txt_area
-        and chars_bad / chars_total > BAD_CHAR_THRESHOLD
-        and bad_areas / txt_area > BAD_CHAR_THRESHOLD
+        and (chars_bad / chars_total > BAD_CHAR_THRESHOLD)
+        and (bad_areas / txt_area > BAD_CHAR_THRESHOLD)
     ):
         return {
             **analysis,
@@ -333,28 +142,15 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
             "reason": "chars_bad",
             "probability": None,
         }
-
-    if not vec_norects and not img_area:
-        # No suspicious vectors and no images → no OCR needed
-        return {
-            **analysis,
-            "needs_ocr": False,
-            "reason": None,
-            "probability": None,
-        }
-
+    if not vec_norects and (not img_area):
+        return {**analysis, "needs_ocr": False, "reason": None, "probability": None}
     if isinstance(stats, dict):
         stats["model_check"] = stats.get("model_check", 0) + 1
-
     features = compute_features(blocks, page_rect, page)
-
-    if isinstance(stats, dict) and stats.get("show_features"):  # for debugging
+    if isinstance(stats, dict) and stats.get("show_features"):
         pprint.pp(features)
-
     prob = predict_ocr_probability(features)
-    needs_ocr = prob >= OCR_MODEL_THRESHOLD  # True if beyond threshold
-
-    # If text-like page detected → OCR needed
+    needs_ocr = prob >= OCR_MODEL_THRESHOLD
     if needs_ocr:
         return {
             **analysis,
@@ -362,9 +158,6 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
             "reason": "img_text",
             "probability": prob,
         }
-
-    # Otherwise, check large images to see if they qualify for OCR
-    # This is currently disabled: the list 'image_blocks' is empty.
     if image_blocks:
         needs_ocr, prob, check_count = check_images(
             image_blocks, prob, OCR_MODEL_THRESHOLD
