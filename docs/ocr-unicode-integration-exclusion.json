@@ -1,0 +1,300 @@
+{
+  "feature": 5,
+  "branch": "ocr/stored-text-recovery/unicode-damage-recovery-20261030",
+  "decision": "Excluded from approved integration by explicit user instruction; independent review branch preserved",
+  "integration_branch": "ocr/integration/all-features-20261031",
+  "active_integration_features": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    6,
+    7
+  ],
+  "excluded_features": [
+    5
+  ],
+  "independent_implementation_changed": false,
+  "investigation_source": "runs/OCR_UNICODE_README_MERGE_AUDIT_20261031",
+  "historical_full_integration": "runs/OCR_ALL_FEATURES_INTEGRATION_20261031",
+  "conditional_evaluation": "runs/OCR_INTEGRATED_FEATURE_CONTRIBUTIONS_20261031",
+  "independent_CF_gain_pp": 0.29720997821248707,
+  "independent_SF_gain_pp": 0.01979775828458985,
+  "historical_conditional_CF_gain_pp": -0.0018361397938946311,
+  "historical_conditional_SF_gain_pp": 0,
+  "original_cases": [
+    {
+      "example_id": "text/text_ocr__eller",
+      "README_reference": "Comparison2: feature5 on IMF2-only baseline",
+      "README_before_CF_percent": 21.379980563654033,
+      "README_after_CF_percent": 91.82953895534757,
+      "full_CF_percent": 91.82953895534757,
+      "without5_CF_percent": 91.82953895534757,
+      "full_decisions": [
+        {
+          "page_index": 0,
+          "selected": true,
+          "OCR_SPANS": 283,
+          "ONLY_TEXT": false,
+          "reason": "unicode_damage"
+        }
+      ],
+      "without5_decisions": [
+        {
+          "page_index": 0,
+          "selected": true,
+          "OCR_SPANS": 283,
+          "ONLY_TEXT": false,
+          "reason": "symbol_damage"
+        }
+      ],
+      "Rapid_RGB_identical": true,
+      "markdown_identical": true,
+      "feature4_only_CF_percent": 91.82953895534757,
+      "feature6_only_CF_percent": 91.82953895534757
+    },
+    {
+      "example_id": "text/text_simple__att10k",
+      "README_reference": "Comparison2: feature5 on IMF2-only baseline",
+      "README_before_CF_percent": 20.478792609940154,
+      "README_after_CF_percent": 62.49973257813557,
+      "full_CF_percent": 88.85161412933392,
+      "without5_CF_percent": 88.85161412933392,
+      "full_decisions": [
+        {
+          "page_index": 0,
+          "selected": true,
+          "OCR_SPANS": 0,
+          "ONLY_TEXT": true,
+          "reason": "unicode_damage"
+        }
+      ],
+      "without5_decisions": [
+        {
+          "page_index": 0,
+          "selected": true,
+          "OCR_SPANS": 0,
+          "ONLY_TEXT": true,
+          "reason": "symbol_damage"
+        }
+      ],
+      "Rapid_RGB_identical": true,
+      "markdown_identical": true,
+      "feature4_only_CF_percent": 20.478792609940154,
+      "feature6_only_CF_percent": 88.85161412933392
+    },
+    {
+      "example_id": "text/text_simple__grayson",
+      "README_reference": "Comparison2: feature5 on IMF2-only baseline",
+      "README_before_CF_percent": 38.095238095238095,
+      "README_after_CF_percent": 76.942075446575,
+      "full_CF_percent": 76.942075446575,
+      "without5_CF_percent": 76.942075446575,
+      "full_decisions": [
+        {
+          "page_index": 0,
+          "selected": true,
+          "OCR_SPANS": 238,
+          "ONLY_TEXT": false,
+          "reason": "unicode_damage"
+        }
+      ],
+      "without5_decisions": [
+        {
+          "page_index": 0,
+          "selected": true,
+          "OCR_SPANS": 238,
+          "ONLY_TEXT": false,
+          "reason": "symbol_damage"
+        }
+      ],
+      "Rapid_RGB_identical": true,
+      "markdown_identical": true,
+      "feature4_only_CF_percent": 76.942075446575,
+      "feature6_only_CF_percent": 76.942075446575
+    },
+    {
+      "example_id": "text/text_multilang__hindi",
+      "README_reference": "Comparison2: feature5 on IMF2-only baseline",
+      "README_before_CF_percent": 34.09842589994606,
+      "README_after_CF_percent": 33.16933916423712,
+      "full_CF_percent": 33.16933916423712,
+      "without5_CF_percent": 34.09842589994606,
+      "full_decisions": [
+        {
+          "page_index": 0,
+          "selected": true,
+          "OCR_SPANS": 0,
+          "ONLY_TEXT": true,
+          "reason": "unicode_damage"
+        }
+      ],
+      "without5_decisions": [
+        {
+          "page_index": 0,
+          "selected": false,
+          "OCR_SPANS": 0,
+          "ONLY_TEXT": true,
+          "reason": null
+        }
+      ],
+      "Rapid_RGB_identical": false,
+      "markdown_identical": false,
+      "feature4_only_CF_percent": 34.09842589994606,
+      "feature6_only_CF_percent": 34.09842589994606
+    }
+  ],
+  "without5_routes": {
+    "IMF2_selected": [
+      {
+        "example_id": "text/text_misc__atlantic",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multicolumns__2x",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multicolumns__elpais",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multicolumns__ethic",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multicolumns__pwc",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multicolumns__tableinmiddle2cols",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multilang__farsi",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multilang__french2",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multilang__khazak",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_simple__chrissmass",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_simple__staffrepport",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_simple__waterhill",
+        "page_index": 0
+      }
+    ],
+    "symbol_priority": [
+      {
+        "example_id": "text/text_multicolumns__10k2col",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multicolumns__japanesefrench",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multilang__tegulu",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_ocr__eller",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_simple__att10k",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_simple__contract",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_simple__grayson",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_simple__program",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_simple__spd",
+        "page_index": 0
+      }
+    ],
+    "Unicode_only_selected": [
+      {
+        "example_id": "text/text_multicolumns__paper2",
+        "page_index": 0
+      },
+      {
+        "example_id": "text/text_multilang__hindi",
+        "page_index": 0
+      }
+    ]
+  },
+  "Unicode_only_additional_pages": [
+    {
+      "example_id": "text/text_multicolumns__paper2",
+      "page_index": 0,
+      "REC_strings": 0,
+      "REC_Devanagari_characters": 0,
+      "REC_samples": [],
+      "MD_identical": true
+    },
+    {
+      "example_id": "text/text_multilang__hindi",
+      "page_index": 0,
+      "REC_strings": 28,
+      "REC_Devanagari_characters": 0,
+      "REC_samples": [
+        "T取R市意",
+        "3珊体取市廊雨市廊取权意",
+        "3i3T 3TH市H3TAR",
+        "HHT 市3i，R(3TRTT)",
+        "羽-37羽取"
+      ],
+      "MD_identical": false
+    }
+  ],
+  "merge_evidence": {
+    "independent_feature5_files": [
+      {
+        "path": "src/ocr/unicode_priority.py",
+        "independent_HEAD": "ed8cf303ed06c0e4733b1a89d242ce3ccc11145f",
+        "sha256": "9b139370c919ded20725db8cd2b5e858140edff15199f19efd87eea6179709c8",
+        "integration_byte_identical": true
+      },
+      {
+        "path": "src/ocr/unicode_damage.py",
+        "independent_HEAD": "ed8cf303ed06c0e4733b1a89d242ce3ccc11145f",
+        "sha256": "d1bf11419ba66943110ff5aa46de2c2eaa91d353ba42538ba83e056b2206d2c7",
+        "integration_byte_identical": true
+      },
+      {
+        "path": "src/ocr/rendering.py",
+        "independent_HEAD": "ed8cf303ed06c0e4733b1a89d242ce3ccc11145f",
+        "sha256": "b9971f1b005b4d4ae8a402613752d2abd27d6c25ee4d88ad9afe92fbb69e1fed",
+        "integration_byte_identical": true
+      }
+    ],
+    "without5_priority_module_absent": true,
+    "without5_shared_helpers_identical": true,
+    "original_main_already_handles_FFFD_in_callback": true,
+    "interpretation": "No feature5 selection/render merge omission found. Removing5 disables its priority/Unicode render flag; it does not remove the older main callback or the distinct symbol recovery feature6."
+  },
+  "README_audit_files": 18,
+  "README_numeric_case_errors": 0
+}

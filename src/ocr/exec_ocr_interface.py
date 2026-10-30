@@ -1,3 +1,4 @@
+from .rendering import collect_render_context,render_ocr_input
 import inspect
 
 import numpy as np
@@ -94,32 +95,16 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
     We ensure that legible extractable text is excluded from OCR. We render
     the page without "good" text and perform OCR on the rest.
     """
-    displaylist = page.get_displaylist()
-    stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
-    textpage = pymupdf.TextPage(stextpage)
-    text_blocks = textpage.extractDICT()["blocks"]
-
-    # get bboxes with multiple text categories on page
-    spans = []  # bboxes with good text
-    fffd_spans = []  # boxes with illegible text
-    ocr_spans = []  # boxes with old OCR text
-    for b in text_blocks:
-        for l in b["lines"]:
-            for s in l["spans"]:
-                if ocr_text(s):
-                    ocr_spans.append(s["bbox"])
-                elif REPLACEMENT_UNICODE in s["text"]:
-                    fffd_spans.append(s["bbox"])
-                else:
-                    # for removal of good text regions
-                    spans.append(s["bbox"])
+    context=collect_render_context(page)
+    displaylist=context['displaylist'];spans=context['normal']
+    fffd_spans=context['broken'];ocr_spans=context['old']
     if ocr_spans and keep_ocr_text:
         # If there are already OCR spans and the user wants to keep them, we skip OCR.
         # This is because we cannot distinguish between "good" text and "bad" OCR text.
         return
 
     # make a Pixmap without "good" text
-    pix, empty = get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250)
+    pix, empty = render_ocr_input(page,dpi=dpi,context=context)
     if empty:
         return  # nothing to OCR, the page is empty after removing good text
 
@@ -207,33 +192,16 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
     We ensure that legible extractable text is excluded from OCR. We render
     the page without "good" text and perform OCR on the rest.
     """
-    displaylist = page.get_displaylist()
-    stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
-    textpage = pymupdf.TextPage(stextpage)
-    text_blocks = textpage.extractDICT()["blocks"]
-
-    # get bboxes with multiple text categories on page
-    spans = []  # spans with legible text
-    fffd_spans = []  # spans containing U+FFFD characters.
-    ocr_spans = []  # spans with previously OCRed text
-    for b in text_blocks:
-        for l in b["lines"]:
-            for s in l["spans"]:
-                if ocr_text(s):
-                    ocr_spans.append(s["bbox"])
-                elif REPLACEMENT_UNICODE in s["text"]:
-                    fffd_spans.append(s["bbox"])
-                else:
-                    # for removal good text regions
-                    spans.append(s["bbox"])
-
+    context=collect_render_context(page)
+    displaylist=context['displaylist'];spans=context['normal']
+    fffd_spans=context['broken'];ocr_spans=context['old']
     if ocr_spans and keep_ocr_text:
         # If there are already OCR spans and the user wants to keep them, we skip OCR.
         # This is because we cannot distinguish between "good" text and "bad" OCR text.
         return
 
     # make a Pixmap without "good" text
-    pix, empty = get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250)
+    pix, empty = render_ocr_input(page,dpi=dpi,context=context)
     if empty:
         return  # nothing to OCR, the page is empty after removing good text
 

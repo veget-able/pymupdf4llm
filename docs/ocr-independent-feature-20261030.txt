@@ -1,0 +1,9 @@
+Independent feature5: unicode-damage-recovery
+
+With use_ocr=True, any independently observed U+FFFD selects its page before P2+ODM (or a composed selector). Known damaged glyphs remain in OCR input; an empty normal-span exclusion list preserves those selected glyphs instead of culling the whole page. Uses the existing common full-page Rapid DET+REC and writeback; no direct REC or symbol-density rule. Ordinary old-OCR pages without damage retain the main shortcut.
+
+Complete model-specific changes, including every CF/SF improvement and regression, are now directly in README.md.
+Machine-readable record: docs/ocr-independent-cases.json(schema2).
+Comparisons: Feature effect with P2+ODM: i versus main, Feature effect with IMF2 ROI: 0+i versus 0, Selector effect on this feature: 0+i versus i.
+
+REPAIR policy/API names remain TODO in README.md. No executable change or fresh scoring.
