@@ -1,0 +1,9 @@
+Independent feature2: cropbox-rotation
+
+Only corrects offset CropBox handling during page rotation removal. Direct render tests distinguish this from whether a selector later permits OCR. No rotated-output, Form or OCR-policy feature.
+
+Complete model-specific changes, including every CF/SF improvement and regression, are now directly in README.md.
+Machine-readable record: docs/ocr-independent-cases.json(schema2).
+Comparisons: Feature effect with P2+ODM: i versus main, Feature effect with IMF2 ROI: 0+i versus 0, Selector effect on this feature: 0+i versus i.
+
+REPAIR policy/API names remain TODO in README.md. No executable change or fresh scoring.
