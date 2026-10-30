@@ -1313,7 +1313,7 @@ def make_ocr_decision(page, use_ocr):
     if use_ocr == OCRMode.NEVER:
         return False, 0, False
 
-    page_analysis = utils.analyze_page(page)
+    page_analysis = utils.analyze_page(page, ignore_existing_ocr=use_ocr is True)
 
     only_text = (
         page_analysis.get("img_area", 0) == 0

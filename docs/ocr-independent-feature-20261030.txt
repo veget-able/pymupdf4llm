@@ -1,0 +1,9 @@
+Independent feature4: existing-ocr-gate-bypass
+
+Only use_ocr=True bypasses the old-layer exclusion inside analyze_page; all remaining P2+ODM analysis stays unchanged. Existing public defaults/enums/force precedence and main callbacks/render/replacement remain exact. No REPAIR API, Unicode or symbol check is added.
+
+Complete model-specific changes, including every CF/SF improvement and regression, are now directly in README.md.
+Machine-readable record: docs/ocr-independent-cases.json(schema2).
+Comparisons: Feature effect with P2+ODM: i versus main, Feature effect with IMF2 ROI: 0+i versus 0, Selector effect on this feature: 0+i versus i.
+
+REPAIR policy/API names remain TODO in README.md. No executable change or fresh scoring.

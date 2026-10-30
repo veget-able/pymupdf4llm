@@ -127,7 +127,7 @@ def bbox_is_empty(bbox) -> bool:
     return bbox[0] >= bbox[2] or bbox[1] >= bbox[3]
 
 
-def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) -> dict:
+def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None, ignore_existing_ocr=False) -> dict:
     """Analyze the page for the OCR decision.
 
     Args:
@@ -294,7 +294,7 @@ def analyze_page(page, blocks=None, replace_ocr=False, ocr_dpi=200, stats=None) 
 
     # --- final OCR decision ---
 
-    if ocr_spans:
+    if ocr_spans and not ignore_existing_ocr:
         # This page has previously been OCRed.
         # If replace_ocr is False, we keep the existing OCR layer
         # and accept the page as is.
