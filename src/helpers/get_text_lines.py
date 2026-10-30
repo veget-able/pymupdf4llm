@@ -24,7 +24,7 @@ from pymupdf4llm.helpers.utils import (
 )
 
 
-def get_raw_lines(
+def _horizontal_raw_lines(
     textpage=None,
     blocks=None,
     clip=None,
@@ -189,6 +189,16 @@ def get_raw_lines(
     nlines.append([lrect, line])
 
     return nlines
+
+
+
+def get_raw_lines(textpage=None, blocks=None, clip=None, tolerance=3,
+                  ignore_invisible=True, only_horizontal=False):
+    """Group all writing directions; keep explicit horizontal-only filtering."""
+    from .rotated_lines import directional_raw_lines
+    return directional_raw_lines(_horizontal_raw_lines, textpage=textpage,
+        blocks=blocks, clip=clip, tolerance=tolerance,
+        ignore_invisible=ignore_invisible, only_horizontal=only_horizontal)
 
 
 def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False):
