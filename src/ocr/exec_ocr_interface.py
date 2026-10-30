@@ -4,6 +4,7 @@ import numpy as np
 import pymupdf
 
 from .get_culled_pixmap import get_pixmap
+from .symbol_repair import target_span_ids, span_identity, render_input, prepare_symbol_replacement
 
 try:
     TESSDATA = pymupdf.get_tessdata()
@@ -94,6 +95,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
     We ensure that legible extractable text is excluded from OCR. We render
     the page without "good" text and perform OCR on the rest.
     """
+    symbol_ids = target_span_ids(page)
     displaylist = page.get_displaylist()
     stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
     textpage = pymupdf.TextPage(stextpage)
@@ -110,7 +112,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
                     ocr_spans.append(s["bbox"])
                 elif REPLACEMENT_UNICODE in s["text"]:
                     fffd_spans.append(s["bbox"])
-                else:
+                elif span_identity(s) not in symbol_ids:
                     # for removal of good text regions
                     spans.append(s["bbox"])
     if ocr_spans and keep_ocr_text:
@@ -119,7 +121,8 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
         return
 
     # make a Pixmap without "good" text
-    pix, empty = get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250)
+    pix, empty = (render_input(page,spans,dpi) if symbol_ids else
+                  get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250))
     if empty:
         return  # nothing to OCR, the page is empty after removing good text
 
@@ -145,6 +148,9 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
 
     # Remove all OCR spans and spans containing a U+FFFD.
     # The OCR engine will restore them according to its best ability.
+    symbol_replacement = prepare_symbol_replacement(page)
+    if symbol_replacement is not None and any(str(item[1]).strip()for item in result):
+        symbol_replacement.apply(page)
     redaction_rects = fffd_spans + ocr_spans
     if redaction_rects:
         for sbbox in redaction_rects:
@@ -207,6 +213,7 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
     We ensure that legible extractable text is excluded from OCR. We render
     the page without "good" text and perform OCR on the rest.
     """
+    symbol_ids = target_span_ids(page)
     displaylist = page.get_displaylist()
     stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
     textpage = pymupdf.TextPage(stextpage)
@@ -223,7 +230,7 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
                     ocr_spans.append(s["bbox"])
                 elif REPLACEMENT_UNICODE in s["text"]:
                     fffd_spans.append(s["bbox"])
-                else:
+                elif span_identity(s) not in symbol_ids:
                     # for removal good text regions
                     spans.append(s["bbox"])
 
@@ -233,7 +240,8 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
         return
 
     # make a Pixmap without "good" text
-    pix, empty = get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250)
+    pix, empty = (render_input(page,spans,dpi) if symbol_ids else
+                  get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250))
     if empty:
         return  # nothing to OCR, the page is empty after removing good text
 
@@ -259,6 +267,9 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
         )
     # Remove all OCR and illegible spans from the page.
     # The OCR engine will restore them according to its best ability.
+    symbol_replacement = prepare_symbol_replacement(page)
+    if symbol_replacement is not None and any(str(item[1]).strip()for item in result):
+        symbol_replacement.apply(page)
     redaction_rects = fffd_spans + ocr_spans
     if redaction_rects:
         for sbbox in redaction_rects:

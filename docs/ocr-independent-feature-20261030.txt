@@ -1,0 +1,9 @@
+Independent feature6: symbol-damage-recovery
+
+With use_ocr=True, approved body filtering, >=50 nonspace characters and counted Unicode P/S symbol ratio >=1/3 select the page. Existing periodic-symbol masking and technical/code protection stay unchanged. Marker-free positives retain the approved whole-stored-text target expansion; marker-present scope retains its prior boundary safeguards. Render and mapped replacement share targets; uncertain alignment/clipping safeguards remain. Ordinary old-OCR pages without a positive symbol signal retain the main shortcut. Unicode inventory is passive: no one-marker Unicode priority is installed. Dense U+FFFD can overlap the unchanged symbol-ratio criterion; this is not feature5 unconditional priority.
+
+Complete model-specific changes, including every CF/SF improvement and regression, are now directly in README.md.
+Machine-readable record: docs/ocr-independent-cases.json(schema2).
+Comparisons: Feature effect with P2+ODM: i versus main, Feature effect with IMF2 ROI: 0+i versus 0, Selector effect on this feature: 0+i versus i.
+
+REPAIR policy/API names remain TODO in README.md. No executable change or fresh scoring.

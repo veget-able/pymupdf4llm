@@ -1,0 +1,2992 @@
+{
+  "schema_version": 2,
+  "feature_no": 6,
+  "feature_id": "symbol-damage-recovery",
+  "branch": "ocr/stored-text-recovery/symbol-damage-recovery-20261030",
+  "fixed_main": {
+    "PyMuPDF": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "363f177ef50deb05f07db8bf2061e7b9c8102b07"
+  },
+  "documents": 507,
+  "pages": 509,
+  "CF_documents": 506,
+  "SF_defined": 456,
+  "model_scores": [
+    {
+      "no": 6,
+      "feature": "symbol-damage-recovery",
+      "arm": "symbol-damage",
+      "selector": "P2+ODM",
+      "included_features": [
+        6
+      ],
+      "CF_percent": 80.596790095941,
+      "SF_percent": 57.088331502553224,
+      "feature_effect_reference": "main",
+      "feature_CF_pp": 0.925881330845324,
+      "feature_SF_pp": 0.4309819688109173,
+      "model_effect_reference": "symbol-damage-recovery",
+      "model_CF_pp": null,
+      "model_SF_pp": null,
+      "page_metrics": {
+        "TP": 82,
+        "FN": 18,
+        "TN": 97,
+        "FP": 3,
+        "precision": 0.9647058823529412,
+        "recall": 0.82,
+        "f1": 0.8864864864864865
+      },
+      "selected_pages": 194,
+      "actual_Rapid_pages": 194,
+      "measured_validation_seconds": 284.1909952480346,
+      "time_scope": "509 fresh public gate checks, fresh changed/control extraction, verified reuse and official scoring; four workers per batch. Not full507 fresh extraction or product latency.",
+      "evaluation_feature_id": "symbol-damage"
+    },
+    {
+      "no": 6,
+      "feature": "symbol-damage-recovery",
+      "arm": "symbol-damage__imf2",
+      "selector": "IMF2 ROI",
+      "included_features": [
+        6,
+        0
+      ],
+      "CF_percent": 81.24130809113332,
+      "SF_percent": 57.962785154667664,
+      "feature_effect_reference": "0",
+      "feature_CF_pp": 1.0089266667508534,
+      "feature_SF_pp": 0.4309819688109062,
+      "model_effect_reference": "symbol-damage-recovery",
+      "model_CF_pp": 0.6445179951923063,
+      "model_SF_pp": 0.8744536521144375,
+      "page_metrics": {
+        "TP": 99,
+        "FN": 1,
+        "TN": 90,
+        "FP": 10,
+        "precision": 0.908256880733945,
+        "recall": 0.99,
+        "f1": 0.9473684210526315
+      },
+      "selected_pages": 272,
+      "actual_Rapid_pages": 272,
+      "measured_validation_seconds": 339.86184677807614,
+      "time_scope": "509 fresh public gate checks, fresh changed/control extraction, verified reuse and official scoring; four workers per batch. Not full507 fresh extraction or product latency.",
+      "evaluation_feature_id": "symbol-damage"
+    }
+  ],
+  "comparison_definitions": {
+    "feature_P2": "i-main",
+    "feature_IMF2": "(0+i)-0",
+    "selector": "(0+i)-i;feature0 uses0-main"
+  },
+  "quality_metric_granularity": "document;single-page document identified as page1;multi-page not attributed to individual page",
+  "processing_granularity": "1-based PDF page indices;selection and actual Rapid invocation are distinct from CF/SF score attribution",
+  "score_change_tolerance": 1e-12,
+  "comparisons": [
+    {
+      "label": "Feature effect with P2+ODM: i versus main",
+      "kind": "feature_effect_P2",
+      "before_arm": "main",
+      "after_arm": "symbol-damage",
+      "before_label": "main(P2+ODM)",
+      "after_label": "6:symbol-damage-recovery(P2+ODM)",
+      "metric_counts": {
+        "CF": {
+          "unchanged": 495,
+          "improved": 11
+        },
+        "SF": {
+          "unchanged": 452,
+          "improved": 4
+        }
+      },
+      "changed_document_count": 11,
+      "direction_counts": {
+        "improved": 11
+      },
+      "multi_page_changed_documents": [],
+      "cases": [
+        {
+          "example_id": "text/text_misc__colorprofile",
+          "pdf": "docs/text/text_misc__colorprofile.pdf",
+          "pdf_sha256": "4bcaa8060b36bcf7ceb476a5ccef20264df285ffc4ef400c903b212a47f2cab5",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.38095238095238093,
+              "after": 0.7398499912785628,
+              "before_percent": 38.095238095238095,
+              "after_percent": 73.98499912785627,
+              "delta_pp": 35.88976103261818,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 1.0,
+              "before_percent": 0.0,
+              "after_percent": 100.0,
+              "delta_pp": 100.0,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "f5f05a052d5dfa1eb511ca534991e9d10f19a939cc01d50de4e67a6cceab08de",
+          "markdown_sha256_after": "773503227c9fe63ecb0c7d40420ee017cbd8aebb9e759fe5fb7e88205a7f37c8"
+        },
+        {
+          "example_id": "text/text_multicolumns__4colimg",
+          "pdf": "docs/text/text_multicolumns__4colimg.pdf",
+          "pdf_sha256": "a061eb43120647947c14937439270c872dba5721f049f76dc07e2a03e5e05258",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.0,
+              "after": 0.9781924293601519,
+              "before_percent": 0.0,
+              "after_percent": 97.8192429360152,
+              "delta_pp": 97.8192429360152,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.5,
+              "before_percent": 0.0,
+              "after_percent": 50.0,
+              "delta_pp": 50.0,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "markdown_sha256_after": "d7285a6cfcc0b73b8f8690b1212b7d864e52ae3bb5ae8fd0e3bc188ae8e6b8a5"
+        },
+        {
+          "example_id": "text/text_multicolumns__2pages",
+          "pdf": "docs/text/text_multicolumns__2pages.pdf",
+          "pdf_sha256": "4b6743867e29619c9ac824015cf0b9feffedf6368fec4d216ee4a220eaadf46c",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.0,
+              "after": 0.9055565930075734,
+              "before_percent": 0.0,
+              "after_percent": 90.55565930075734,
+              "delta_pp": 90.55565930075734,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": null,
+              "after": null,
+              "delta_pp": null,
+              "direction": "unscored"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "markdown_sha256_after": "09f7a9cbfd2df62843fc37b35b04f8cba3e36ae922b3135b473c9e345f179c89"
+        },
+        {
+          "example_id": "text/text_ocr__scanbook",
+          "pdf": "docs/text/text_ocr__scanbook.pdf",
+          "pdf_sha256": "ca82871241a22e0735b4e5345cefcd5e49d744c66fa88b4df5038e85cbc8b4db",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.0,
+              "after": 0.7143708414967215,
+              "before_percent": 0.0,
+              "after_percent": 71.43708414967215,
+              "delta_pp": 71.43708414967215,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "markdown_sha256_after": "1b7a2e018d758011a9dfd34e1e4bdc0c5bfa468c16833d0dd2f51c053e4b6496"
+        },
+        {
+          "example_id": "text/text_ocr__eller",
+          "pdf": "docs/text/text_ocr__eller.pdf",
+          "pdf_sha256": "e74111fb018ac54f1d24739dfc3ddabc4f18edde059d8bc6a933ee3b5addfa01",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.21379980563654033,
+              "after": 0.9182953895534758,
+              "before_percent": 21.379980563654033,
+              "after_percent": 91.82953895534757,
+              "delta_pp": 70.44955839169354,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "8311b56ba2116ef4220d71a5c53f574edd4b8f2659668946502a058881c4da75",
+          "markdown_sha256_after": "95946b987633547df91416e678385e3fa3f49c2e425427d5e9a57e4bf010615d"
+        },
+        {
+          "example_id": "text/text_simple__grayson",
+          "pdf": "docs/text/text_simple__grayson.pdf",
+          "pdf_sha256": "121bbace4547622e7d734c803f71caeaa4a822bad63c4527399a11613840405f",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.38095238095238093,
+              "after": 0.7694207544657501,
+              "before_percent": 38.095238095238095,
+              "after_percent": 76.942075446575,
+              "delta_pp": 38.846837351336916,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.09027777777777778,
+              "before_percent": 0.0,
+              "after_percent": 9.027777777777777,
+              "delta_pp": 9.027777777777777,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "ebd1860420e3e2e1b2cd2cafcdd828319931a5e4b5f8dc3bb0cc93ed6c632d7a",
+          "markdown_sha256_after": "10ac297616859e87fe9c51b5aace154571f73c0890c6c32d339ad92e9e2c1f22"
+        },
+        {
+          "example_id": "text/text_multilang__mandarin4",
+          "pdf": "docs/text/text_multilang__mandarin4.pdf",
+          "pdf_sha256": "c69d67384ec82486f5302b3c3316fa5538dff5bb3a3aaf4583ebe776f2704a10",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.26739430397966985,
+              "after": 0.6308258800064944,
+              "before_percent": 26.739430397966984,
+              "after_percent": 63.082588000649444,
+              "delta_pp": 36.34315760268246,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.5,
+              "after": 0.875,
+              "before_percent": 50.0,
+              "after_percent": 87.5,
+              "delta_pp": 37.5,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "d16801a18467f8ba5b9f7e4e3fddef1b738e0a2a773576674d4419b1ff578be2",
+          "markdown_sha256_after": "128b15a9d71e0dbed59155e7c30b86b6031622f11fe20f853c5c3ad500075a65"
+        },
+        {
+          "example_id": "text/text_simple__att10k",
+          "pdf": "docs/text/text_simple__att10k.pdf",
+          "pdf_sha256": "8b9aecf13c2eeee86e3217e746e683495b081f3e3a9d84eae063d1205be9b62b",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.6249973257813557,
+              "after": 0.8885161412933392,
+              "before_percent": 62.49973257813557,
+              "after_percent": 88.85161412933392,
+              "delta_pp": 26.351881551198353,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": null,
+              "after": null,
+              "delta_pp": null,
+              "direction": "unscored"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3a3466447cc94243a8bf7bc7249a95d7e627066c48ad1743c4c71d8d90cd29a",
+          "markdown_sha256_after": "63a77850530acce9b1304c81e9d6d6e5578faa0eb4eedab5c1a2ebee30d63a8a"
+        },
+        {
+          "example_id": "text/text_multicolumns__10k2col",
+          "pdf": "docs/text/text_multicolumns__10k2col.pdf",
+          "pdf_sha256": "a4a6ad03465d0d04ada6260e0637ca0d7a294750c3ac384e84b10ee817435973",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.9137008767413598,
+              "after": 0.9198127240776968,
+              "before_percent": 91.37008767413597,
+              "after_percent": 91.98127240776968,
+              "delta_pp": 0.6111847336336962,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.25,
+              "after": 0.25,
+              "before_percent": 25.0,
+              "after_percent": 25.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "65085cf4c5104e668c996870fd48d1b79ebcd5d13e7a3b3d9a26abf80112608e",
+          "markdown_sha256_after": "efd291d80e4854b1c48ccbaabc20e06b7ed463ed198558a60693666d79219402"
+        },
+        {
+          "example_id": "text/text_multilang__tegulu",
+          "pdf": "docs/text/text_multilang__tegulu.pdf",
+          "pdf_sha256": "dd1bccaa6988df5c31c540939c37ecf32d4dafb4e639fa2be4e8c1d213f46c79",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.32542741596729235,
+              "after": 0.32655388806150637,
+              "before_percent": 32.542741596729236,
+              "after_percent": 32.65538880615064,
+              "delta_pp": 0.1126472094214015,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "f0862b3dc6d561aee5409ea829d2db40e2f96ce19d71dd0efd3a505383d574d5",
+          "markdown_sha256_after": "681399f42864cc62923125081f65628dc44b0710c5fde51a27926a266b9d6966"
+        },
+        {
+          "example_id": "text/text_multicolumns__japanesefrench",
+          "pdf": "docs/text/text_multicolumns__japanesefrench.pdf",
+          "pdf_sha256": "9ebbf67c0d7fcb08575936520919466f4184751909d32aa0d5bd17ed9a6532b2",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.7238189822872428,
+              "after": 0.7246083737743089,
+              "before_percent": 72.38189822872428,
+              "after_percent": 72.46083737743089,
+              "delta_pp": 0.07893914870660268,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.5,
+              "after": 0.5,
+              "before_percent": 50.0,
+              "after_percent": 50.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "d09422710cf9d014253883abfa09bd27046494057c1087533d967a509dcb829c",
+          "markdown_sha256_after": "5cda4ff389a6ecb382fd6a408b19d5ed50216b23a7009803a9595147aaf6db5b"
+        }
+      ]
+    },
+    {
+      "label": "Feature effect with IMF2 ROI: 0+i versus 0",
+      "kind": "feature_effect_IMF2",
+      "before_arm": "imf2-roi",
+      "after_arm": "symbol-damage__imf2",
+      "before_label": "0:imf2-roi-selector(IMF2 ROI)",
+      "after_label": "0+6:imf2-roi-selector + symbol-damage-recovery(IMF2 ROI)",
+      "metric_counts": {
+        "CF": {
+          "unchanged": 495,
+          "improved": 11
+        },
+        "SF": {
+          "unchanged": 452,
+          "improved": 4
+        }
+      },
+      "changed_document_count": 11,
+      "direction_counts": {
+        "improved": 11
+      },
+      "multi_page_changed_documents": [],
+      "cases": [
+        {
+          "example_id": "text/text_misc__colorprofile",
+          "pdf": "docs/text/text_misc__colorprofile.pdf",
+          "pdf_sha256": "4bcaa8060b36bcf7ceb476a5ccef20264df285ffc4ef400c903b212a47f2cab5",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.38095238095238093,
+              "after": 0.7398499912785628,
+              "before_percent": 38.095238095238095,
+              "after_percent": 73.98499912785627,
+              "delta_pp": 35.88976103261818,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 1.0,
+              "before_percent": 0.0,
+              "after_percent": 100.0,
+              "delta_pp": 100.0,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "f5f05a052d5dfa1eb511ca534991e9d10f19a939cc01d50de4e67a6cceab08de",
+          "markdown_sha256_after": "773503227c9fe63ecb0c7d40420ee017cbd8aebb9e759fe5fb7e88205a7f37c8"
+        },
+        {
+          "example_id": "text/text_multicolumns__4colimg",
+          "pdf": "docs/text/text_multicolumns__4colimg.pdf",
+          "pdf_sha256": "a061eb43120647947c14937439270c872dba5721f049f76dc07e2a03e5e05258",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.0,
+              "after": 0.9781924293601519,
+              "before_percent": 0.0,
+              "after_percent": 97.8192429360152,
+              "delta_pp": 97.8192429360152,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.5,
+              "before_percent": 0.0,
+              "after_percent": 50.0,
+              "delta_pp": 50.0,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "markdown_sha256_after": "d7285a6cfcc0b73b8f8690b1212b7d864e52ae3bb5ae8fd0e3bc188ae8e6b8a5"
+        },
+        {
+          "example_id": "text/text_multicolumns__2pages",
+          "pdf": "docs/text/text_multicolumns__2pages.pdf",
+          "pdf_sha256": "4b6743867e29619c9ac824015cf0b9feffedf6368fec4d216ee4a220eaadf46c",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.0,
+              "after": 0.9055565930075734,
+              "before_percent": 0.0,
+              "after_percent": 90.55565930075734,
+              "delta_pp": 90.55565930075734,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": null,
+              "after": null,
+              "delta_pp": null,
+              "direction": "unscored"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "markdown_sha256_after": "09f7a9cbfd2df62843fc37b35b04f8cba3e36ae922b3135b473c9e345f179c89"
+        },
+        {
+          "example_id": "text/text_ocr__scanbook",
+          "pdf": "docs/text/text_ocr__scanbook.pdf",
+          "pdf_sha256": "ca82871241a22e0735b4e5345cefcd5e49d744c66fa88b4df5038e85cbc8b4db",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.0,
+              "after": 0.7143708414967215,
+              "before_percent": 0.0,
+              "after_percent": 71.43708414967215,
+              "delta_pp": 71.43708414967215,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "markdown_sha256_after": "1b7a2e018d758011a9dfd34e1e4bdc0c5bfa468c16833d0dd2f51c053e4b6496"
+        },
+        {
+          "example_id": "text/text_ocr__eller",
+          "pdf": "docs/text/text_ocr__eller.pdf",
+          "pdf_sha256": "e74111fb018ac54f1d24739dfc3ddabc4f18edde059d8bc6a933ee3b5addfa01",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.21379980563654033,
+              "after": 0.9182953895534758,
+              "before_percent": 21.379980563654033,
+              "after_percent": 91.82953895534757,
+              "delta_pp": 70.44955839169354,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "8311b56ba2116ef4220d71a5c53f574edd4b8f2659668946502a058881c4da75",
+          "markdown_sha256_after": "95946b987633547df91416e678385e3fa3f49c2e425427d5e9a57e4bf010615d"
+        },
+        {
+          "example_id": "text/text_simple__att10k",
+          "pdf": "docs/text/text_simple__att10k.pdf",
+          "pdf_sha256": "8b9aecf13c2eeee86e3217e746e683495b081f3e3a9d84eae063d1205be9b62b",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.20478792609940152,
+              "after": 0.8885161412933392,
+              "before_percent": 20.478792609940154,
+              "after_percent": 88.85161412933392,
+              "delta_pp": 68.37282151939377,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": null,
+              "after": null,
+              "delta_pp": null,
+              "direction": "unscored"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "0813d57d3048be75ceeffd29c118ba6a04351b29ef8fea28a5b24f60bb652f1a",
+          "markdown_sha256_after": "63a77850530acce9b1304c81e9d6d6e5578faa0eb4eedab5c1a2ebee30d63a8a"
+        },
+        {
+          "example_id": "text/text_simple__grayson",
+          "pdf": "docs/text/text_simple__grayson.pdf",
+          "pdf_sha256": "121bbace4547622e7d734c803f71caeaa4a822bad63c4527399a11613840405f",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.38095238095238093,
+              "after": 0.7694207544657501,
+              "before_percent": 38.095238095238095,
+              "after_percent": 76.942075446575,
+              "delta_pp": 38.846837351336916,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.09027777777777778,
+              "before_percent": 0.0,
+              "after_percent": 9.027777777777777,
+              "delta_pp": 9.027777777777777,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "ebd1860420e3e2e1b2cd2cafcdd828319931a5e4b5f8dc3bb0cc93ed6c632d7a",
+          "markdown_sha256_after": "10ac297616859e87fe9c51b5aace154571f73c0890c6c32d339ad92e9e2c1f22"
+        },
+        {
+          "example_id": "text/text_multilang__mandarin4",
+          "pdf": "docs/text/text_multilang__mandarin4.pdf",
+          "pdf_sha256": "c69d67384ec82486f5302b3c3316fa5538dff5bb3a3aaf4583ebe776f2704a10",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.26739430397966985,
+              "after": 0.6308258800064944,
+              "before_percent": 26.739430397966984,
+              "after_percent": 63.082588000649444,
+              "delta_pp": 36.34315760268246,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.5,
+              "after": 0.875,
+              "before_percent": 50.0,
+              "after_percent": 87.5,
+              "delta_pp": 37.5,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "d16801a18467f8ba5b9f7e4e3fddef1b738e0a2a773576674d4419b1ff578be2",
+          "markdown_sha256_after": "128b15a9d71e0dbed59155e7c30b86b6031622f11fe20f853c5c3ad500075a65"
+        },
+        {
+          "example_id": "text/text_multicolumns__10k2col",
+          "pdf": "docs/text/text_multicolumns__10k2col.pdf",
+          "pdf_sha256": "a4a6ad03465d0d04ada6260e0637ca0d7a294750c3ac384e84b10ee817435973",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.9137008767413598,
+              "after": 0.9198127240776968,
+              "before_percent": 91.37008767413597,
+              "after_percent": 91.98127240776968,
+              "delta_pp": 0.6111847336336962,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.25,
+              "after": 0.25,
+              "before_percent": 25.0,
+              "after_percent": 25.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "65085cf4c5104e668c996870fd48d1b79ebcd5d13e7a3b3d9a26abf80112608e",
+          "markdown_sha256_after": "efd291d80e4854b1c48ccbaabc20e06b7ed463ed198558a60693666d79219402"
+        },
+        {
+          "example_id": "text/text_multilang__tegulu",
+          "pdf": "docs/text/text_multilang__tegulu.pdf",
+          "pdf_sha256": "dd1bccaa6988df5c31c540939c37ecf32d4dafb4e639fa2be4e8c1d213f46c79",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.32542741596729235,
+              "after": 0.32655388806150637,
+              "before_percent": 32.542741596729236,
+              "after_percent": 32.65538880615064,
+              "delta_pp": 0.1126472094214015,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "f0862b3dc6d561aee5409ea829d2db40e2f96ce19d71dd0efd3a505383d574d5",
+          "markdown_sha256_after": "681399f42864cc62923125081f65628dc44b0710c5fde51a27926a266b9d6966"
+        },
+        {
+          "example_id": "text/text_multicolumns__japanesefrench",
+          "pdf": "docs/text/text_multicolumns__japanesefrench.pdf",
+          "pdf_sha256": "9ebbf67c0d7fcb08575936520919466f4184751909d32aa0d5bd17ed9a6532b2",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.7238189822872428,
+              "after": 0.7246083737743089,
+              "before_percent": 72.38189822872428,
+              "after_percent": 72.46083737743089,
+              "delta_pp": 0.07893914870660268,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.5,
+              "after": 0.5,
+              "before_percent": 50.0,
+              "after_percent": 50.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "d09422710cf9d014253883abfa09bd27046494057c1087533d967a509dcb829c",
+          "markdown_sha256_after": "5cda4ff389a6ecb382fd6a408b19d5ed50216b23a7009803a9595147aaf6db5b"
+        }
+      ]
+    },
+    {
+      "label": "Selector effect on this feature: 0+i versus i",
+      "kind": "selector_effect",
+      "before_arm": "symbol-damage",
+      "after_arm": "symbol-damage__imf2",
+      "before_label": "6:symbol-damage-recovery(P2+ODM)",
+      "after_label": "0+6:imf2-roi-selector + symbol-damage-recovery(IMF2 ROI)",
+      "metric_counts": {
+        "CF": {
+          "unchanged": 454,
+          "regressed": 26,
+          "improved": 26
+        },
+        "SF": {
+          "unchanged": 432,
+          "improved": 16,
+          "regressed": 8
+        }
+      },
+      "changed_document_count": 53,
+      "direction_counts": {
+        "improved": 23,
+        "regressed": 23,
+        "mixed": 7
+      },
+      "multi_page_changed_documents": [],
+      "cases": [
+        {
+          "example_id": "text/text_sparse__conductivity",
+          "pdf": "docs/text/text_sparse__conductivity.pdf",
+          "pdf_sha256": "e6321a74db87c9f41d89a41d25b63711cbab0b96701fcd00401b898c94cd4e86",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.6095238095238095,
+              "after": 0.7734487734487735,
+              "before_percent": 60.95238095238095,
+              "after_percent": 77.34487734487735,
+              "delta_pp": 16.392496392496405,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 1.0,
+              "before_percent": 0.0,
+              "after_percent": 100.0,
+              "delta_pp": 100.0,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "5cc3729b6d27bdb244c08b9b9d38ce8582338263ca9833c101df1941e7d630be",
+          "markdown_sha256_after": "8b614003c6fa82381ec20a7895cb8c93a53ff3dc503fce044c5575f9e8269ea6"
+        },
+        {
+          "example_id": "text/text_multicolumns__visa",
+          "pdf": "docs/text/text_multicolumns__visa.pdf",
+          "pdf_sha256": "9ffe6400cc88f82ec11a213dd22d5e05751c645fad5642d93f3a201e52cb9419",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.8730837865696235,
+              "after": 0.9145566592289582,
+              "before_percent": 87.30837865696235,
+              "after_percent": 91.45566592289582,
+              "delta_pp": 4.147287265933475,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.8333333333333334,
+              "before_percent": 0.0,
+              "after_percent": 83.33333333333334,
+              "delta_pp": 83.33333333333334,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [
+            1
+          ],
+          "selected_pages_after": [],
+          "Rapid_called_pages_before": [
+            1
+          ],
+          "Rapid_called_pages_after": [],
+          "markdown_changed": true,
+          "markdown_sha256_before": "4c760d93a0d7290b7727e211596b7e3f38b8f0f16f42def5470ec948e3753201",
+          "markdown_sha256_after": "5cf68888b9f8fe671b42467a5480e2ed25a49ed83eda6f305b2a0205540116b6"
+        },
+        {
+          "example_id": "text/text_ocr__scaninfile",
+          "pdf": "docs/text/text_ocr__scaninfile.pdf",
+          "pdf_sha256": "e555c8e9d91eaabc497d4b26532e442943ef3bdb0bb2b0eb2cbf17ec0c3842c7",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.0,
+              "after": 0.7617625130498885,
+              "before_percent": 0.0,
+              "after_percent": 76.17625130498885,
+              "delta_pp": 76.17625130498885,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.4027777777777778,
+              "before_percent": 0.0,
+              "after_percent": 40.27777777777778,
+              "delta_pp": 40.27777777777778,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "markdown_sha256_after": "f873987a98415633cf38d8ab4aea7b863cd9ca2fdfd425251f024088ab2fae76"
+        },
+        {
+          "example_id": "text/text_ocr__mag",
+          "pdf": "docs/text/text_ocr__mag.pdf",
+          "pdf_sha256": "6b0e48ea072f12c160d81ceb3aa32515bed9b3b3c8fbe0c66c322ad1f285b1cc",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.0,
+              "after": 0.7338052932818439,
+              "before_percent": 0.0,
+              "after_percent": 73.38052932818438,
+              "delta_pp": 73.38052932818438,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.26315789473684215,
+              "before_percent": 0.0,
+              "after_percent": 26.315789473684216,
+              "delta_pp": 26.315789473684216,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "markdown_sha256_after": "6dbce427bff2792f7493a52dfd9f1960954928d9d4ca6b4336a9d629901056db"
+        },
+        {
+          "example_id": "text/text_simple__adminplan",
+          "pdf": "docs/text/text_simple__adminplan.pdf",
+          "pdf_sha256": "833466652403afbde012f5f50c71b08ec5237b08abcb4f24a3427f8a6e2c3cf5",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.870748299319728,
+              "after": 0.9863945578231292,
+              "before_percent": 87.0748299319728,
+              "after_percent": 98.63945578231292,
+              "delta_pp": 11.564625850340127,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.6666666666666667,
+              "before_percent": 0.0,
+              "after_percent": 66.66666666666667,
+              "delta_pp": 66.66666666666667,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "4fece8fbbc82ff027152a88c16366be39dccd987b942cf241fc8a6217143db73",
+          "markdown_sha256_after": "b0734cb90eebedfcde954bacf1de61419254d2fed0735215336c962795b637b1"
+        },
+        {
+          "example_id": "text/text_multilang__greek",
+          "pdf": "docs/text/text_multilang__greek.pdf",
+          "pdf_sha256": "b654605cafd8874a4e8f4a513dbae0e553c5d24b3337aaee9869d180fb9c4bf3",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.877175466668478,
+              "after": 0.9594548594158511,
+              "before_percent": 87.7175466668478,
+              "after_percent": 95.9454859415851,
+              "delta_pp": 8.227939274737306,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.25,
+              "after": 0.8333333333333333,
+              "before_percent": 25.0,
+              "after_percent": 83.33333333333333,
+              "delta_pp": 58.33333333333333,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "28a78915b936da41152b8eb581c711df23cd037ad0f56cfb30170baa8cf63e79",
+          "markdown_sha256_after": "047b8ebd6420f622347842058e69b96757443f022d56ddcc93f26ccc0d14587e"
+        },
+        {
+          "example_id": "text/text_multicolumns__forword2cols",
+          "pdf": "docs/text/text_multicolumns__forword2cols.pdf",
+          "pdf_sha256": "0581fb150884f657b7c4e7312a3edeae679d3c529bf1a2cad6ea8051209398e5",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9692247058287605,
+              "after": 0.8849707366012057,
+              "before_percent": 96.92247058287606,
+              "after_percent": 88.49707366012058,
+              "delta_pp": -8.425396922755478,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 0.5,
+              "before_percent": 100.0,
+              "after_percent": 50.0,
+              "delta_pp": -50.0,
+              "direction": "regressed"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "be4f9d956765cf769b36e43b6d819e54c78d189ba59e83c3276b3c343faf0807",
+          "markdown_sha256_after": "0af3f3c061ec1e486c2230a86ae67cab35d9210669db17cd58e0fac699239d5b"
+        },
+        {
+          "example_id": "text/text_multicolumns__esd_end",
+          "pdf": "docs/text/text_multicolumns__esd_end.pdf",
+          "pdf_sha256": "65cc4f4197cb9e0096681006bdef6970fa0bf8131f64b5ef37a9d4838e7e5045",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.8403747213570664,
+              "after": 0.8363346134774637,
+              "before_percent": 84.03747213570664,
+              "after_percent": 83.63346134774638,
+              "delta_pp": -0.4040107879602628,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.47916666666666663,
+              "after": 0.0,
+              "before_percent": 47.916666666666664,
+              "after_percent": 0.0,
+              "delta_pp": -47.916666666666664,
+              "direction": "regressed"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "04511de8639506a63ed88dfd29e5252b9c74934967b87608dea51434c03868b0",
+          "markdown_sha256_after": "27c97ef7f1e4cca8ee3fd68562881351a59984d9e22b9d2ac5b49b8da50d54f2"
+        },
+        {
+          "example_id": "text/text_simple__landfill",
+          "pdf": "docs/text/text_simple__landfill.pdf",
+          "pdf_sha256": "61bb859f31c0bf6ef33959df46253c8b09f734eda1ab318c0ae06e4f3bda0453",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.38095238095238093,
+              "after": 0.8090008780201169,
+              "before_percent": 38.095238095238095,
+              "after_percent": 80.90008780201168,
+              "delta_pp": 42.804849706773595,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.3280204643841007,
+              "before_percent": 0.0,
+              "after_percent": 32.80204643841007,
+              "delta_pp": 32.80204643841007,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "d088784b7ecb87f1ea17e6f982fa968ffefcc07b79de6ecc548fc00242868da6",
+          "markdown_sha256_after": "cbb3945463309766106218de7fa22e3c3fca5a2affde6b1ffdc8739c06f8309b"
+        },
+        {
+          "example_id": "text/text_multilang__turkish",
+          "pdf": "docs/text/text_multilang__turkish.pdf",
+          "pdf_sha256": "0be7f48eb364f8aec221636feaef6a9b73ad89bb5c4f128bff207bb8ccb01270",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.893777708697247,
+              "after": 0.9044824034251593,
+              "before_percent": 89.3777708697247,
+              "after_percent": 90.44824034251593,
+              "delta_pp": 1.0704694727912245,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.4166666666666667,
+              "before_percent": 0.0,
+              "after_percent": 41.66666666666667,
+              "delta_pp": 41.66666666666667,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "49c98ea895dc5c77e81bbad4ada2324e1c3ccd94a2f8c5793773b9b512980604",
+          "markdown_sha256_after": "859cd070a8790c50fc5343a347097a3defb00250e81cdc3b101afa8854a18f6a"
+        },
+        {
+          "example_id": "text/text_multilang__cnnm",
+          "pdf": "docs/text/text_multilang__cnnm.pdf",
+          "pdf_sha256": "b2ae2b57a9df520394efddf43c0e10a9481e2cbfbefaf0cc07f3de641a11f83a",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.5714285714285714,
+              "after": 0.6598639455782312,
+              "before_percent": 57.14285714285714,
+              "after_percent": 65.98639455782312,
+              "delta_pp": 8.843537414965985,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.41666666666666663,
+              "before_percent": 0.0,
+              "after_percent": 41.666666666666664,
+              "delta_pp": 41.666666666666664,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "d088784b7ecb87f1ea17e6f982fa968ffefcc07b79de6ecc548fc00242868da6",
+          "markdown_sha256_after": "555ef33460542d406a62362cc877a0b380854f8baa0957698f5605502dd4ed94"
+        },
+        {
+          "example_id": "text/text_multicolumns__2x",
+          "pdf": "docs/text/text_multicolumns__2x.pdf",
+          "pdf_sha256": "eb125b4e2a01567bcdce9c80df92af7b5984c86effc6ecc3cf130d5dc752343a",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "mixed",
+          "metrics": {
+            "CF": {
+              "before": 0.8995946061739319,
+              "after": 0.9241538476543582,
+              "before_percent": 89.95946061739319,
+              "after_percent": 92.41538476543582,
+              "delta_pp": 2.455924148042621,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.9874213836477987,
+              "after": 0.6124213836477987,
+              "before_percent": 98.74213836477988,
+              "after_percent": 61.242138364779876,
+              "delta_pp": -37.5,
+              "direction": "regressed"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "93ed47e8dc8da01255a14f787986efb541a3b35ea0f974fd1e50811332fb781d",
+          "markdown_sha256_after": "513e2769f17609365bfdf629f4fbf3d31eb28626ad910a847e7843b46da49eae"
+        },
+        {
+          "example_id": "text/text_simple__finra",
+          "pdf": "docs/text/text_simple__finra.pdf",
+          "pdf_sha256": "9926ca14e5684fd285fb1ed65ad00690ef1f5b24fbcf2311bda9a09a6062a280",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.4191317941317941,
+              "after": 0.7229822482449629,
+              "before_percent": 41.91317941317941,
+              "after_percent": 72.29822482449629,
+              "delta_pp": 30.385045411316884,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.22727272727272724,
+              "before_percent": 0.0,
+              "after_percent": 22.727272727272723,
+              "delta_pp": 22.727272727272723,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "466aec428c2d2a2ac2e7c4a0647c91e213e3a976e16432632b07b1bb85dce811",
+          "markdown_sha256_after": "286f205b48c3218e336e9c513a17df06c28dcd4960110b01f6958511e3c72591"
+        },
+        {
+          "example_id": "text/text_multicolumns__tableinmiddle2cols",
+          "pdf": "docs/text/text_multicolumns__tableinmiddle2cols.pdf",
+          "pdf_sha256": "1e92237b07a9dff505cf2c3f9ecb8c43f6e53ed1b9cb8252a68520d4846db81b",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.5771836106582136,
+              "after": 0.8252859940010918,
+              "before_percent": 57.718361065821355,
+              "after_percent": 82.52859940010919,
+              "delta_pp": 24.810238334287828,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.1125,
+              "before_percent": 0.0,
+              "after_percent": 11.25,
+              "delta_pp": 11.25,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "efe30c767992e39ecf398aef35e92a20bc74a86f8b7a3ce5c53dac4ebef0b55a",
+          "markdown_sha256_after": "fae5d38275195d2843e21181ffa952f3eb472aaa08f3e438267093863c4a410d"
+        },
+        {
+          "example_id": "text/text_simple__tagblatt",
+          "pdf": "docs/text/text_simple__tagblatt.pdf",
+          "pdf_sha256": "fd36b5c11955a811c348c8f9f248d544cc7c2f76634618d083fac31f0071b268",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.9748890483892846,
+              "after": 0.9754270818786948,
+              "before_percent": 97.48890483892846,
+              "after_percent": 97.54270818786948,
+              "delta_pp": 0.05380334894101724,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.7916666666666666,
+              "after": 1.0,
+              "before_percent": 79.16666666666666,
+              "after_percent": 100.0,
+              "delta_pp": 20.833333333333336,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "d436588a7beb06ecb50825a93e17cff2b2914eded2a134731ebb3d5692d6ab41",
+          "markdown_sha256_after": "3d51fcf4dc47f207adb92f6549a08bef521d1490d754e38b3eeb8065e2a03e4e"
+        },
+        {
+          "example_id": "text/text_ocr__klein",
+          "pdf": "docs/text/text_ocr__klein.pdf",
+          "pdf_sha256": "57b914326d774d35dfa7a7b89f2e0f27b9e6391dcda7cf0e9f3d45bbf30d1cb8",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.4507486665381402,
+              "after": 0.6030019053737918,
+              "before_percent": 45.07486665381402,
+              "after_percent": 60.30019053737918,
+              "delta_pp": 15.225323883565162,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "4042f85992d2661a16bc9a72faf720b51327ab4c5aa009e74f39ed592694e878",
+          "markdown_sha256_after": "95f72ae9867e726e9e7ddd3c2f3d79dce9ba995e82e8cd7fa68dd763f9b2f93c"
+        },
+        {
+          "example_id": "text/text_multicolumns__waterfal",
+          "pdf": "docs/text/text_multicolumns__waterfal.pdf",
+          "pdf_sha256": "a0886ce3231af16f16775e58d5480008e50c89ecc51319330ee60e171049cba3",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.943910711451848,
+              "after": 0.7969297106316148,
+              "before_percent": 94.3910711451848,
+              "after_percent": 79.69297106316148,
+              "delta_pp": -14.698100082023323,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.6833333333333333,
+              "after": 0.6833333333333333,
+              "before_percent": 68.33333333333333,
+              "after_percent": 68.33333333333333,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "7b3ecac4341443f58ccd54760225531771d9d1be4a94a491dcfc224146b8b4f2",
+          "markdown_sha256_after": "c6f012dfa136c39fc6babe296834462207feac115b2111ff1c1d09efb9f6e3a2"
+        },
+        {
+          "example_id": "text/text_multicolumns__energy2",
+          "pdf": "docs/text/text_multicolumns__energy2.pdf",
+          "pdf_sha256": "d00bb280a6ec71e7790982fc357b04c1338e68059cb8f472ce0976b611854c8d",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "mixed",
+          "metrics": {
+            "CF": {
+              "before": 0.8548155079255935,
+              "after": 0.9362038219057917,
+              "before_percent": 85.48155079255935,
+              "after_percent": 93.62038219057916,
+              "delta_pp": 8.13883139801982,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.9910714285714286,
+              "after": 0.8660714285714286,
+              "before_percent": 99.10714285714286,
+              "after_percent": 86.60714285714286,
+              "delta_pp": -12.5,
+              "direction": "regressed"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "1dda3706d823f3aa22f1a8635ef96f7e063056759a094763409fd97e6c4c899d",
+          "markdown_sha256_after": "f033ef40ecda675eb60ebb2308fd5ef348449d07d6cd315a60d6f59bd9373896"
+        },
+        {
+          "example_id": "text/text_multilang__spanish2",
+          "pdf": "docs/text/text_multilang__spanish2.pdf",
+          "pdf_sha256": "53bb8e5ac783cf0e6abe0fd4ef1d4fef7e0f8f9098dbea96143040caf83101ed",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.9368765114079088,
+              "after": 0.9368765114079088,
+              "before_percent": 93.68765114079089,
+              "after_percent": 93.68765114079089,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            },
+            "SF": {
+              "before": 0.25,
+              "after": 0.375,
+              "before_percent": 25.0,
+              "after_percent": 37.5,
+              "delta_pp": 12.5,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "75e3e8612347d6e1d4ffebf446c4afc900669b4602840827f8494a1797f82e52",
+          "markdown_sha256_after": "e9fad98291bbff33e980420f7d3443a60b5990015ed906bcfdb0359c4edfd71b"
+        },
+        {
+          "example_id": "text/text_simple__green",
+          "pdf": "docs/text/text_simple__green.pdf",
+          "pdf_sha256": "16f15cbdb0edf107a59452d36a4e3e1cdca26b839a8484e8169594ea49ff8886",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "mixed",
+          "metrics": {
+            "CF": {
+              "before": 0.6653531347320626,
+              "after": 0.6623190594058513,
+              "before_percent": 66.53531347320626,
+              "after_percent": 66.23190594058514,
+              "delta_pp": -0.30340753262112496,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.5,
+              "after": 0.625,
+              "before_percent": 50.0,
+              "after_percent": 62.5,
+              "delta_pp": 12.5,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "c084fccd7db42bf556d15ebcee2eb5748e29635071418365c039a8b62c18b85b",
+          "markdown_sha256_after": "00501d71756b02ea566544a3fba1c00d984300e1a06c1b5e35f2ca8eb5ab42d9"
+        },
+        {
+          "example_id": "text/text_misc__ikea3",
+          "pdf": "docs/text/text_misc__ikea3.pdf",
+          "pdf_sha256": "71f0afa05dd13f5f44ffa62d0da9307f958b613aee9bf157b83aabaa1246a7c8",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.7734984868088602,
+              "after": 0.7676501298252596,
+              "before_percent": 77.34984868088603,
+              "after_percent": 76.76501298252596,
+              "delta_pp": -0.5848356983600644,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.46518640350877194,
+              "after": 0.35005482456140347,
+              "before_percent": 46.51864035087719,
+              "after_percent": 35.00548245614035,
+              "delta_pp": -11.513157894736848,
+              "direction": "regressed"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "7273ce1c9a620da37dc9b54b3db7a75958529670e7b55e54afe01d1d566bd6f2",
+          "markdown_sha256_after": "18685568feb4e554dfd903db6b0bb78930aa15a2df29e6a145e0bec6c1a8dc7f"
+        },
+        {
+          "example_id": "text/text_multicolumns__heirloom",
+          "pdf": "docs/text/text_multicolumns__heirloom.pdf",
+          "pdf_sha256": "a7d93e3a6514dee259e8f3f284f2db892631eb8f80031f1660fcc410ec442cd8",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.38095238095238093,
+              "after": 0.4912577748405314,
+              "before_percent": 38.095238095238095,
+              "after_percent": 49.12577748405314,
+              "delta_pp": 11.030539388815047,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "75a11da44c802486bc6f65640aa48a730f0f684c5c07a42ba3cd1735eb3fb070",
+          "markdown_sha256_after": "051b4f462a398289be414c7a4669ed48e4803d7e2a5fc7de96517b1a395c30f6"
+        },
+        {
+          "example_id": "text/text_multicolumns__2col_fund_summary",
+          "pdf": "docs/text/text_multicolumns__2col_fund_summary.pdf",
+          "pdf_sha256": "02f6607e3ce5ac8d594ddd9cf9c3605a54afb9cc0b113494eaa88a884feaeb1e",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9974446188731902,
+              "after": 0.9928571428571429,
+              "before_percent": 99.74446188731902,
+              "after_percent": 99.28571428571429,
+              "delta_pp": -0.4587476016047365,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 0.9,
+              "before_percent": 100.0,
+              "after_percent": 90.0,
+              "delta_pp": -9.999999999999998,
+              "direction": "regressed"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "18a441099e57bb0bc2790a3e4e574a9852ab63ba4b128daa9a07414d377cb399",
+          "markdown_sha256_after": "4ba2d6256c752473e3336c853faaf0e68a9107cb9e0aafd435b21e3d74191c32"
+        },
+        {
+          "example_id": "text/text_multicolumns__coorp",
+          "pdf": "docs/text/text_multicolumns__coorp.pdf",
+          "pdf_sha256": "55f5ae9fe81b2d9e844b9e195522d3e603f6a925049c10bdfe2963a51d87c570",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.8702560547069301,
+              "after": 0.9609416871011752,
+              "before_percent": 87.02560547069301,
+              "after_percent": 96.09416871011753,
+              "delta_pp": 9.06856323942451,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.9878048780487805,
+              "after": 0.9878048780487805,
+              "before_percent": 98.78048780487805,
+              "after_percent": 98.78048780487805,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "9bac73ffab7fcf21ae8045439dd3dfcb6097d1794bf5de6811c8663e42ccf794",
+          "markdown_sha256_after": "d5ae1d849589af3bebacbe9a145c8deca7157df9a18878b6519f0730923c937f"
+        },
+        {
+          "example_id": "text/text_multicolumns__drill",
+          "pdf": "docs/text/text_multicolumns__drill.pdf",
+          "pdf_sha256": "8b471c603e8057e7bf28c3f9cac3ba6cfd69e9c9c021b660fe49696413055ee9",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "mixed",
+          "metrics": {
+            "CF": {
+              "before": 0.9302193837021592,
+              "after": 0.9651354956505113,
+              "before_percent": 93.02193837021592,
+              "after_percent": 96.51354956505112,
+              "delta_pp": 3.491611194835209,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.6666666666666666,
+              "after": 0.5833333333333334,
+              "before_percent": 66.66666666666666,
+              "after_percent": 58.333333333333336,
+              "delta_pp": -8.333333333333325,
+              "direction": "regressed"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "326c6644653be5dec3a81900b6362a0658e09ada87245d0a0fc1d6998247dde9",
+          "markdown_sha256_after": "c281a811d8e543ac1bf115e81c1e77f71e25febeff48f78081b1e719bc9c1ba1"
+        },
+        {
+          "example_id": "text/text_dense__leaflet",
+          "pdf": "docs/text/text_dense__leaflet.pdf",
+          "pdf_sha256": "f8116c04c5c4225671ba32c1669dfd8c14e0fe949da4f7c96cbccc7477d94962",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "mixed",
+          "metrics": {
+            "CF": {
+              "before": 0.9285615807376254,
+              "after": 0.918861912124703,
+              "before_percent": 92.85615807376254,
+              "after_percent": 91.88619121247031,
+              "delta_pp": -0.9699668612922374,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.6068376068376068,
+              "after": 0.6822344322344323,
+              "before_percent": 60.68376068376068,
+              "after_percent": 68.22344322344323,
+              "delta_pp": 7.539682539682547,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "f4bea799f8afd5f6f5ecb40e9225265f271b7da512dcab5c49dfaba1e2efd1c0",
+          "markdown_sha256_after": "3b92cdc54494b8e22db4e731f8d3408fd81900cb8daaadf0cba5238d6c39e6dc"
+        },
+        {
+          "example_id": "text/text_multicolumns__3colpres",
+          "pdf": "docs/text/text_multicolumns__3colpres.pdf",
+          "pdf_sha256": "16eed63b9358f882688a0be862617c636e7e0a41522e93555cdd14b8ee8d1a38",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9467148045873522,
+              "after": 0.8847974066458693,
+              "before_percent": 94.67148045873522,
+              "after_percent": 88.47974066458693,
+              "delta_pp": -6.191739794148299,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.625,
+              "after": 0.625,
+              "before_percent": 62.5,
+              "after_percent": 62.5,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "9d37e971467fb8c91723feeae553224bdc07f1c298e3ea96d5982c59e5333f96",
+          "markdown_sha256_after": "7d4a2d3f07f0110f1853658b640b500d6b22418111537ef171885588bb88496a"
+        },
+        {
+          "example_id": "text/text_dense__underline",
+          "pdf": "docs/text/text_dense__underline.pdf",
+          "pdf_sha256": "f76fd40fe768d12db5f231d3dc40638ad8ea3d51c65b83ef0dcbecb88eefebdb",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.4275298473070137,
+              "after": 0.47826770841150523,
+              "before_percent": 42.75298473070137,
+              "after_percent": 47.82677084115052,
+              "delta_pp": 5.073786110449152,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": null,
+              "after": null,
+              "delta_pp": null,
+              "direction": "unscored"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "7f30067007e2ab4d62f450b0651247a28d7295eb1a3ca7c058415bd25051be5e",
+          "markdown_sha256_after": "12f676765593f3e0fe4a6254965aa52cf6d535de0252b044ef35162f6d4d8551"
+        },
+        {
+          "example_id": "text/text_multilang__romanian",
+          "pdf": "docs/text/text_multilang__romanian.pdf",
+          "pdf_sha256": "deadbe973c8dd28351820de89152f156ede2b3a9126a1822c7afe8d314c035c0",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "mixed",
+          "metrics": {
+            "CF": {
+              "before": 0.8455011505427938,
+              "after": 0.8541796688086637,
+              "before_percent": 84.55011505427939,
+              "after_percent": 85.41796688086637,
+              "delta_pp": 0.867851826586985,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.9186813186813187,
+              "after": 0.8708791208791209,
+              "before_percent": 91.86813186813187,
+              "after_percent": 87.08791208791209,
+              "delta_pp": -4.780219780219785,
+              "direction": "regressed"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e72edbc64f1c6917f85cb014c5a3d034aed8e4107288cfe31826e767cdffac26",
+          "markdown_sha256_after": "06eeb1e1668ad8eb605ecef7650c0e626b86c0a00666d6fa8f7f61fb22a3c67b"
+        },
+        {
+          "example_id": "text/text_simple__state",
+          "pdf": "docs/text/text_simple__state.pdf",
+          "pdf_sha256": "36a2970ac0b08d7e19a15bfed9edddf14bbd4774baebc38dfddb7c0140f2fad9",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.8774837363072656,
+              "after": 0.9220779220779219,
+              "before_percent": 87.74837363072656,
+              "after_percent": 92.2077922077922,
+              "delta_pp": 4.459418577065632,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 1.0,
+              "before_percent": 100.0,
+              "after_percent": 100.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "7b32bf0d2cec2511912344fb91e05e8e4d16fab819e1bf03044a3f0a5c932e70",
+          "markdown_sha256_after": "e991473466309354e9a77e71af883358bc366fc856f61eba1793254ff655e00f"
+        },
+        {
+          "example_id": "text/text_multilang__japanese5",
+          "pdf": "docs/text/text_multilang__japanese5.pdf",
+          "pdf_sha256": "d13d756df54b3ca578274b3c73ce60450002b1c83e5f97798252143b209f367b",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "mixed",
+          "metrics": {
+            "CF": {
+              "before": 0.2520188786330658,
+              "after": 0.25195877860478016,
+              "before_percent": 25.20188786330658,
+              "after_percent": 25.195877860478017,
+              "delta_pp": -0.006010002828565897,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.4495967741935484,
+              "after": 0.47841351501668516,
+              "before_percent": 44.95967741935484,
+              "after_percent": 47.84135150166852,
+              "delta_pp": 2.881674082313679,
+              "direction": "improved"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "5daad314f605fc68de7bba3418f851ebc66fe36ce32c24986ac27261606fd628",
+          "markdown_sha256_after": "7dbbe92b42b9ad86ee918587852898d2303144b7edbe6d06a17189b4d2a45898"
+        },
+        {
+          "example_id": "text/text_multicolumns__dafta",
+          "pdf": "docs/text/text_multicolumns__dafta.pdf",
+          "pdf_sha256": "1eb6da12025c15e30109a540b2cf9d778a2f78182a6eefb58d4de3f3e9cc89ff",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.9126830400831962,
+              "after": 0.9411662407419508,
+              "before_percent": 91.26830400831962,
+              "after_percent": 94.11662407419507,
+              "delta_pp": 2.8483200658754537,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.5,
+              "after": 0.5,
+              "before_percent": 50.0,
+              "after_percent": 50.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "f39f1825bd4f9bcbc7d29f73b5e2a1cfc371376799b1a5037b060367a6f97596",
+          "markdown_sha256_after": "9c2d9c99792676939fc7ac158904816af02e2e378f988fded4058d36ace21e1a"
+        },
+        {
+          "example_id": "text/text_multicolumns__3col_statment",
+          "pdf": "docs/text/text_multicolumns__3col_statment.pdf",
+          "pdf_sha256": "807d60b9c8d26f4bdd904eba011623de8dc7b8e01395d377f9788aa50d7781aa",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.8095256301983889,
+              "after": 0.8342169882230802,
+              "before_percent": 80.95256301983889,
+              "after_percent": 83.42169882230802,
+              "delta_pp": 2.4691358024691357,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 1.0,
+              "before_percent": 100.0,
+              "after_percent": 100.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "4760607998ee3e0f9946ed50f0cd2228fc84269868c69148abd95079de0895f6",
+          "markdown_sha256_after": "864cc56230792fa6dd77f2e90efd937bdf6ac0a5e7d718f7b4f2aa05c31ef093"
+        },
+        {
+          "example_id": "text/text_multicolumns__tableOfContent8col",
+          "pdf": "docs/text/text_multicolumns__tableOfContent8col.pdf",
+          "pdf_sha256": "d3c6c3262d54cc95d13c4a11c5b768fb40e5cf8ba3070ca4208663cecf90970a",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.6209233488553708,
+              "after": 0.6030254611980522,
+              "before_percent": 62.092334885537085,
+              "after_percent": 60.30254611980522,
+              "delta_pp": -1.789788765731859,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "2133f2f2954dcf08dc1ca631a651914b5a7b30deefc904ce57e577005968cc1a",
+          "markdown_sha256_after": "b09c9380008e4ca8154759c873fd638de4eee5f2e2787e94ddfa0c0d78c6fb00"
+        },
+        {
+          "example_id": "text/text_simple__italicsummary",
+          "pdf": "docs/text/text_simple__italicsummary.pdf",
+          "pdf_sha256": "a2b950a78d7980c54130852d833bca038b0ef4ddde7efa65629f97a74427abf3",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.9761904761904763,
+              "after": 0.9928722342179194,
+              "before_percent": 97.61904761904762,
+              "after_percent": 99.28722342179194,
+              "delta_pp": 1.6681758027443094,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 1.0,
+              "before_percent": 100.0,
+              "after_percent": 100.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "24b35ffa3db4332362def2526e57bd0ccb5b52d2945fb3eec777fea43c938b67",
+          "markdown_sha256_after": "d64c35ad199fb4e20cd36b6729d62aae9e071e73973133120f965cf60602dd19"
+        },
+        {
+          "example_id": "text/text_simple__redirect",
+          "pdf": "docs/text/text_simple__redirect.pdf",
+          "pdf_sha256": "9db832d4a6406c28e16eb4dc085f9b2b885d19604e1e60eca7ef91d5ecf7cb1e",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9603174603174603,
+              "after": 0.9470359572400389,
+              "before_percent": 96.03174603174604,
+              "after_percent": 94.70359572400389,
+              "delta_pp": -1.3281503077421486,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.9545454545454546,
+              "after": 0.9545454545454546,
+              "before_percent": 95.45454545454545,
+              "after_percent": 95.45454545454545,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "a7cccbe80585a59b582c39de9501f76fcfab73e24d179f82ff969e0a84a7df31",
+          "markdown_sha256_after": "4e5193ffc3ee25b84df7917f4e35dd6c7043a1d5cd9ce92e27969be677fc3b17"
+        },
+        {
+          "example_id": "text/text_simple__4g",
+          "pdf": "docs/text/text_simple__4g.pdf",
+          "pdf_sha256": "0a167efc3bfad4079f850dea1f6473aa1793944652c9bdda1c5a8aed81523dd2",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.9650698625688245,
+              "after": 0.9738746129649117,
+              "before_percent": 96.50698625688246,
+              "after_percent": 97.38746129649117,
+              "delta_pp": 0.8804750396087191,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.8237179487179487,
+              "after": 0.8237179487179487,
+              "before_percent": 82.37179487179486,
+              "after_percent": 82.37179487179486,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "3d1f4b2070f3be05c1ce914f4cfe2440335c856068411c5d59fd4b384f471561",
+          "markdown_sha256_after": "9434dfe2a3e4564f83cf63a1b99aec50666e1d898234351f6f1d8d7051dc1c8e"
+        },
+        {
+          "example_id": "text/text_misc__gridofimages",
+          "pdf": "docs/text/text_misc__gridofimages.pdf",
+          "pdf_sha256": "f1da5b69cf2d4b6facfc4b2fd6f3f72c5cf906b7750ff8aff85417083f627482",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.6595501183898974,
+              "after": 0.6533471108711003,
+              "before_percent": 65.95501183898975,
+              "after_percent": 65.33471108711004,
+              "delta_pp": -0.6203007518797099,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": null,
+              "after": null,
+              "delta_pp": null,
+              "direction": "unscored"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "c55271183944e47d8824d5cd9b33bbf0a61ad95b7fd00aca1cb9847be5282dd4",
+          "markdown_sha256_after": "1f9a44d279f0b01326519e9b8d0ab34b15f6b1131fcb13b93d49f385bd3bfbac"
+        },
+        {
+          "example_id": "text/text_multicolumns__esg_whitespace",
+          "pdf": "docs/text/text_multicolumns__esg_whitespace.pdf",
+          "pdf_sha256": "b60652b12af2d9100610e23c56121c7a0b4e3cdcba62aa859fd7cdd2fcc0a47a",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.976056958169352,
+              "after": 0.9701778670651935,
+              "before_percent": 97.6056958169352,
+              "after_percent": 97.01778670651935,
+              "delta_pp": -0.5879091104158518,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 1.0,
+              "before_percent": 100.0,
+              "after_percent": 100.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "ad0ea08a5820d7ce90c65106dd821bfd8398fad2c96f3f63e91011b59cb36905",
+          "markdown_sha256_after": "ec6da2ae874d339a6242c36f312b4f7a2b933543d7456c398b325c91ecb4636e"
+        },
+        {
+          "example_id": "text/text_simple__iehp",
+          "pdf": "docs/text/text_simple__iehp.pdf",
+          "pdf_sha256": "f7a42d6b41f27e453c70fe5ea7708e690800f69a7a76295f060b9317e03aa2a3",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9404940089150616,
+              "after": 0.9354966189229551,
+              "before_percent": 94.04940089150617,
+              "after_percent": 93.5496618922955,
+              "delta_pp": -0.4997389992106527,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.75,
+              "after": 0.75,
+              "before_percent": 75.0,
+              "after_percent": 75.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "504463503e1fe2da9b970e881f0461678f8da6614cb006f23d92556ed67573b8",
+          "markdown_sha256_after": "d316799b6c3dad12194d45ced614ffcb2098f434eded613f620230949f047077"
+        },
+        {
+          "example_id": "text/text_simple__marknotTable",
+          "pdf": "docs/text/text_simple__marknotTable.pdf",
+          "pdf_sha256": "db9423aac92ca080fa4557c3b05927ea2236453cecfce1b95235c5685afce0db",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9770126659402205,
+              "after": 0.9725682214957759,
+              "before_percent": 97.70126659402206,
+              "after_percent": 97.25682214957759,
+              "delta_pp": -0.4444444444444584,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.8448275862068966,
+              "after": 0.8448275862068966,
+              "before_percent": 84.48275862068965,
+              "after_percent": 84.48275862068965,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "0890817ed914c457f80acb197adef8e524bb823ec79fabae34ffa97b07ae0114",
+          "markdown_sha256_after": "a5d4731eebf44d1443613810f13db84b329b104f3c5bc232831f802df8972e51"
+        },
+        {
+          "example_id": "text/text_simple__bottens",
+          "pdf": "docs/text/text_simple__bottens.pdf",
+          "pdf_sha256": "1f33c5df5e9020342ddc9c4116d268ec9921410b8c3577b5c08f262a7265549f",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9902572523262179,
+              "after": 0.9865749534479645,
+              "before_percent": 99.02572523262178,
+              "after_percent": 98.65749534479646,
+              "delta_pp": -0.36822988782533317,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.9330357142857143,
+              "after": 0.9330357142857143,
+              "before_percent": 93.30357142857143,
+              "after_percent": 93.30357142857143,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "b8b5b3e1f0d08da70509e7a2db6e74cf5e1560eceef05f3ad2dcfe758255c562",
+          "markdown_sha256_after": "43465c18ae13f8c6b3efe3a041336fd85819c537097a7af9a3361c0f1456a77e"
+        },
+        {
+          "example_id": "text/text_multilang__ukrainian",
+          "pdf": "docs/text/text_multilang__ukrainian.pdf",
+          "pdf_sha256": "e82719645b913249102b355793a364e943049747d7b7bf7e79685e387625cb48",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9313781119177734,
+              "after": 0.9277566181652378,
+              "before_percent": 93.13781119177735,
+              "after_percent": 92.77566181652378,
+              "delta_pp": -0.36214937525356206,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.8802083333333333,
+              "after": 0.8802083333333333,
+              "before_percent": 88.02083333333333,
+              "after_percent": 88.02083333333333,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "d4c6a166bfe9a995aa17ee58ba0e311ed806970f6fd05168a6611ec0aaabb61e",
+          "markdown_sha256_after": "0da21652c276ec533472d9bab1295d63fcb31b4ba06683193ec826591da72d03"
+        },
+        {
+          "example_id": "text/text_simple__references",
+          "pdf": "docs/text/text_simple__references.pdf",
+          "pdf_sha256": "623cf8e767b6877f23e6c2e37680aa0610b2d84905cff926173a586343956f07",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9643338143338144,
+              "after": 0.9609601828066955,
+              "before_percent": 96.43338143338144,
+              "after_percent": 96.09601828066955,
+              "delta_pp": -0.3373631527118892,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 1.0,
+              "before_percent": 100.0,
+              "after_percent": 100.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "ccd7483daefc80a8c68a34df2067964081755c46d0223a746d21915767ec4752",
+          "markdown_sha256_after": "f0a1b64f9b0283af104bb3c64b58e7890915ea249d0d27d80c09f3f3fe9146ce"
+        },
+        {
+          "example_id": "text/text_multilang__kannada",
+          "pdf": "docs/text/text_multilang__kannada.pdf",
+          "pdf_sha256": "a0ffe61be7662e1a250f4bcdb80c1f3f8f17b6f539b9cc146c045fbf1efee1df",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "improved",
+          "metrics": {
+            "CF": {
+              "before": 0.3037000015402948,
+              "after": 0.3069631402890156,
+              "before_percent": 30.37000015402948,
+              "after_percent": 30.69631402890156,
+              "delta_pp": 0.32631387487208063,
+              "direction": "improved"
+            },
+            "SF": {
+              "before": 0.0,
+              "after": 0.0,
+              "before_percent": 0.0,
+              "after_percent": 0.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "799601ffbb99885e4e1470e525d7bd88a1376e787f1bfd815ad12a0b8d68e934",
+          "markdown_sha256_after": "fd6ee11362c238650f3229297d265361eec3f02c49af7fc5f030d51cda90cbd5"
+        },
+        {
+          "example_id": "text/text_simple__delinea",
+          "pdf": "docs/text/text_simple__delinea.pdf",
+          "pdf_sha256": "f576c5fa2046464b86be46b40dec0a0a31bc1dde4cd8696269e1f677a8b9780f",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9384429802668798,
+              "after": 0.9355888283145034,
+              "before_percent": 93.84429802668798,
+              "after_percent": 93.55888283145035,
+              "delta_pp": -0.28541519523763714,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.5,
+              "after": 0.5,
+              "before_percent": 50.0,
+              "after_percent": 50.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "0ab4aabb521187e315cad50641d9a2ffef669a5400d098543efdced7a93184c1",
+          "markdown_sha256_after": "7b048836a303231e70c2f08a29dad2638117bcedd3d2a6605257d058067c7abe"
+        },
+        {
+          "example_id": "text/text_misc__json",
+          "pdf": "docs/text/text_misc__json.pdf",
+          "pdf_sha256": "74936c078f8974e83dd500b2b8de324b8644a9b505b64e34c03cc0de393e3796",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.8912415594257026,
+              "after": 0.888427366379038,
+              "before_percent": 89.12415594257025,
+              "after_percent": 88.8427366379038,
+              "delta_pp": -0.2814193046664637,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.8333333333333334,
+              "after": 0.8333333333333334,
+              "before_percent": 83.33333333333334,
+              "after_percent": 83.33333333333334,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "58a758006bddc096f49c2a6d3afede50d32437be8adbd7af1268a0bc7473e2e5",
+          "markdown_sha256_after": "85d34fb2977e8afdb4cf3d9b75bb7a66deac80b4856ea748f06bff294bc6608b"
+        },
+        {
+          "example_id": "text/text_multicolumns__2colrep",
+          "pdf": "docs/text/text_multicolumns__2colrep.pdf",
+          "pdf_sha256": "91da3a755135b0a316a6a6cf53383186d0278b51ed7319a23604e1c7bd8a46f5",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9729870685382966,
+              "after": 0.9705198880223357,
+              "before_percent": 97.29870685382966,
+              "after_percent": 97.05198880223357,
+              "delta_pp": -0.2467180515960954,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.3660714285714286,
+              "after": 0.3660714285714286,
+              "before_percent": 36.60714285714286,
+              "after_percent": 36.60714285714286,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "8da1cbe30d984c0f66e8ea964b73368492a2dfad73b5295d78e5ae88f6054dbb",
+          "markdown_sha256_after": "1bcaabaf3dd2ec76225a7d59bf5b77daaa88f773409374a2e352246139068ef0"
+        },
+        {
+          "example_id": "text/text_simple__hex",
+          "pdf": "docs/text/text_simple__hex.pdf",
+          "pdf_sha256": "ab148fd567eaa618cbe376cfac3b15b16f7838dd80ece161470ef7c71a382e3a",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.8826467216907815,
+              "after": 0.880632797453607,
+              "before_percent": 88.26467216907815,
+              "after_percent": 88.0632797453607,
+              "delta_pp": -0.20139242371745025,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.8333333333333334,
+              "after": 0.8333333333333334,
+              "before_percent": 83.33333333333334,
+              "after_percent": 83.33333333333334,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "fe8d9ac609b0db72ad504dec0c8b7c5b7ff8277a78e04f6758baacacff2a8d26",
+          "markdown_sha256_after": "634f64daaaaedebfd9301bee15e0bde90c66c3cef137339bcf3644c61ad28cc6"
+        },
+        {
+          "example_id": "text/text_multicolumns__weeds",
+          "pdf": "docs/text/text_multicolumns__weeds.pdf",
+          "pdf_sha256": "ff1828264cee4efec999eca4f36b393297544fcdd2894d9e3b147dda295a1171",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9923526077581002,
+              "after": 0.9906447276126782,
+              "before_percent": 99.23526077581002,
+              "after_percent": 99.06447276126782,
+              "delta_pp": -0.17078801454220027,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 1.0,
+              "before_percent": 100.0,
+              "after_percent": 100.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "0ecf3942a27db7722d106f2db2ccdf06e7d1d91643cef6b8a3ca37d205872e4b",
+          "markdown_sha256_after": "36884068928a3e714899abb758895e88d4c6ff6d331cdb04046d0538c74722fe"
+        },
+        {
+          "example_id": "text/text_multilang__spanish",
+          "pdf": "docs/text/text_multilang__spanish.pdf",
+          "pdf_sha256": "d16c815f9a08c04a8f6190fef9a00f8bcd97a497382e28eb684b8439390cfb10",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.8204440812976711,
+              "after": 0.8193447268000379,
+              "before_percent": 82.0444081297671,
+              "after_percent": 81.9344726800038,
+              "delta_pp": -0.10993544976332092,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.8347826086956522,
+              "after": 0.8347826086956522,
+              "before_percent": 83.47826086956522,
+              "after_percent": 83.47826086956522,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "f8a63e01d4f1943ec075e8e1a4490db0f9cdde7c047b93a2b28fabeb280e99d9",
+          "markdown_sha256_after": "96510e1a20540576a459204c1d4f38975f581d74abb2e17a1880a16926435d2f"
+        },
+        {
+          "example_id": "text/text_multicolumns__article",
+          "pdf": "docs/text/text_multicolumns__article.pdf",
+          "pdf_sha256": "907d6dc90882843f242f8f82996e89c1b7df2eafa74fc1ac8b52d2345ab34d4d",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9091220085590414,
+              "after": 0.9086973521989844,
+              "before_percent": 90.91220085590413,
+              "after_percent": 90.86973521989844,
+              "delta_pp": -0.042465636005695195,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 1.0,
+              "after": 1.0,
+              "before_percent": 100.0,
+              "after_percent": 100.0,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "e51104af1193663bd0df2bdf94b416eeb6b3c1333dada687ecacf3046d8d3a24",
+          "markdown_sha256_after": "bc52599bf617d3678e03ece84f933664da4c309f2f0d904ecaa039e4e4041bfe"
+        },
+        {
+          "example_id": "text/text_multicolumns__sbi",
+          "pdf": "docs/text/text_multicolumns__sbi.pdf",
+          "pdf_sha256": "8a78a59b51e960b7ebd224ec3ff4633c7917469f985035ebc28b9049a546299a",
+          "pdf_page_count": 1,
+          "quality_scope": "page1_single_page_document",
+          "category": "regressed",
+          "metrics": {
+            "CF": {
+              "before": 0.9570287061522164,
+              "after": 0.9568605687873349,
+              "before_percent": 95.70287061522164,
+              "after_percent": 95.6860568787335,
+              "delta_pp": -0.01681373648814155,
+              "direction": "regressed"
+            },
+            "SF": {
+              "before": 0.4166666666666667,
+              "after": 0.4166666666666667,
+              "before_percent": 41.66666666666667,
+              "after_percent": 41.66666666666667,
+              "delta_pp": 0.0,
+              "direction": "unchanged"
+            }
+          },
+          "selected_pages_before": [],
+          "selected_pages_after": [
+            1
+          ],
+          "Rapid_called_pages_before": [],
+          "Rapid_called_pages_after": [
+            1
+          ],
+          "markdown_changed": true,
+          "markdown_sha256_before": "44c8928b1a9b4ec498b59e4eafc918445b094e716b53be0cd63c4d31e14cd681",
+          "markdown_sha256_after": "6bb530758484fc7efcec08459b96795a605f7041ac8639122fcf4132821391ef"
+        }
+      ]
+    }
+  ],
+  "source_provenance": {
+    "main": {
+      "score_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/scores-main/document-scores.jsonl",
+      "score_rows_sha256": "ae442472d7d72fd740f8d55616ce852e83371fda95447acd06c4020e5a39ad77",
+      "outputs_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/outputs-main/outputs.jsonl"
+    },
+    "symbol-damage": {
+      "score_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/scores-symbol-damage/document-scores.jsonl",
+      "score_rows_sha256": "3dc134345c1cec72a0077230064ed408c26cf4e549bf43c2143c0ea9944b197e",
+      "outputs_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/outputs-symbol-damage/outputs.jsonl"
+    },
+    "imf2-roi": {
+      "score_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/scores-imf2-roi/document-scores.jsonl",
+      "score_rows_sha256": "e45b649cf8a7df880e88a2f892829ce8d260c5528aea37144ff0ce4e751f7555",
+      "outputs_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/outputs-imf2-roi/outputs.jsonl"
+    },
+    "symbol-damage__imf2": {
+      "score_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/scores-symbol-damage__imf2/document-scores.jsonl",
+      "score_rows_sha256": "69f75b75c4ef6cb8895a0efd4f39df5b40598c7734dced96bacd7a417f56d335",
+      "outputs_rows": "runs/OCR_INDEPENDENT_BRANCH_REBUILD_20261030/outputs-symbol-damage__imf2/outputs.jsonl"
+    }
+  },
+  "freshly_scored": false,
+  "reaggregated_stored_official_scores": true,
+  "code_changed": false
+}

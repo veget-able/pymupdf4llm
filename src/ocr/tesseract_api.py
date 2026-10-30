@@ -1,6 +1,7 @@
 import pymupdf
 
 from .get_culled_pixmap import get_pixmap
+from .symbol_repair import target_span_ids, span_identity, render_input, prepare_symbol_replacement
 
 TESSDATA = pymupdf.get_tessdata()
 if TESSDATA is None:
@@ -35,6 +36,7 @@ def exec_ocr(page, dpi=150, pixmap=None, language="eng", keep_ocr_text=False):
     """
     if TESSDATA is None:
         return
+    symbol_ids = target_span_ids(page)
     displaylist = page.get_displaylist()
     stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
     textpage = pymupdf.TextPage(stextpage)
@@ -52,14 +54,15 @@ def exec_ocr(page, dpi=150, pixmap=None, language="eng", keep_ocr_text=False):
                     ocr_spans.append(s["bbox"])
                 elif REPLACEMENT_UNICODE in s["text"]:
                     fffd_spans.append(s["bbox"])
-                else:
+                elif span_identity(s) not in symbol_ids:
                     spans.append(s["bbox"])
     if ocr_spans and keep_ocr_text:
         # If there are already OCR spans and the user wants to keep them, we skip OCR.
         # This is because we cannot distinguish between "good" text and "bad" OCR text.
         return
     # make a Pixmap without "good" text
-    pixmap, empty = get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250)
+    pixmap, empty = (render_input(page,spans,dpi) if symbol_ids else
+                     get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250))
     if empty:
         return  # nothing to OCR, the page is empty after removing good text
 
@@ -75,4 +78,7 @@ def exec_ocr(page, dpi=150, pixmap=None, language="eng", keep_ocr_text=False):
         text=pymupdf.PDF_REDACT_TEXT_NONE,
     )
     # insert the OCR text layer into the original page
+    symbol_replacement = prepare_symbol_replacement(page)
+    if symbol_replacement is not None and temp_page.get_text().strip():
+        symbol_replacement.apply(page)
     page.show_pdf_page(page.rect, temp_pdf, 0)
