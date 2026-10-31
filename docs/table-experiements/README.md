@@ -1,11 +1,11 @@
 # Table feature development branches
+OCR empty-list handling is outside the table feature scope and is maintained separately by the OCR owner. It is not a table prerequisite. Pre-OCR ruling-image delivery (I-B) remains in scope.
 Each branch starts directly from the pinned main commit of its repository. The initial drafts specify scope, dependencies and evaluation contracts; they do not implement the feature. See the feature manifest on its own branch for the current implementation and validation status.
 The `table-experiements/` namespace is intentional. No draft PR is created. Runtime changes belong to subsequent commits on the same feature branch.
 Pinned main pair: PyMuPDF 1d34e04da00b7673a0b2c3f68b5a5246793a50b8; pymupdf4llm 363f177ef50deb05f07db8bf2061e7b9c8102b07.
 Required dependency revisions are merged explicitly and recorded as compatible source pairs. A draft branch is not a production release or a measured quality improvement.
 ## Branch index
 - B1: Shared table runtime and evidence contracts — [pymupdf](https://github.com/veget-able/PyMuPDF/tree/table-experiements/shared-runtime); [pymupdf4llm](https://github.com/veget-able/pymupdf4llm/tree/table-experiements/shared-runtime)
-- I-A: OCR empty-list and None contract — [pymupdf4llm](https://github.com/veget-able/pymupdf4llm/tree/table-experiements/ocr-empty-list-contract)
 - I-B: Pre-OCR raster ruling image delivery — [pymupdf4llm](https://github.com/veget-able/pymupdf4llm/tree/table-experiements/pre-ocr-ruling-image)
 - F01: Cell source ownership and output preservation — [pymupdf](https://github.com/veget-able/PyMuPDF/tree/table-experiements/f01-cell-source-output); [pymupdf4llm](https://github.com/veget-able/pymupdf4llm/tree/table-experiements/f01-cell-source-output)
 - F02: Ruling and layout-grid union — [pymupdf](https://github.com/veget-able/PyMuPDF/tree/table-experiements/f02-ruling-gnn-union); [pymupdf4llm](https://github.com/veget-able/pymupdf4llm/tree/table-experiements/f02-ruling-gnn-union)
