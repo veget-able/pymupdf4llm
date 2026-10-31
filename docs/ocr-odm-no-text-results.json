@@ -1,0 +1,163 @@
+{
+  "passed": true,
+  "branch": "ocr/page-selector/odm-no-text",
+  "role": "Independent main-based P2+ODM input-condition candidate; not enabled in approved integration",
+  "P2_retained": true,
+  "policy": "Original P2, old OCR gate, modes,22 names/order, original weights and0.93 threshold unchanged; only4 page pixel features use normal-glyph-excluded72DPI->128x128 rendering.",
+  "rows": [
+    {
+      "no": "odm-no-text",
+      "arm": "main-odm-no-text",
+      "selector": "P2+ODM no-text",
+      "CF_percent": 79.7167681160034,
+      "SF_percent": 56.859193313728916,
+      "CF_change_from_prior_pp": 0.045859350907704766,
+      "SF_change_from_prior_pp": 0.20184377998661063,
+      "selected_pages": 190,
+      "Rapid_calls": 190,
+      "official_score_associations": 982,
+      "verified_reused_score_associations": 970,
+      "page_metrics": {
+        "TP": 85,
+        "FP": 3,
+        "FN": 15,
+        "TN": 97,
+        "precision": 0.9659090909090909,
+        "recall": 0.85,
+        "f1": 0.9042553191489362
+      },
+      "source_features": [],
+      "P2_retained": true,
+      "actual_feature_checks": 299,
+      "page_pixel_features_changed_pages": 209,
+      "changed_Markdown_documents": [
+        "text/text_dense__underline",
+        "text/text_misc__2pages",
+        "text/text_misc__ikea3",
+        "text/text_multicolumns__drill",
+        "text/text_multicolumns__elpais",
+        "text/text_multicolumns__energy2",
+        "text/text_multicolumns__visa",
+        "text/text_multicolumns__zh",
+        "text/text_simple__4g",
+        "text/text_simple__delinea",
+        "text/text_simple__norman",
+        "text/text_simple__otago",
+        "text/text_simple__wordForwords"
+      ],
+      "document_score_changes": {
+        "CF": {
+          "improved": 9,
+          "regressed": 4,
+          "unchanged": 493
+        },
+        "SF": {
+          "improved": 3,
+          "regressed": 3,
+          "unchanged": 450
+        }
+      },
+      "public_API_successful_document_seconds_sum": 222.1622302092146,
+      "public_API_campaign_span_seconds": 189.272986,
+      "timing_scope": "First successful public API start through last successful completion; includes validation observer and any retry pause. Four workers, exact RGB recognition reuse; not standalone deployment latency. Raw retry-only batch timers are not full evaluation cost.",
+      "batch_process_phase_wall_seconds": 1.4363572590518743,
+      "batch_process_phase_scope": "retry phase for3 observer-failed documents"
+    },
+    {
+      "no": "odm-no-text",
+      "arm": "corrected-odm-no-text",
+      "selector": "P2+ODM no-text",
+      "CF_percent": 81.95732187130817,
+      "SF_percent": 58.188684809237536,
+      "CF_change_from_prior_pp": 0.04524334304670674,
+      "SF_change_from_prior_pp": 0.20184377998660352,
+      "selected_pages": 239,
+      "Rapid_calls": 239,
+      "official_score_associations": 982,
+      "verified_reused_score_associations": 970,
+      "page_metrics": {
+        "TP": 85,
+        "FP": 3,
+        "FN": 15,
+        "TN": 97,
+        "precision": 0.9659090909090909,
+        "recall": 0.85,
+        "f1": 0.9042553191489362
+      },
+      "source_features": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7
+      ],
+      "P2_retained": true,
+      "actual_feature_checks": 342,
+      "page_pixel_features_changed_pages": 209,
+      "changed_Markdown_documents": [
+        "text/text_dense__underline",
+        "text/text_misc__2pages",
+        "text/text_misc__ikea3",
+        "text/text_multicolumns__drill",
+        "text/text_multicolumns__elpais",
+        "text/text_multicolumns__energy2",
+        "text/text_multicolumns__visa",
+        "text/text_multicolumns__zh",
+        "text/text_simple__4g",
+        "text/text_simple__delinea",
+        "text/text_simple__norman",
+        "text/text_simple__otago",
+        "text/text_simple__wordForwords"
+      ],
+      "document_score_changes": {
+        "CF": {
+          "improved": 9,
+          "regressed": 4,
+          "unchanged": 493
+        },
+        "SF": {
+          "improved": 3,
+          "regressed": 3,
+          "unchanged": 450
+        }
+      },
+      "public_API_successful_document_seconds_sum": 324.9147558079567,
+      "public_API_campaign_span_seconds": 141.337059,
+      "timing_scope": "First successful public API start through last successful completion; includes validation observer and any retry pause. Four workers, exact RGB recognition reuse; not standalone deployment latency. Raw retry-only batch timers are not full evaluation cost.",
+      "batch_process_phase_wall_seconds": 141.80162716004997,
+      "batch_process_phase_scope": "full507-document batch"
+    }
+  ],
+  "PDFs_per_condition": 507,
+  "pages_per_condition": 509,
+  "CF_documents": 506,
+  "SF_supported": 476,
+  "SF_defined": 456,
+  "GT_sha256": "007658e6d176168325898e4992cd658604bd95666ffc2da254cc1c9b3df23d88",
+  "scorer": "8c63e84eff6e51b943496492651ee27e9e71663f",
+  "tests": 6,
+  "unchanged_executable_paths": [
+    "src/ocr/analyze_page.py",
+    "src/ocr/exec_ocr_interface.py",
+    "src/ocr/ocr_decision_model.onnx",
+    "src/helpers/document_layout.py"
+  ],
+  "feature18_checks": 641,
+  "new_public_API_outputs": 1014,
+  "new_DET_REC_inputs": 1,
+  "verified_previous_recognition_reuses": 427,
+  "same_run_recognition_reuses": 1,
+  "new_official_workers": 14,
+  "verified_previous_unique_scores": 1118,
+  "validation_campaign_spans_sum": 330.610045,
+  "scoring_seconds": 9.880709097953513,
+  "observer_retry": {
+    "documents": 3,
+    "reason": "Original and candidate retain identical NaN img_fft_ratio; observer changed to equal_nan, not model/feature change"
+  },
+  "weights_sha256": "f72d8975dfc650d6761f793dad424939e70bb94a27d13de8d3507033c74fa101",
+  "approved_integration_changed": false,
+  "product_deployed": false,
+  "wheels": false
+}

@@ -79,8 +79,9 @@ def sobel_features(gray):
 
 
 def sobel_features_page(page):
-    # 1. Render page as GRAY pixmap
-    pix = page.get_pixmap(dpi=72, colorspace=pymupdf.csGRAY, alpha=False)
+    # Only page pixel features use the normal-text-excluded input.
+    from .odm_no_text import render_page_without_normal_text
+    pix = render_page_without_normal_text(page, dpi=72)
 
     # 2. Downscale to 128x128 using PyMuPDF
     pix_small = pymupdf.Pixmap(pix, 128, 128)
@@ -98,7 +99,7 @@ def compute_features(blocks, page_rect, page):
         blocks: (list) blocks created by get_text("dict",flags=FLAGS)["blocks].
             The FLAGS *MUST* include PRESERVE_IMAGES and COLLECT_VECTORS.
         page_rect: (Rect) the rectangle Page.rect.
-        pixmap: GRAY 128x128 sized image of the page without all text
+        page: original PDF page; only page pixel features exclude normal text
 
     Returns:
         A dictionary of page "features" (see code here) that can be used to
