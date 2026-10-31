@@ -4,6 +4,7 @@ import numpy as np
 import pymupdf
 
 from .get_culled_pixmap import get_pixmap
+from ._writeback_font import _prepare_writeback, _insert_writeback, resolve_fontnames
 
 try:
     TESSDATA = pymupdf.get_tessdata()
@@ -172,29 +173,12 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
     if not tess_results:
         return
 
-    # insert the OCR font into the page
-    page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
-
-    for irect, text in tess_results:
-        # this is the line box
-        rect = pymupdf.Rect(irect) * matrix
-
-        # this matrix will ensure text width = rect width
-        mat = adjust_width(text, rect.height, rect)
-
-        # Insert one line of text. Insertion point is the bottom-left box
-        # corner adjusted slightly upwards to account for the descender. Note
-        # that the original is unknown, so descender -0.2 is best guess only.
-        # Also true for the font size: guessed to be rectangle height.
-        # NOTE: Guesses could be improved by checking actual text content for
-        # the presence of descenders and uppercase letters.
-        page.insert_text(
-            rect.bl + (0, -0.2 * rect.height),  # insertion point
-            text,  # text to render
-            fontsize=rect.height,  # take this as font size
-            fontname=FONTNAME,  # fallback font
-            morph=(rect.bl, mat),  # adjust width to fit the line box
-        )
+    plans = [(pymupdf.Rect(irect) * matrix, text) for irect, text in tess_results if text.strip()]
+    prepared = [(rect, text, _prepare_writeback(text, rect)) for rect, text in plans]
+    aliases = resolve_fontnames(page, [plan for _, _, plan in prepared])
+    inserted = set()
+    for rect, text, plan in prepared:
+        _insert_writeback(page, rect, text, plan, inserted, aliases)
 
 
 def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
@@ -269,32 +253,14 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
             text=pymupdf.PDF_REDACT_TEXT_REMOVE,
         )
 
-    # insert the font into the page if not already present
-    page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
-
-    # Insert recognized text
+    prepared = []
     for box, text, conf in result:
-        rect = (
-            pymupdf.Rect(
-                min(p[0] for p in box),
-                min(p[1] for p in box),
-                max(p[0] for p in box),
-                max(p[1] for p in box),
-            )
-            * matrix
-        )
-
         if not text.strip():
             continue
-
-        fontsize = rect.height
-        # Text width scaling matrix ensures text width = box width
-        mat = adjust_width(text, fontsize, rect)
-
-        page.insert_text(
-            rect.bl + (0, -0.2 * fontsize),
-            text,
-            fontsize=fontsize,
-            fontname=FONTNAME,
-            morph=(rect.bl, mat),
-        )
+        rect = pymupdf.Rect(min(p[0] for p in box), min(p[1] for p in box),
+                            max(p[0] for p in box), max(p[1] for p in box)) * matrix
+        prepared.append((rect, text, _prepare_writeback(text, rect)))
+    aliases = resolve_fontnames(page, [plan for _, _, plan in prepared])
+    inserted = set()
+    for rect, text, plan in prepared:
+        _insert_writeback(page, rect, text, plan, inserted, aliases)

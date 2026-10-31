@@ -1490,6 +1490,9 @@ def parse_document(
 
         textpage = page.get_textpage(flags=FLAGS, clip=pymupdf.INFINITE_RECT())
         blocks = textpage.extractDICT()["blocks"]
+        if getattr(page, '_pymupdf4llm_mixed_writeback_groups', None):
+            from pymupdf4llm.ocr._writeback_font import annotate_mixed_writeback_spans
+            annotate_mixed_writeback_spans(page, blocks)
 
         # Execute the Layout module AFTER any OCR.
         layout_kwargs = {"return_raw": True}

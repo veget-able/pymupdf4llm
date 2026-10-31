@@ -1,0 +1,1583 @@
+{
+  "schema_version": 1,
+  "feature_no": 7,
+  "feature_id": "writeback-fonts",
+  "branch": "ocr/writeback-correction/writeback-fonts-20261031",
+  "independent_parent": {
+    "PyMuPDF": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "363f177ef50deb05f07db8bf2061e7b9c8102b07"
+  },
+  "required_prior_features": [],
+  "font_expansion_policy": "Only expand after actual missing glyph/writeback loss is confirmed and reproduced.",
+  "feature_scores": {
+    "P2+ODM": {
+      "text_content": {
+        "baseline_percent": 79.67090876509569,
+        "score_percent": 79.68324328442691,
+        "delta_pp": 0.012334519331225202,
+        "improved": 3,
+        "regressed": 0
+      },
+      "text_formatting": {
+        "baseline_percent": 56.65734953374232,
+        "score_percent": 56.7414138612277,
+        "delta_pp": 0.08406432748537807,
+        "improved": 1,
+        "regressed": 0
+      }
+    },
+    "IMF2 ROI": {
+      "text_content": {
+        "baseline_percent": 80.23238142438245,
+        "score_percent": 80.24471594371369,
+        "delta_pp": 0.012334519331225202,
+        "improved": 3,
+        "regressed": 0
+      },
+      "text_formatting": {
+        "baseline_percent": 57.53180318585676,
+        "score_percent": 57.61586751334213,
+        "delta_pp": 0.08406432748537807,
+        "improved": 1,
+        "regressed": 0
+      }
+    }
+  },
+  "feature_cases": {
+    "P2+ODM": [
+      {
+        "example_id": "text/text_handwritting__math",
+        "pdf": "docs/text/text_handwritting__math.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 36.74169191161829,
+            "after_percent": 36.74169191161829,
+            "delta_pp": 0.0
+          },
+          "text_formatting": {
+            "before_percent": 0.0,
+            "after_percent": 0.0,
+            "delta_pp": 0.0
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      },
+      {
+        "example_id": "text/text_ocr__glitch",
+        "pdf": "docs/text/text_ocr__glitch.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 75.91439073769345,
+            "after_percent": 78.37687949444647,
+            "delta_pp": 2.462488756753023
+          },
+          "text_formatting": {
+            "before_percent": 13.068181818181818,
+            "after_percent": 13.068181818181818,
+            "delta_pp": 0.0
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      },
+      {
+        "example_id": "text/text_ocr__ref",
+        "pdf": "docs/text/text_ocr__ref.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 72.19144496061966,
+            "after_percent": 72.19819338073728,
+            "delta_pp": 0.006748420117608234
+          },
+          "text_formatting": {
+            "before_percent": 50.0,
+            "after_percent": 50.0,
+            "delta_pp": 0.0
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      },
+      {
+        "example_id": "text/text_ocr__routier",
+        "pdf": "docs/text/text_ocr__routier.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 80.8308022903891,
+            "after_percent": 84.60283189511921,
+            "delta_pp": 3.7720296047301094
+          },
+          "text_formatting": {
+            "before_percent": 0.0,
+            "after_percent": 38.33333333333333,
+            "delta_pp": 38.33333333333333
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      }
+    ],
+    "IMF2 ROI": [
+      {
+        "example_id": "text/text_handwritting__math",
+        "pdf": "docs/text/text_handwritting__math.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 36.74169191161829,
+            "after_percent": 36.74169191161829,
+            "delta_pp": 0.0
+          },
+          "text_formatting": {
+            "before_percent": 0.0,
+            "after_percent": 0.0,
+            "delta_pp": 0.0
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      },
+      {
+        "example_id": "text/text_ocr__glitch",
+        "pdf": "docs/text/text_ocr__glitch.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 75.91439073769345,
+            "after_percent": 78.37687949444647,
+            "delta_pp": 2.462488756753023
+          },
+          "text_formatting": {
+            "before_percent": 13.068181818181818,
+            "after_percent": 13.068181818181818,
+            "delta_pp": 0.0
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      },
+      {
+        "example_id": "text/text_ocr__ref",
+        "pdf": "docs/text/text_ocr__ref.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 72.19144496061966,
+            "after_percent": 72.19819338073728,
+            "delta_pp": 0.006748420117608234
+          },
+          "text_formatting": {
+            "before_percent": 50.0,
+            "after_percent": 50.0,
+            "delta_pp": 0.0
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      },
+      {
+        "example_id": "text/text_ocr__routier",
+        "pdf": "docs/text/text_ocr__routier.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 80.8308022903891,
+            "after_percent": 84.60283189511921,
+            "delta_pp": 3.7720296047301094
+          },
+          "text_formatting": {
+            "before_percent": 0.0,
+            "after_percent": 38.33333333333333,
+            "delta_pp": 38.33333333333333
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      },
+      {
+        "example_id": "text/text_simple__iehp",
+        "pdf": "docs/text/text_simple__iehp.pdf",
+        "page": 1,
+        "metrics": {
+          "text_content": {
+            "before_percent": 93.5496618922955,
+            "after_percent": 93.5496618922955,
+            "delta_pp": 0.0
+          },
+          "text_formatting": {
+            "before_percent": 75.0,
+            "after_percent": 75.0,
+            "delta_pp": 0.0
+          }
+        },
+        "selected_pages": [
+          1
+        ],
+        "Rapid_calls": 1,
+        "Markdown_changed": true
+      }
+    ]
+  },
+  "selector_comparison": "Only0+7 versus7; no other corrections inherited.",
+  "selector_cases": [
+    {
+      "example_id": "text/text_dense__leaflet",
+      "pdf": "docs/text/text_dense__leaflet.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 92.85615807376254,
+          "after_percent": 91.88619121247031,
+          "delta_pp": -0.9699668612922374
+        },
+        "text_formatting": {
+          "before_percent": 60.68376068376068,
+          "after_percent": 68.22344322344323,
+          "delta_pp": 7.539682539682547
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_dense__underline",
+      "pdf": "docs/text/text_dense__underline.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 42.75298473070137,
+          "after_percent": 47.82677084115052,
+          "delta_pp": 5.073786110449152
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_misc__gridofimages",
+      "pdf": "docs/text/text_misc__gridofimages.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 65.95501183898975,
+          "after_percent": 65.33471108711004,
+          "delta_pp": -0.6203007518797099
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_misc__ikea3",
+      "pdf": "docs/text/text_misc__ikea3.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 77.34984868088603,
+          "after_percent": 76.76501298252596,
+          "delta_pp": -0.5848356983600644
+        },
+        "text_formatting": {
+          "before_percent": 46.51864035087719,
+          "after_percent": 35.00548245614035,
+          "delta_pp": -11.513157894736848
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_misc__json",
+      "pdf": "docs/text/text_misc__json.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 89.12415594257025,
+          "after_percent": 88.8427366379038,
+          "delta_pp": -0.2814193046664637
+        },
+        "text_formatting": {
+          "before_percent": 83.33333333333334,
+          "after_percent": 83.33333333333334,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__2col_fund_summary",
+      "pdf": "docs/text/text_multicolumns__2col_fund_summary.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 99.74446188731902,
+          "after_percent": 99.28571428571429,
+          "delta_pp": -0.4587476016047365
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 90.0,
+          "delta_pp": -9.999999999999998
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__2colrep",
+      "pdf": "docs/text/text_multicolumns__2colrep.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 97.29870685382966,
+          "after_percent": 97.05198880223357,
+          "delta_pp": -0.2467180515960954
+        },
+        "text_formatting": {
+          "before_percent": 36.60714285714286,
+          "after_percent": 36.60714285714286,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__2x",
+      "pdf": "docs/text/text_multicolumns__2x.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 89.95946061739319,
+          "after_percent": 92.41538476543582,
+          "delta_pp": 2.455924148042621
+        },
+        "text_formatting": {
+          "before_percent": 98.74213836477988,
+          "after_percent": 61.242138364779876,
+          "delta_pp": -37.5
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__3col_statment",
+      "pdf": "docs/text/text_multicolumns__3col_statment.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 80.95256301983889,
+          "after_percent": 83.42169882230802,
+          "delta_pp": 2.4691358024691357
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 100.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__3colpres",
+      "pdf": "docs/text/text_multicolumns__3colpres.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 94.67148045873522,
+          "after_percent": 88.47974066458693,
+          "delta_pp": -6.191739794148299
+        },
+        "text_formatting": {
+          "before_percent": 62.5,
+          "after_percent": 62.5,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__article",
+      "pdf": "docs/text/text_multicolumns__article.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 90.91220085590413,
+          "after_percent": 90.86973521989844,
+          "delta_pp": -0.042465636005695195
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 100.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__coorp",
+      "pdf": "docs/text/text_multicolumns__coorp.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 87.02560547069301,
+          "after_percent": 96.09416871011753,
+          "delta_pp": 9.06856323942451
+        },
+        "text_formatting": {
+          "before_percent": 98.78048780487805,
+          "after_percent": 98.78048780487805,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__dafta",
+      "pdf": "docs/text/text_multicolumns__dafta.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 91.26830400831962,
+          "after_percent": 94.11662407419507,
+          "delta_pp": 2.8483200658754537
+        },
+        "text_formatting": {
+          "before_percent": 50.0,
+          "after_percent": 50.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__drill",
+      "pdf": "docs/text/text_multicolumns__drill.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 93.02193837021592,
+          "after_percent": 96.51354956505112,
+          "delta_pp": 3.491611194835209
+        },
+        "text_formatting": {
+          "before_percent": 66.66666666666666,
+          "after_percent": 58.333333333333336,
+          "delta_pp": -8.333333333333325
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__energy2",
+      "pdf": "docs/text/text_multicolumns__energy2.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 85.48155079255935,
+          "after_percent": 93.62038219057916,
+          "delta_pp": 8.13883139801982
+        },
+        "text_formatting": {
+          "before_percent": 99.10714285714286,
+          "after_percent": 86.60714285714286,
+          "delta_pp": -12.5
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__esd_end",
+      "pdf": "docs/text/text_multicolumns__esd_end.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 84.03747213570664,
+          "after_percent": 83.63346134774638,
+          "delta_pp": -0.4040107879602628
+        },
+        "text_formatting": {
+          "before_percent": 47.916666666666664,
+          "after_percent": 0.0,
+          "delta_pp": -47.916666666666664
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__esg_whitespace",
+      "pdf": "docs/text/text_multicolumns__esg_whitespace.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 97.6056958169352,
+          "after_percent": 97.01778670651935,
+          "delta_pp": -0.5879091104158518
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 100.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__forword2cols",
+      "pdf": "docs/text/text_multicolumns__forword2cols.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 96.92247058287606,
+          "after_percent": 88.49707366012058,
+          "delta_pp": -8.425396922755478
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 50.0,
+          "delta_pp": -50.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__heirloom",
+      "pdf": "docs/text/text_multicolumns__heirloom.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 38.095238095238095,
+          "after_percent": 49.12577748405314,
+          "delta_pp": 11.030539388815047
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 0.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__sbi",
+      "pdf": "docs/text/text_multicolumns__sbi.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 95.70287061522164,
+          "after_percent": 95.6860568787335,
+          "delta_pp": -0.01681373648814155
+        },
+        "text_formatting": {
+          "before_percent": 41.66666666666667,
+          "after_percent": 41.66666666666667,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__tableOfContent8col",
+      "pdf": "docs/text/text_multicolumns__tableOfContent8col.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 62.092334885537085,
+          "after_percent": 60.30254611980522,
+          "delta_pp": -1.789788765731859
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 0.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__tableinmiddle2cols",
+      "pdf": "docs/text/text_multicolumns__tableinmiddle2cols.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 57.718361065821355,
+          "after_percent": 82.52859940010919,
+          "delta_pp": 24.810238334287828
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 11.25,
+          "delta_pp": 11.25
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__visa",
+      "pdf": "docs/text/text_multicolumns__visa.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 87.30837865696235,
+          "after_percent": 91.45566592289582,
+          "delta_pp": 4.147287265933475
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 83.33333333333334,
+          "delta_pp": 83.33333333333334
+        }
+      },
+      "P2_selected_pages": [
+        1
+      ],
+      "IMF2_selected_pages": [],
+      "P2_Rapid_calls": 1,
+      "IMF2_Rapid_calls": 0,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__waterfal",
+      "pdf": "docs/text/text_multicolumns__waterfal.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 94.3910711451848,
+          "after_percent": 79.69297106316148,
+          "delta_pp": -14.698100082023323
+        },
+        "text_formatting": {
+          "before_percent": 68.33333333333333,
+          "after_percent": 68.33333333333333,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multicolumns__weeds",
+      "pdf": "docs/text/text_multicolumns__weeds.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 99.23526077581002,
+          "after_percent": 99.06447276126782,
+          "delta_pp": -0.17078801454220027
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 100.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__cnnm",
+      "pdf": "docs/text/text_multilang__cnnm.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 57.14285714285714,
+          "after_percent": 65.98639455782312,
+          "delta_pp": 8.843537414965985
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 41.666666666666664,
+          "delta_pp": 41.666666666666664
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__greek",
+      "pdf": "docs/text/text_multilang__greek.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 87.7175466668478,
+          "after_percent": 95.9454859415851,
+          "delta_pp": 8.227939274737306
+        },
+        "text_formatting": {
+          "before_percent": 25.0,
+          "after_percent": 83.33333333333333,
+          "delta_pp": 58.33333333333333
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__japanese5",
+      "pdf": "docs/text/text_multilang__japanese5.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 25.20188786330658,
+          "after_percent": 25.195877860478017,
+          "delta_pp": -0.006010002828565897
+        },
+        "text_formatting": {
+          "before_percent": 44.95967741935484,
+          "after_percent": 47.84135150166852,
+          "delta_pp": 2.881674082313679
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__kannada",
+      "pdf": "docs/text/text_multilang__kannada.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 30.37000015402948,
+          "after_percent": 30.69631402890156,
+          "delta_pp": 0.32631387487208063
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 0.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__romanian",
+      "pdf": "docs/text/text_multilang__romanian.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 84.55011505427939,
+          "after_percent": 85.41796688086637,
+          "delta_pp": 0.867851826586985
+        },
+        "text_formatting": {
+          "before_percent": 91.86813186813187,
+          "after_percent": 87.08791208791209,
+          "delta_pp": -4.780219780219785
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__spanish",
+      "pdf": "docs/text/text_multilang__spanish.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 82.0444081297671,
+          "after_percent": 81.9344726800038,
+          "delta_pp": -0.10993544976332092
+        },
+        "text_formatting": {
+          "before_percent": 83.47826086956522,
+          "after_percent": 83.47826086956522,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__spanish2",
+      "pdf": "docs/text/text_multilang__spanish2.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 93.68765114079089,
+          "after_percent": 93.68765114079089,
+          "delta_pp": 0.0
+        },
+        "text_formatting": {
+          "before_percent": 25.0,
+          "after_percent": 37.5,
+          "delta_pp": 12.5
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__turkish",
+      "pdf": "docs/text/text_multilang__turkish.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 89.3777708697247,
+          "after_percent": 90.44824034251593,
+          "delta_pp": 1.0704694727912245
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 41.66666666666667,
+          "delta_pp": 41.66666666666667
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_multilang__ukrainian",
+      "pdf": "docs/text/text_multilang__ukrainian.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 93.13781119177735,
+          "after_percent": 92.77566181652378,
+          "delta_pp": -0.36214937525356206
+        },
+        "text_formatting": {
+          "before_percent": 88.02083333333333,
+          "after_percent": 88.02083333333333,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_ocr__klein",
+      "pdf": "docs/text/text_ocr__klein.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 45.07486665381402,
+          "after_percent": 60.30019053737918,
+          "delta_pp": 15.225323883565162
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 0.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_ocr__mag",
+      "pdf": "docs/text/text_ocr__mag.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 0.0,
+          "after_percent": 73.38052932818438,
+          "delta_pp": 73.38052932818438
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 26.315789473684216,
+          "delta_pp": 26.315789473684216
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_ocr__scaninfile",
+      "pdf": "docs/text/text_ocr__scaninfile.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 0.0,
+          "after_percent": 76.17625130498885,
+          "delta_pp": 76.17625130498885
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 40.27777777777778,
+          "delta_pp": 40.27777777777778
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__4g",
+      "pdf": "docs/text/text_simple__4g.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 96.50698625688246,
+          "after_percent": 97.38746129649117,
+          "delta_pp": 0.8804750396087191
+        },
+        "text_formatting": {
+          "before_percent": 82.37179487179486,
+          "after_percent": 82.37179487179486,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__adminplan",
+      "pdf": "docs/text/text_simple__adminplan.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 87.0748299319728,
+          "after_percent": 98.63945578231292,
+          "delta_pp": 11.564625850340127
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 66.66666666666667,
+          "delta_pp": 66.66666666666667
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__att10k",
+      "pdf": "docs/text/text_simple__att10k.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 62.49973257813557,
+          "after_percent": 20.478792609940154,
+          "delta_pp": -42.020939968195414
+        }
+      },
+      "P2_selected_pages": [
+        1
+      ],
+      "IMF2_selected_pages": [],
+      "P2_Rapid_calls": 1,
+      "IMF2_Rapid_calls": 0,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__bottens",
+      "pdf": "docs/text/text_simple__bottens.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 99.02572523262178,
+          "after_percent": 98.65749534479646,
+          "delta_pp": -0.36822988782533317
+        },
+        "text_formatting": {
+          "before_percent": 93.30357142857143,
+          "after_percent": 93.30357142857143,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__delinea",
+      "pdf": "docs/text/text_simple__delinea.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 93.84429802668798,
+          "after_percent": 93.55888283145035,
+          "delta_pp": -0.28541519523763714
+        },
+        "text_formatting": {
+          "before_percent": 50.0,
+          "after_percent": 50.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__finra",
+      "pdf": "docs/text/text_simple__finra.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 41.91317941317941,
+          "after_percent": 72.29822482449629,
+          "delta_pp": 30.385045411316884
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 22.727272727272723,
+          "delta_pp": 22.727272727272723
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__green",
+      "pdf": "docs/text/text_simple__green.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 66.53531347320626,
+          "after_percent": 66.23190594058514,
+          "delta_pp": -0.30340753262112496
+        },
+        "text_formatting": {
+          "before_percent": 50.0,
+          "after_percent": 62.5,
+          "delta_pp": 12.5
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__hex",
+      "pdf": "docs/text/text_simple__hex.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 88.26467216907815,
+          "after_percent": 88.0632797453607,
+          "delta_pp": -0.20139242371745025
+        },
+        "text_formatting": {
+          "before_percent": 83.33333333333334,
+          "after_percent": 83.33333333333334,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__iehp",
+      "pdf": "docs/text/text_simple__iehp.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 94.04940089150617,
+          "after_percent": 93.5496618922955,
+          "delta_pp": -0.4997389992106527
+        },
+        "text_formatting": {
+          "before_percent": 75.0,
+          "after_percent": 75.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__italicsummary",
+      "pdf": "docs/text/text_simple__italicsummary.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 97.61904761904762,
+          "after_percent": 99.28722342179194,
+          "delta_pp": 1.6681758027443094
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 100.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__landfill",
+      "pdf": "docs/text/text_simple__landfill.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 38.095238095238095,
+          "after_percent": 80.90008780201168,
+          "delta_pp": 42.804849706773595
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 32.80204643841007,
+          "delta_pp": 32.80204643841007
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__marknotTable",
+      "pdf": "docs/text/text_simple__marknotTable.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 97.70126659402206,
+          "after_percent": 97.25682214957759,
+          "delta_pp": -0.4444444444444584
+        },
+        "text_formatting": {
+          "before_percent": 84.48275862068965,
+          "after_percent": 84.48275862068965,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__redirect",
+      "pdf": "docs/text/text_simple__redirect.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 96.03174603174604,
+          "after_percent": 94.70359572400389,
+          "delta_pp": -1.3281503077421486
+        },
+        "text_formatting": {
+          "before_percent": 95.45454545454545,
+          "after_percent": 95.45454545454545,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__references",
+      "pdf": "docs/text/text_simple__references.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 96.43338143338144,
+          "after_percent": 96.09601828066955,
+          "delta_pp": -0.3373631527118892
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 100.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__state",
+      "pdf": "docs/text/text_simple__state.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 87.74837363072656,
+          "after_percent": 92.2077922077922,
+          "delta_pp": 4.459418577065632
+        },
+        "text_formatting": {
+          "before_percent": 100.0,
+          "after_percent": 100.0,
+          "delta_pp": 0.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__tagblatt",
+      "pdf": "docs/text/text_simple__tagblatt.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 97.48890483892846,
+          "after_percent": 97.54270818786948,
+          "delta_pp": 0.05380334894101724
+        },
+        "text_formatting": {
+          "before_percent": 79.16666666666666,
+          "after_percent": 100.0,
+          "delta_pp": 20.833333333333336
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    },
+    {
+      "example_id": "text/text_sparse__conductivity",
+      "pdf": "docs/text/text_sparse__conductivity.pdf",
+      "pages": 1,
+      "metrics": {
+        "text_content": {
+          "before_percent": 60.95238095238095,
+          "after_percent": 77.34487734487735,
+          "delta_pp": 16.392496392496405
+        },
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 100.0,
+          "delta_pp": 100.0
+        }
+      },
+      "P2_selected_pages": [],
+      "IMF2_selected_pages": [
+        1
+      ],
+      "P2_Rapid_calls": 0,
+      "IMF2_Rapid_calls": 1,
+      "Markdown_changed": true
+    }
+  ],
+  "quality_validation": {
+    "P2+ODM": {
+      "passed": true,
+      "documents": 507,
+      "pages": 509,
+      "failures": [],
+      "changed": [
+        "text/text_handwritting__math",
+        "text/text_ocr__glitch",
+        "text/text_ocr__routier",
+        "text/text_ocr__ref"
+      ],
+      "Rapid_calls": 188,
+      "REC_strings": 7023,
+      "new_DET_REC_inferences": 0,
+      "source": "/home/meta/projects/pb_ocr/runs/OCR_WRITEBACK_MAIN_VALIDATION_20261031/runtime-candidate/pymupdf4llm/__init__.py",
+      "native": "/home/meta/projects/pb_ocr/runs/OCR_WRITEBACK_MAIN_VALIDATION_20261031/runtime-candidate/pymupdf/__init__.py",
+      "new_official_scores": 8,
+      "PDF_pages": 509,
+      "CF": 506,
+      "SF_supported": 476,
+      "SF_defined": 456,
+      "verified_reused_scores": 974
+    },
+    "IMF2 ROI": {
+      "passed": true,
+      "documents": 507,
+      "pages": 509,
+      "failures": [],
+      "changed": [
+        "text/text_handwritting__math",
+        "text/text_simple__iehp",
+        "text/text_ocr__glitch",
+        "text/text_ocr__routier",
+        "text/text_ocr__ref"
+      ],
+      "Rapid_calls": 265,
+      "REC_strings": 7546,
+      "new_DET_REC_inferences": 0,
+      "source": "/home/meta/projects/pb_ocr/runs/OCR_WRITEBACK_MODEL_VALIDATION_20261031/runtime-candidate/pymupdf4llm/__init__.py",
+      "native": "/home/meta/projects/pb_ocr/runs/OCR_WRITEBACK_MODEL_VALIDATION_20261031/runtime-candidate/pymupdf/__init__.py",
+      "new_official_scores": 10,
+      "PDF_pages": 509,
+      "CF": 506,
+      "SF_supported": 476,
+      "SF_defined": 456,
+      "verified_reused_scores": 972
+    }
+  }
+}

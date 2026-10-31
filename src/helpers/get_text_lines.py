@@ -90,7 +90,11 @@ def get_raw_lines(
             # no more than 10% of the font size separates them and important
             # attributes are the same.
             delta = s1["size"] * 0.1
-            if s0["bbox"].x1 + delta < s1["bbox"].x0 or (
+            source0, source1 = s0.get('_ocr_mixed_run'), s1.get('_ocr_mixed_run')
+            same_rec = bool(source0 and source1 and source0[0] == source1[0]
+                            and source0[2] == source1[1]
+                            and source0[3] == s0['text'] and source1[3] == s1['text'])
+            if not same_rec and (s0["bbox"].x1 + delta < s1["bbox"].x0 or (
                 s0["flags"],
                 s0["char_flags"] & ~2,
                 # s0["size"],
@@ -98,12 +102,16 @@ def get_raw_lines(
                 s1["flags"],
                 s1["char_flags"] & ~2,
                 # s1["size"],
-            ):
+            )):
                 continue  # no joining
             # We need to join bbox and text of two consecutive spans
             # Sometimes, spans may also be duplicated.
             if s0["text"] != s1["text"] or s0["bbox"] != s1["bbox"]:
                 s0["text"] += s1["text"]
+            if same_rec:
+                s0['_ocr_mixed_run'] = (source0[0], source0[1], source1[2], s0['text'])
+            else:
+                s0.pop('_ocr_mixed_run', None)
             s0["bbox"] |= s1["bbox"]  # join boundary boxes
             del line[i]  # delete the joined-in span
             line[i - 1] = s0  # update the span

@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "comparison": "Frozen main P2+ODM versus same main plus OCR writing fonts and same-REC spacing",
+  "fixed_main": {
+    "PyMuPDF": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "363f177ef50deb05f07db8bf2061e7b9c8102b07"
+  },
+  "full_corpus_documents": 507,
+  "PDF_pages": 509,
+  "CF_documents": 506,
+  "SF_supported": 476,
+  "SF_defined": 456,
+  "new_pipeline_extractions": 507,
+  "new_DET_REC_inferences": 0,
+  "Rapid_calls_replayed": 188,
+  "REC_strings_replayed": 7023,
+  "new_official_scores": 8,
+  "verified_reused_scores": 974,
+  "scores": {
+    "text_content": {
+      "baseline_percent": 79.67090876509569,
+      "score_percent": 79.68324328442691,
+      "delta_pp": 0.012334519331225202,
+      "improved": 3,
+      "regressed": 0
+    },
+    "text_formatting": {
+      "baseline_percent": 56.65734953374232,
+      "score_percent": 56.7414138612277,
+      "delta_pp": 0.08406432748537807,
+      "improved": 1,
+      "regressed": 0
+    }
+  },
+  "cases": [
+    {
+      "example_id": "text/text_ocr__glitch",
+      "pdf": "docs/text/text_ocr__glitch.pdf",
+      "PDF_page": 1,
+      "scores": {
+        "text_formatting": {
+          "before_percent": 13.068181818181818,
+          "after_percent": 13.068181818181818,
+          "delta_pp": 0.0,
+          "official_score_SHA256": "ac1576b40e4fc83c9cc338a1be81e52bdb7423b70abc8fd185dd9612b70f870f",
+          "payload_SHA256": "e938e20a40317c02319bb6468eeb2bbd71b59fb629f0f3ea01478cf7f214adb0",
+          "case_SHA256": "b002efb74506539b28c7b9c859be0698e72efd44432851bc8322f71d3c0cb596"
+        },
+        "text_content": {
+          "before_percent": 75.91439073769345,
+          "after_percent": 78.37687949444647,
+          "delta_pp": 2.462488756753023,
+          "official_score_SHA256": "f864415a56b4ea12374bf5a00149c43f0941da1e24ca47726661da13ebb33eab",
+          "payload_SHA256": "e938e20a40317c02319bb6468eeb2bbd71b59fb629f0f3ea01478cf7f214adb0",
+          "case_SHA256": "42e6ce807035e01286c4fb247b4e5f352b5561215db090236098fcb3c6352a95"
+        }
+      },
+      "selected": true,
+      "Rapid_calls": 1,
+      "markdown_changed": true
+    },
+    {
+      "example_id": "text/text_ocr__routier",
+      "pdf": "docs/text/text_ocr__routier.pdf",
+      "PDF_page": 1,
+      "scores": {
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 38.33333333333333,
+          "delta_pp": 38.33333333333333,
+          "official_score_SHA256": "9fe8c90aa272ede5eb10c5405b9009e4960c959feb5477640ba811a6e74bc8fa",
+          "payload_SHA256": "a47f5ca596759086235b95f8e4af0fc4a15dfd67f120a9e44cb734ed0e503a8a",
+          "case_SHA256": "c623c3baf661cacb2a525dd7616c469737b98374f34f12c3056da6823eaea012"
+        },
+        "text_content": {
+          "before_percent": 80.8308022903891,
+          "after_percent": 84.60283189511921,
+          "delta_pp": 3.7720296047301094,
+          "official_score_SHA256": "65a024d31b603dff7d14f33f3df67cdc9911211d2d911e7d9d0c3ad015c74f68",
+          "payload_SHA256": "a47f5ca596759086235b95f8e4af0fc4a15dfd67f120a9e44cb734ed0e503a8a",
+          "case_SHA256": "91363354b69cc733216d3930b3d5ecb9251aba931f1b0a3ab97d6cf6bb8eb7e4"
+        }
+      },
+      "selected": true,
+      "Rapid_calls": 1,
+      "markdown_changed": true
+    },
+    {
+      "example_id": "text/text_ocr__ref",
+      "pdf": "docs/text/text_ocr__ref.pdf",
+      "PDF_page": 1,
+      "scores": {
+        "text_formatting": {
+          "before_percent": 50.0,
+          "after_percent": 50.0,
+          "delta_pp": 0.0,
+          "official_score_SHA256": "5dfa4ad2b5297c73263578c80abdc362fe68e9e47f21d4e9e79b0bd7cf986d52",
+          "payload_SHA256": "f1be48b0874b76bb58d65de7cac0fedd0da9575894127c886aabdbaf27f61c91",
+          "case_SHA256": "18c113eb234c35b42ce787a28c74e8f39a6deb8be42ff3b940f112cee04d222f"
+        },
+        "text_content": {
+          "before_percent": 72.19144496061966,
+          "after_percent": 72.19819338073728,
+          "delta_pp": 0.006748420117608234,
+          "official_score_SHA256": "5bf0fb5af453e4d880757d3268faab055e83f7737e1e42d71f017f89fb46ed71",
+          "payload_SHA256": "f1be48b0874b76bb58d65de7cac0fedd0da9575894127c886aabdbaf27f61c91",
+          "case_SHA256": "7e0ffe529e6edd3586d09b790eee7192c67122cbd6916e96779ef15b572ffe8c"
+        }
+      },
+      "selected": true,
+      "Rapid_calls": 1,
+      "markdown_changed": true
+    },
+    {
+      "example_id": "text/text_handwritting__math",
+      "pdf": "docs/text/text_handwritting__math.pdf",
+      "PDF_page": 1,
+      "scores": {
+        "text_formatting": {
+          "before_percent": 0.0,
+          "after_percent": 0.0,
+          "delta_pp": 0.0,
+          "official_score_SHA256": "99d6e7c0a07997da34ecdfa569f616926add77cd20d0253c43f1f012e1247369",
+          "payload_SHA256": "3fe839df46981e92d3fec9e4bd138731741df085a442a790c40dae510d8d5b4f",
+          "case_SHA256": "e4f884a8b95c2f42631cb7461c54407dd0b7697137a065bf332d60f5ed6d000f"
+        },
+        "text_content": {
+          "before_percent": 36.74169191161829,
+          "after_percent": 36.74169191161829,
+          "delta_pp": 0.0,
+          "official_score_SHA256": "974fc6c134369d3ee81b3be48270fae60bc6aac63ee24286d5daddc5d145cfa9",
+          "payload_SHA256": "3fe839df46981e92d3fec9e4bd138731741df085a442a790c40dae510d8d5b4f",
+          "case_SHA256": "8fd6d411be061de625ee055f0eab59fa4c2164193de34c42d60768c0aace3155"
+        }
+      },
+      "selected": true,
+      "Rapid_calls": 1,
+      "markdown_changed": true
+    },
+    {
+      "example_id": "text/text_simple__iehp",
+      "pdf": "docs/text/text_simple__iehp.pdf",
+      "PDF_page": 1,
+      "scores": {
+        "text_content": {
+          "before_percent": 94.04940089150617,
+          "after_percent": 94.04940089150617,
+          "delta_pp": 0.0,
+          "official_score_SHA256": "c94256c35881bdc9645a9ad0366c3d50b09337d6a4d2565b02b59d5d2abb87fc",
+          "payload_SHA256": "96e699d20e9b58baedab1138d0d8b9f4597d76a4f19c1a0241acc38fa9beab9b",
+          "case_SHA256": "b3e977c767814da3e7e73ab933b5f1c6e96cb30156c3614c9c489b8b532e8a1e"
+        },
+        "text_formatting": {
+          "before_percent": 75.0,
+          "after_percent": 75.0,
+          "delta_pp": 0.0,
+          "official_score_SHA256": "3c59ec5f383680cb716b56cfbcdb39b3aedc3fa9e6ab191e12b2c26b64858e0c",
+          "payload_SHA256": "96e699d20e9b58baedab1138d0d8b9f4597d76a4f19c1a0241acc38fa9beab9b",
+          "case_SHA256": "b87d578d3dfcc02db0b98c2aae9c963da6697d896b9cbe3574c1310898b6a41f"
+        }
+      },
+      "selected": false,
+      "Rapid_calls": 0,
+      "markdown_changed": false
+    }
+  ],
+  "source_patch_SHA256": "d77f97b7d1d516d137e3429a4b1f18cde504706ee562d37ecef02634b36902a8",
+  "future_font_expansion_policy": "Add fonts only after an actual correctly-recognized character is confirmed lost or unsupported at PDF writeback; retain a minimal reproduction and write/save/reextract regression test.",
+  "limitations": [
+    "REC-group metadata is session-local and is not restored on PDF reopening.",
+    "Some Devanagari-plus-symbol mixed strings are rejected by the existing prior planner before fallback.",
+    "Visual shaping and other native versions are not established by Unicode roundtrip tests."
+  ]
+}
