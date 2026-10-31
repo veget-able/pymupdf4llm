@@ -1,0 +1,31 @@
+{
+  "scope": "Approved features0,1,2,3,4,6,7; feature5 excluded by user decision.",
+  "tests": [
+    "tests/test_integrated_ocr_pipeline.py",
+    "tests/test_rotated_ocr_output.py",
+    "tests/test_verified_ocr_input.py",
+    "tests/test_imf2_independent.py::test_original_weights",
+    "tests/test_imf2_independent.py::test_bool_selector_does_not_change_state",
+    "tests/test_imf2_independent.py::test_residual_area_and_stored_mask",
+    "tests/test_imf2_independent.py::test_off_none_keeps_main_compatibility",
+    "tests/test_symbol_damage_priority.py::test_page_pattern_and_short_input_contract",
+    "tests/test_symbol_damage_priority.py::test_shared_Rapid_writeback_uses_marker_aware_scope",
+    "tests/test_symbol_damage_priority.py::test_empty_recognition_keeps_original_symbol_text",
+    "tests/test_symbol_damage_priority.py::test_tesseract_adapter_applies_same_scope_without_real_recognition",
+    "tests/test_symbol_damage_priority.py::test_off_page_unicode_marker_still_prevents_page_expansion",
+    "tests/test_symbol_damage_priority.py::test_uncertain_source_alignment_never_guesses_page_targets",
+    "tests/test_symbol_damage_priority.py::test_page_expansion_keeps_text_clipping_glyphs",
+    "tests/test_symbol_damage_priority.py::test_off_none_keeps_main_compatibility",
+    "tests/test_ocr_writeback_fonts.py::test_pdf_unicode_and_live_formatter",
+    "tests/test_ocr_writeback_fonts.py::test_resource_alias_collision",
+    "tests/test_ocr_writeback_fonts.py::test_uncertain_or_unrelated_spans_are_not_joined"
+  ],
+  "paired_core_tests": [
+    "tests/test_ocr_cropbox_rotation.py"
+  ],
+  "standalone_contracts_superseded": {
+    "test_regular_old_layer_does_not_reach_imf2": "Feature4 intentionally bypasses this default-only gate; integrated tests cover default delegation and preservation of explicit KEEP/DROP/FORCE contracts.",
+    "absence_of_unicode_or_symbol_modules": "Symbol recovery is active; unconditional Unicode priority feature5 is absent. Passive Unicode inventory remains for symbol scope.",
+    "P2_only_mock_sites": "The integrated default selector is IMF2; integrated tests mock the actual model delegate and separately verify zero P2/ODM calls in full extraction."
+  }
+}

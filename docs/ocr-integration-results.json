@@ -1,0 +1,247 @@
+{
+  "passed": true,
+  "active_features": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    6,
+    7
+  ],
+  "excluded_features": [
+    5
+  ],
+  "integration_branch": "ocr/integration/all-features-20261031",
+  "rows": [
+    {
+      "no": 8,
+      "arm": "without5-imf2",
+      "omitted_feature": 5,
+      "selector": "IMF2 ROI",
+      "CF_percent": 82.67126531219057,
+      "SF_percent": 58.70900603102051,
+      "CF_change_from_prior_pp": 0.0018361397938946311,
+      "SF_change_from_prior_pp": 0.0,
+      "selected_pages": 307,
+      "Rapid_calls": 307,
+      "extraction_batch_wall_seconds": 152.06681753019802,
+      "official_score_associations": 982,
+      "verified_reused_score_associations": 982,
+      "included_features": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        7
+      ],
+      "page_metrics": {
+        "TP": 99,
+        "FP": 10,
+        "FN": 1,
+        "TN": 90,
+        "precision": 0.908256880733945,
+        "recall": 0.99,
+        "f1": 0.9473684210526315
+      },
+      "CF_change_from_main_pp": 3.0003565470948814,
+      "SF_change_from_main_pp": 2.051656497278202,
+      "extraction": {
+        "passed": true,
+        "arm": "without5-imf2",
+        "documents": 507,
+        "pages": 509,
+        "fresh_public_API_outputs": 507,
+        "new_DET_REC_inferences": 0,
+        "new_run_recognition_reuses": 0,
+        "previous_run_recognition_reuses": 307,
+        "selected_pages": 307,
+        "Rapid_calls": 307,
+        "REC_strings": 9918,
+        "counts": {
+          "P2": 0,
+          "ODM": 0,
+          "IMF2": 495
+        },
+        "observed_batch_wall_seconds": 152.06681753019802,
+        "public_API_document_seconds_sum": 372.1716763591394,
+        "timing_scope": "Four concurrent single-thread workers; includes model startup, RGB locking/new-run inference sharing and all public stages. Evaluation cost, not independent product latency."
+      }
+    },
+    {
+      "no": 8,
+      "arm": "without5-p2",
+      "omitted_feature": 5,
+      "selector": "P2+ODM",
+      "CF_percent": 81.91207852826146,
+      "SF_percent": 57.98684102925093,
+      "CF_change_from_prior_pp": -0.05204955681151091,
+      "SF_change_from_prior_pp": 0.05756578947367785,
+      "selected_pages": 237,
+      "Rapid_calls": 237,
+      "extraction_batch_wall_seconds": 139.22547278297134,
+      "official_score_associations": 982,
+      "verified_reused_score_associations": 982,
+      "included_features": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7
+      ],
+      "page_metrics": {
+        "TP": 82,
+        "FP": 3,
+        "FN": 18,
+        "TN": 97,
+        "precision": 0.9647058823529412,
+        "recall": 0.82,
+        "f1": 0.8864864864864865
+      },
+      "CF_change_from_main_pp": 2.2411697631657717,
+      "SF_change_from_main_pp": 1.329491495508627,
+      "extraction": {
+        "passed": true,
+        "arm": "without5-p2",
+        "documents": 507,
+        "pages": 509,
+        "fresh_public_API_outputs": 507,
+        "new_DET_REC_inferences": 0,
+        "new_run_recognition_reuses": 0,
+        "previous_run_recognition_reuses": 237,
+        "selected_pages": 237,
+        "Rapid_calls": 237,
+        "REC_strings": 9864,
+        "counts": {
+          "P2": 495,
+          "ODM": 342,
+          "IMF2": 0
+        },
+        "observed_batch_wall_seconds": 139.22547278297134,
+        "public_API_document_seconds_sum": 312.583836001344,
+        "timing_scope": "Four concurrent single-thread workers; includes model startup, RGB locking/new-run inference sharing and all public stages. Evaluation cost, not independent product latency."
+      }
+    }
+  ],
+  "baseline": {
+    "CF_percent": 79.67090876509569,
+    "SF_percent": 56.657349533742305,
+    "evidence": "/home/meta/projects/pb_ocr/runs/OCR_REMOTE_BRANCH_RESCORE_20261031/report.json"
+  },
+  "PDFs_per_arm": 507,
+  "pages_per_arm": 509,
+  "CF_documents": 506,
+  "SF_supported": 476,
+  "SF_defined": 456,
+  "tests": 71,
+  "scorer": "8c63e84eff6e51b943496492651ee27e9e71663f",
+  "GT": "gt/ocr_need_balanced_200_20261020_v3.json",
+  "GT_sha256": "007658e6d176168325898e4992cd658604bd95666ffc2da254cc1c9b3df23d88",
+  "source_provenance": [
+    {
+      "feature": 0,
+      "repo": "PyMuPDF",
+      "branch": "ocr/page-selector/imf2-roi-selector-20261027",
+      "head": "5841ec7b94300e6b2442a19e901912b0bc6b9cba"
+    },
+    {
+      "feature": 0,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/page-selector/imf2-roi-selector-20261027",
+      "head": "508fe23fb37a081a868f819a0aa0418065b6d5ae"
+    },
+    {
+      "feature": 1,
+      "repo": "PyMuPDF",
+      "branch": "ocr/output-correction/rotated-text-20261030",
+      "head": "1983f03d1fd422382523b542a2d741bf86ff6d96"
+    },
+    {
+      "feature": 1,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/output-correction/rotated-text-20261030",
+      "head": "9a96c303d6299bf1cb8a69db663e6a6f54ab69b2"
+    },
+    {
+      "feature": 2,
+      "repo": "PyMuPDF",
+      "branch": "ocr/input-correction/cropbox-rotation-20261030",
+      "head": "d5dd452588f7004bae4324d1b9bedfb895ad23bd"
+    },
+    {
+      "feature": 2,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/input-correction/cropbox-rotation-20261030",
+      "head": "8e101462e424b19b9724195bb13428a949eb305c"
+    },
+    {
+      "feature": 3,
+      "repo": "PyMuPDF",
+      "branch": "ocr/input-correction/form-bbox-input-20261030",
+      "head": "0f64bf02a7e3bdeef87413079edda927f5278e7e"
+    },
+    {
+      "feature": 3,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/input-correction/form-bbox-input-20261030",
+      "head": "96c7856975ec84f458e32c8ba6c42d6edc32fe3e"
+    },
+    {
+      "feature": 4,
+      "repo": "PyMuPDF",
+      "branch": "ocr/selection-policy/existing-ocr-gate-bypass-20261030",
+      "head": "445ce9d25ae4a388c5dee50b58229b38080b5e57"
+    },
+    {
+      "feature": 4,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/selection-policy/existing-ocr-gate-bypass-20261030",
+      "head": "6094a091c009cc87aa2c2e53f18e132c548dea89"
+    },
+    {
+      "feature": 6,
+      "repo": "PyMuPDF",
+      "branch": "ocr/stored-text-recovery/symbol-damage-recovery-20261030",
+      "head": "df8367743cc6d578fed0bd51c3f8cf2ad4c14fde"
+    },
+    {
+      "feature": 6,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/stored-text-recovery/symbol-damage-recovery-20261030",
+      "head": "db33fccf0c1fc32b6d2735dff52cde2de9cbd299"
+    },
+    {
+      "feature": 7,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/writeback-correction/writeback-fonts-20261031",
+      "head": "e91486977eca9c35436f4c44575ae0186fc3c4af"
+    },
+    {
+      "feature": 7,
+      "repo": "PyMuPDF",
+      "branch": "ocr/writeback-correction/writeback-fonts-20261031",
+      "head": "fd5f686c8032b8c6d9f598134f169238d439d8d8"
+    }
+  ],
+  "strict_remaining_branch_composition": true,
+  "IMF2_parity_with_scored_without5": {
+    "documents": 507,
+    "pages": 509,
+    "Markdown_decisions_and_Rapid_RGB_identical": true
+  },
+  "historical_full0_7": "/home/meta/projects/pb_ocr/runs/OCR_ALL_FEATURES_INTEGRATION_20261031/report.json",
+  "historical_conditional_contributions": "/home/meta/projects/pb_ocr/runs/OCR_INTEGRATED_FEATURE_CONTRIBUTIONS_20261031/report.json",
+  "new_public_API_outputs": 1014,
+  "new_DET_REC_inferences": 0,
+  "verified_recognition_reuse": 544,
+  "new_official_workers": 0,
+  "verified_unique_score_reuse": 1107,
+  "extraction_wall_seconds_sum": 291.29229031316936,
+  "scoring_wall_seconds": 5.366899056825787,
+  "timing_scope": "Observed validation cost with4workers, tracing, startup and verified recognition/score reuse; not standalone product latency or speed ranking.",
+  "product_deployed": false,
+  "wheels": false
+}

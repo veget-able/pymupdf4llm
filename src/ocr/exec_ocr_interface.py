@@ -4,6 +4,8 @@ import numpy as np
 import pymupdf
 
 from .get_culled_pixmap import get_pixmap
+from ._writeback_font import _prepare_writeback, _insert_writeback, resolve_fontnames
+from .symbol_repair import target_span_ids, span_identity, render_input, prepare_symbol_replacement
 
 try:
     TESSDATA = pymupdf.get_tessdata()
@@ -94,6 +96,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
     We ensure that legible extractable text is excluded from OCR. We render
     the page without "good" text and perform OCR on the rest.
     """
+    symbol_ids = target_span_ids(page)
     displaylist = page.get_displaylist()
     stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
     textpage = pymupdf.TextPage(stextpage)
@@ -110,7 +113,7 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
                     ocr_spans.append(s["bbox"])
                 elif REPLACEMENT_UNICODE in s["text"]:
                     fffd_spans.append(s["bbox"])
-                else:
+                elif span_identity(s) not in symbol_ids:
                     # for removal of good text regions
                     spans.append(s["bbox"])
     if ocr_spans and keep_ocr_text:
@@ -119,7 +122,8 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
         return
 
     # make a Pixmap without "good" text
-    pix, empty = get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250)
+    pix, empty = (render_input(page,spans,dpi) if symbol_ids else
+                  get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250))
     if empty:
         return  # nothing to OCR, the page is empty after removing good text
 
@@ -145,6 +149,9 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
 
     # Remove all OCR spans and spans containing a U+FFFD.
     # The OCR engine will restore them according to its best ability.
+    symbol_replacement = prepare_symbol_replacement(page)
+    if symbol_replacement is not None and any(str(item[1]).strip()for item in result):
+        symbol_replacement.apply(page)
     redaction_rects = fffd_spans + ocr_spans
     if redaction_rects:
         for sbbox in redaction_rects:
@@ -172,29 +179,12 @@ def exec_ocr_detection(page, det_only, dpi=150, language="eng", keep_ocr_text=Fa
     if not tess_results:
         return
 
-    # insert the OCR font into the page
-    page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
-
-    for irect, text in tess_results:
-        # this is the line box
-        rect = pymupdf.Rect(irect) * matrix
-
-        # this matrix will ensure text width = rect width
-        mat = adjust_width(text, rect.height, rect)
-
-        # Insert one line of text. Insertion point is the bottom-left box
-        # corner adjusted slightly upwards to account for the descender. Note
-        # that the original is unknown, so descender -0.2 is best guess only.
-        # Also true for the font size: guessed to be rectangle height.
-        # NOTE: Guesses could be improved by checking actual text content for
-        # the presence of descenders and uppercase letters.
-        page.insert_text(
-            rect.bl + (0, -0.2 * rect.height),  # insertion point
-            text,  # text to render
-            fontsize=rect.height,  # take this as font size
-            fontname=FONTNAME,  # fallback font
-            morph=(rect.bl, mat),  # adjust width to fit the line box
-        )
+    plans = [(pymupdf.Rect(irect) * matrix, text) for irect, text in tess_results if text.strip()]
+    prepared = [(rect, text, _prepare_writeback(text, rect)) for rect, text in plans]
+    aliases = resolve_fontnames(page, [plan for _, _, plan in prepared])
+    inserted = set()
+    for rect, text, plan in prepared:
+        _insert_writeback(page, rect, text, plan, inserted, aliases)
 
 
 def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
@@ -207,6 +197,7 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
     We ensure that legible extractable text is excluded from OCR. We render
     the page without "good" text and perform OCR on the rest.
     """
+    symbol_ids = target_span_ids(page)
     displaylist = page.get_displaylist()
     stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
     textpage = pymupdf.TextPage(stextpage)
@@ -223,7 +214,7 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
                     ocr_spans.append(s["bbox"])
                 elif REPLACEMENT_UNICODE in s["text"]:
                     fffd_spans.append(s["bbox"])
-                else:
+                elif span_identity(s) not in symbol_ids:
                     # for removal good text regions
                     spans.append(s["bbox"])
 
@@ -233,7 +224,8 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
         return
 
     # make a Pixmap without "good" text
-    pix, empty = get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250)
+    pix, empty = (render_input(page,spans,dpi) if symbol_ids else
+                  get_pixmap(displaylist, dpi=dpi, rects=spans, empty_threshold=250))
     if empty:
         return  # nothing to OCR, the page is empty after removing good text
 
@@ -259,6 +251,9 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
         )
     # Remove all OCR and illegible spans from the page.
     # The OCR engine will restore them according to its best ability.
+    symbol_replacement = prepare_symbol_replacement(page)
+    if symbol_replacement is not None and any(str(item[1]).strip()for item in result):
+        symbol_replacement.apply(page)
     redaction_rects = fffd_spans + ocr_spans
     if redaction_rects:
         for sbbox in redaction_rects:
@@ -269,32 +264,14 @@ def exec_ocr_full(page, full_ocr, dpi=150, language=None, keep_ocr_text=False):
             text=pymupdf.PDF_REDACT_TEXT_REMOVE,
         )
 
-    # insert the font into the page if not already present
-    page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
-
-    # Insert recognized text
+    prepared = []
     for box, text, conf in result:
-        rect = (
-            pymupdf.Rect(
-                min(p[0] for p in box),
-                min(p[1] for p in box),
-                max(p[0] for p in box),
-                max(p[1] for p in box),
-            )
-            * matrix
-        )
-
         if not text.strip():
             continue
-
-        fontsize = rect.height
-        # Text width scaling matrix ensures text width = box width
-        mat = adjust_width(text, fontsize, rect)
-
-        page.insert_text(
-            rect.bl + (0, -0.2 * fontsize),
-            text,
-            fontsize=fontsize,
-            fontname=FONTNAME,
-            morph=(rect.bl, mat),
-        )
+        rect = pymupdf.Rect(min(p[0] for p in box), min(p[1] for p in box),
+                            max(p[0] for p in box), max(p[1] for p in box)) * matrix
+        prepared.append((rect, text, _prepare_writeback(text, rect)))
+    aliases = resolve_fontnames(page, [plan for _, _, plan in prepared])
+    inserted = set()
+    for rect, text, plan in prepared:
+        _insert_writeback(page, rect, text, plan, inserted, aliases)

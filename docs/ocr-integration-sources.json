@@ -1,0 +1,276 @@
+{
+  "passed": true,
+  "active_features": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    6,
+    7
+  ],
+  "excluded_features": [
+    5
+  ],
+  "fixed_main": {
+    "PyMuPDF": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+    "pymupdf4llm": "363f177ef50deb05f07db8bf2061e7b9c8102b07"
+  },
+  "source_provenance": [
+    {
+      "feature": 0,
+      "repo": "PyMuPDF",
+      "branch": "ocr/page-selector/imf2-roi-selector-20261027",
+      "head": "5841ec7b94300e6b2442a19e901912b0bc6b9cba"
+    },
+    {
+      "feature": 0,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/page-selector/imf2-roi-selector-20261027",
+      "head": "508fe23fb37a081a868f819a0aa0418065b6d5ae"
+    },
+    {
+      "feature": 1,
+      "repo": "PyMuPDF",
+      "branch": "ocr/output-correction/rotated-text-20261030",
+      "head": "1983f03d1fd422382523b542a2d741bf86ff6d96"
+    },
+    {
+      "feature": 1,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/output-correction/rotated-text-20261030",
+      "head": "9a96c303d6299bf1cb8a69db663e6a6f54ab69b2"
+    },
+    {
+      "feature": 2,
+      "repo": "PyMuPDF",
+      "branch": "ocr/input-correction/cropbox-rotation-20261030",
+      "head": "d5dd452588f7004bae4324d1b9bedfb895ad23bd"
+    },
+    {
+      "feature": 2,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/input-correction/cropbox-rotation-20261030",
+      "head": "8e101462e424b19b9724195bb13428a949eb305c"
+    },
+    {
+      "feature": 3,
+      "repo": "PyMuPDF",
+      "branch": "ocr/input-correction/form-bbox-input-20261030",
+      "head": "0f64bf02a7e3bdeef87413079edda927f5278e7e"
+    },
+    {
+      "feature": 3,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/input-correction/form-bbox-input-20261030",
+      "head": "96c7856975ec84f458e32c8ba6c42d6edc32fe3e"
+    },
+    {
+      "feature": 4,
+      "repo": "PyMuPDF",
+      "branch": "ocr/selection-policy/existing-ocr-gate-bypass-20261030",
+      "head": "445ce9d25ae4a388c5dee50b58229b38080b5e57"
+    },
+    {
+      "feature": 4,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/selection-policy/existing-ocr-gate-bypass-20261030",
+      "head": "6094a091c009cc87aa2c2e53f18e132c548dea89"
+    },
+    {
+      "feature": 6,
+      "repo": "PyMuPDF",
+      "branch": "ocr/stored-text-recovery/symbol-damage-recovery-20261030",
+      "head": "df8367743cc6d578fed0bd51c3f8cf2ad4c14fde"
+    },
+    {
+      "feature": 6,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/stored-text-recovery/symbol-damage-recovery-20261030",
+      "head": "db33fccf0c1fc32b6d2735dff52cde2de9cbd299"
+    },
+    {
+      "feature": 7,
+      "repo": "pymupdf4llm",
+      "branch": "ocr/writeback-correction/writeback-fonts-20261031",
+      "head": "e91486977eca9c35436f4c44575ae0186fc3c4af"
+    },
+    {
+      "feature": 7,
+      "repo": "PyMuPDF",
+      "branch": "ocr/writeback-correction/writeback-fonts-20261031",
+      "head": "fd5f686c8032b8c6d9f598134f169238d439d8d8"
+    }
+  ],
+  "excluded_branch": {
+    "no": 5,
+    "id": "unicode-damage-recovery",
+    "branch": "ocr/stored-text-recovery/unicode-damage-recovery-20261030",
+    "parent": "fixed_main",
+    "includes": [
+      5
+    ],
+    "required_prior_features": [],
+    "repositories": {
+      "PyMuPDF": {
+        "head": "734922cc3864285d5dbe16dcb1cbf42817460271",
+        "parent": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+        "commits_from_main": 1,
+        "worktree": "/home/meta/projects/pb_ocr/worktrees/ocr-independent-20261030/unicode-priority/PyMuPDF",
+        "branch": "ocr/stored-text-recovery/unicode-damage-recovery-20261030",
+        "evaluated_implementation_head": "1d34e04da00b7673a0b2c3f68b5a5246793a50b8",
+        "implementation_changed": false,
+        "documentation_only": true,
+        "changed_paths": [
+          "README.md",
+          "docs/ocr-independent-cases.json",
+          "docs/ocr-independent-feature-20261030.txt",
+          "docs/ocr-independent-results.json"
+        ],
+        "previous_documentation_head": "cc127715e10fc98d9ae12eb503e68d38efa35db2",
+        "documentation_update_evidence": "runs/OCR_BRANCH_PATH_CLASSIFICATION_20261031"
+      },
+      "pymupdf4llm": {
+        "head": "ed8cf303ed06c0e4733b1a89d242ce3ccc11145f",
+        "parent": "363f177ef50deb05f07db8bf2061e7b9c8102b07",
+        "commits_from_main": 1,
+        "worktree": "/home/meta/projects/pb_ocr/worktrees/ocr-independent-20261030/unicode-priority/pymupdf4llm",
+        "branch": "ocr/stored-text-recovery/unicode-damage-recovery-20261030",
+        "changed_paths": [
+          "README.md",
+          "docs/ocr-independent-cases.json",
+          "docs/ocr-independent-feature-20261030.txt",
+          "docs/ocr-independent-results.json",
+          "src/helpers/document_layout.py",
+          "src/ocr/analyze_page.py",
+          "src/ocr/exec_ocr_interface.py",
+          "src/ocr/legacy_policy.py",
+          "src/ocr/page_state.py",
+          "src/ocr/rendering.py",
+          "src/ocr/selection_hooks.py",
+          "src/ocr/unicode_damage.py",
+          "src/ocr/unicode_priority.py",
+          "tests/test_unicode_damage_priority.py",
+          "tests/unicode_fixtures.py"
+        ],
+        "evaluated_implementation_head": "6bcfaae2bd6823ea6670a476bb3695fae99ba618",
+        "implementation_changed": true,
+        "documentation_only": false,
+        "previous_documentation_head": "0db860126917ca28f9d45f204aedfa98c17201db",
+        "documentation_update_evidence": "runs/OCR_BRANCH_PATH_CLASSIFICATION_20261031"
+      }
+    },
+    "score_conditions": [
+      {
+        "no": 5,
+        "feature": "unicode-damage-recovery",
+        "arm": "unicode-priority",
+        "selector": "P2+ODM",
+        "included_features": [
+          5
+        ],
+        "CF_percent": 79.93895910400803,
+        "SF_percent": 56.61958150255323,
+        "feature_effect_reference": "main",
+        "feature_CF_pp": 0.26805033891234586,
+        "feature_SF_pp": -0.037768031189074236,
+        "model_effect_reference": "unicode-damage-recovery",
+        "model_CF_pp": null,
+        "model_SF_pp": null,
+        "page_metrics": {
+          "TP": 82,
+          "FP": 3,
+          "FN": 18,
+          "TN": 97,
+          "precision": 0.9647058823529412,
+          "recall": 0.82,
+          "f1": 0.8864864864864865
+        },
+        "selected_pages": 198,
+        "actual_Rapid_pages": 198,
+        "measured_validation_seconds": 92.73425569501705,
+        "time_scope": "Four concurrent single-thread workers; includes model startup, RGB locking/new-run inference sharing and all public stages. Evaluation cost, not independent product latency. Includes Python trace observation overhead.",
+        "evaluation_feature_id": "unicode-priority",
+        "fresh_execution_arm": "unicode-damage-recovery",
+        "validation_evidence": "runs/OCR_REMOTE_BRANCH_RESCORE_20261031",
+        "fresh_DET_REC_inferences": 2,
+        "current_run_recognition_reuses": 196,
+        "new_official_scoring": true,
+        "previous_CF_percent": 79.93895910400803,
+        "previous_SF_percent": 56.61958150255323,
+        "CF_delta_from_previous_pp": 0.0,
+        "SF_delta_from_previous_pp": 0.0
+      },
+      {
+        "no": 5,
+        "feature": "unicode-damage-recovery",
+        "arm": "unicode-priority__imf2",
+        "selector": "IMF2 ROI",
+        "included_features": [
+          5,
+          0
+        ],
+        "CF_percent": 80.52959140259495,
+        "SF_percent": 57.55160094414135,
+        "feature_effect_reference": "0",
+        "feature_CF_pp": 0.29720997821249284,
+        "feature_SF_pp": 0.019797758284589406,
+        "model_effect_reference": "unicode-damage-recovery",
+        "model_CF_pp": 0.590632298586911,
+        "model_SF_pp": 0.9320194415881176,
+        "page_metrics": {
+          "TP": 99,
+          "FP": 10,
+          "FN": 1,
+          "TN": 90,
+          "precision": 0.908256880733945,
+          "recall": 0.99,
+          "f1": 0.9473684210526315
+        },
+        "selected_pages": 270,
+        "actual_Rapid_pages": 270,
+        "measured_validation_seconds": 110.92444549989887,
+        "time_scope": "Four concurrent single-thread workers; includes model startup, RGB locking/new-run inference sharing and all public stages. Evaluation cost, not independent product latency. Includes Python trace observation overhead.",
+        "evaluation_feature_id": "unicode-priority",
+        "fresh_execution_arm": "unicode-damage-recovery__imf2",
+        "validation_evidence": "runs/OCR_REMOTE_BRANCH_RESCORE_20261031",
+        "fresh_DET_REC_inferences": 0,
+        "current_run_recognition_reuses": 270,
+        "new_official_scoring": true,
+        "previous_CF_percent": 80.52959140259495,
+        "previous_SF_percent": 57.55160094414135,
+        "CF_delta_from_previous_pp": 0.0,
+        "SF_delta_from_previous_pp": 0.0
+      }
+    ],
+    "evaluation_id": "unicode-priority",
+    "branch_path_category": "stored-text-recovery"
+  },
+  "conflicts": [
+    {
+      "feature": 4,
+      "repo": "pymupdf4llm",
+      "path": "src/helpers/document_layout.py",
+      "evidence": "4-pymupdf4llm-src__helpers__document_layout.py.conflict"
+    },
+    {
+      "feature": 4,
+      "repo": "pymupdf4llm",
+      "path": "src/ocr/analyze_page.py",
+      "evidence": "4-pymupdf4llm-src__ocr__analyze_page.py.conflict"
+    },
+    {
+      "feature": 7,
+      "repo": "pymupdf4llm",
+      "path": "src/ocr/exec_ocr_interface.py",
+      "evidence": "7-pymupdf4llm-src__ocr__exec_ocr_interface.py.conflict"
+    }
+  ],
+  "source_ready": "/home/meta/projects/pb_ocr/runs/OCR_INTEGRATION_EXCLUDE_UNICODE_20261031/source-ready",
+  "differences_from_scored_without5": [
+    {
+      "repo": "pymupdf4llm",
+      "path": "src/ocr/exec_ocr_interface.py"
+    }
+  ]
+}
