@@ -1,0 +1,36 @@
+{
+  "schema": "ocr.independent_correction_review.v1",
+  "branch": "ocr/input-correction/empty-text-exclusions-20261104",
+  "repository": "veget-able/pymupdf4llm",
+  "parent": "363f177ef50deb05f07db8bf2061e7b9c8102b07",
+  "review_commits": 1,
+  "required_prior_features": [],
+  "implementation_files": [
+    "src/ocr/get_culled_pixmap.py"
+  ],
+  "CF_SF_scope": "Conditional approved-integration comparison; not standalone-main scores",
+  "CF_before_percent": 82.67126531219057,
+  "CF_after_percent": 82.67126531219057,
+  "CF_delta_pp": 0,
+  "SF_before_percent": 58.70900603102051,
+  "SF_after_percent": 58.70900603102051,
+  "SF_delta_pp": 0,
+  "CF_documents": 506,
+  "SF_supported": 476,
+  "SF_defined": 456,
+  "unique_CF_SF_PDFs": 507,
+  "CF_SF_pages": 509,
+  "stock_2_0_real_PB_failures": 7,
+  "table_failures": 6,
+  "layout_failures": 1,
+  "CF_SF_overlap": 0,
+  "pure_main_CF_SF_newly_scored": false,
+  "approved_integration_merged": false,
+  "viewer_changed": false,
+  "PyMuPDF_companion_branch": false,
+  "evidence_files": [
+    "empty-text-exclusions-evaluation.json",
+    "empty-text-exclusions-main-pb-cases.json"
+  ],
+  "implementation_SHA256": "27791735d1f235dde0e8e785f618040af25a5cc953be111b8bf8796cc7090df8"
+}

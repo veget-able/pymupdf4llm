@@ -1,0 +1,188 @@
+{
+  "passed": true,
+  "branch": "ocr/input-correction/empty-text-exclusions-20261104",
+  "repository": "pymupdf4llm only",
+  "branch_state": "Historical evaluation snapshot before review commit; current branch scope is documented in README.md and docs/empty-text-exclusions-review.json",
+  "contract": {
+    "explicit_empty_list": "Exclude no glyphs",
+    "None_or_omitted": "Retain legacy full-page glyph exclusion",
+    "nonempty": "Unchanged bbox exclusion"
+  },
+  "implementation_changed": [
+    "pymupdf4llm/ocr/get_culled_pixmap.py"
+  ],
+  "baseline_commits": {
+    "PyMuPDF": "85e7d9330230970c691b5f6bea3af2b20dbf9013",
+    "pymupdf4llm": "d0ce3b57a7e16f834b7960ff607761bfb663c98e"
+  },
+  "quality_scope": "Same approved integration0,1,2,3,4,6,7 plus one render-contract correction; not standalone-main CF/SF",
+  "fresh_candidate_public_API_documents": 507,
+  "fresh_candidate_pages": 509,
+  "baseline_outputs": "Prior clean Git baseline verified per-PDF/source/MD/input and scorer provenance",
+  "markdown_changed": [],
+  "decision_changed": [],
+  "Rapid_RGB_changed": [],
+  "selector_input_changed": [],
+  "ROI_changed": [],
+  "page_GT_v3_200_SHA256": "007658e6d176168325898e4992cd658604bd95666ffc2da254cc1c9b3df23d88",
+  "page_metrics": {
+    "baseline": {
+      "TP": 99,
+      "FP": 10,
+      "FN": 1,
+      "TN": 90,
+      "precision_percent": 90.82568807339449,
+      "recall_percent": 99.0,
+      "F1_percent": 94.73684210526315
+    },
+    "candidate": {
+      "TP": 99,
+      "FP": 10,
+      "FN": 1,
+      "TN": 90,
+      "precision_percent": 90.82568807339449,
+      "recall_percent": 99.0,
+      "F1_percent": 94.73684210526315
+    }
+  },
+  "quality": {
+    "baseline": {
+      "arm": "baseline",
+      "selector": "IMF2 ROI",
+      "empty_exclusions_corrected": false,
+      "CF_percent": 82.67126531219057,
+      "SF_percent": 58.70900603102051,
+      "selected_pages": 307,
+      "Rapid_calls": 307,
+      "extraction_batch_wall_seconds": 391.6051807969343,
+      "official_score_associations": 982,
+      "verified_reused_score_associations": 982
+    },
+    "candidate": {
+      "arm": "candidate",
+      "selector": "IMF2 ROI",
+      "empty_exclusions_corrected": true,
+      "CF_percent": 82.67126531219057,
+      "SF_percent": 58.70900603102051,
+      "selected_pages": 307,
+      "Rapid_calls": 307,
+      "extraction_batch_wall_seconds": 360.03037271113135,
+      "official_score_associations": 982,
+      "verified_reused_score_associations": 982
+    }
+  },
+  "candidate_new_DET_REC": 0,
+  "candidate_previous_recognition_replays": 307,
+  "formal_scoring": {
+    "passed": true,
+    "rows": [
+      {
+        "arm": "baseline",
+        "selector": "IMF2 ROI",
+        "empty_exclusions_corrected": false,
+        "CF_percent": 82.67126531219057,
+        "SF_percent": 58.70900603102051,
+        "selected_pages": 307,
+        "Rapid_calls": 307,
+        "extraction_batch_wall_seconds": 391.6051807969343,
+        "official_score_associations": 982,
+        "verified_reused_score_associations": 982
+      },
+      {
+        "arm": "candidate",
+        "selector": "IMF2 ROI",
+        "empty_exclusions_corrected": true,
+        "CF_percent": 82.67126531219057,
+        "SF_percent": 58.70900603102051,
+        "selected_pages": 307,
+        "Rapid_calls": 307,
+        "extraction_batch_wall_seconds": 360.03037271113135,
+        "official_score_associations": 982,
+        "verified_reused_score_associations": 982
+      }
+    ],
+    "conditions": 2,
+    "CF_documents_per_condition": 506,
+    "SF_supported_per_condition": 476,
+    "SF_defined_per_condition": 456,
+    "condition_scores": 1964,
+    "unique_official_scores": 982,
+    "new_official_workers": 0,
+    "verified_previous_unique_scores": 982,
+    "scorer_commit": "8c63e84eff6e51b943496492651ee27e9e71663f",
+    "scoring_wall_seconds": 5.242614919086918
+  },
+  "controls_changed": [
+    {
+      "name": "short_FFFD",
+      "selected_before": false,
+      "selected_after": true,
+      "input_nonwhite_before": 0,
+      "input_nonwhite_after": 2255,
+      "callback_before": 0,
+      "callback_after": 1
+    },
+    {
+      "name": "nested_FFFD",
+      "selected_before": false,
+      "selected_after": true,
+      "input_nonwhite_before": 0,
+      "input_nonwhite_after": 2255,
+      "callback_before": 0,
+      "callback_after": 1
+    }
+  ],
+  "separate_actual_Rapid_smoke": {
+    "passed": true,
+    "case": "Synthetic real PDF glyphs ABCD with U+FFFD ToUnicode mapping",
+    "selected": true,
+    "before": "����\n",
+    "after": "ABCD\n",
+    "calls": [
+      {
+        "RGB_SHA256": "09a2861013f49f4867ec225f350be5faa506254bc8d36a461374f459c3cf3021",
+        "shape": [
+          375,
+          625,
+          3
+        ],
+        "results": [
+          {
+            "quad": [
+              [
+                51.0,
+                133.0
+              ],
+              [
+                217.0,
+                133.0
+              ],
+              [
+                217.0,
+                204.0
+              ],
+              [
+                51.0,
+                204.0
+              ]
+            ],
+            "text": "ABCD",
+            "confidence": 0.99995
+          }
+        ]
+      }
+    ],
+    "new_DET_REC": 1,
+    "benchmark_scoring": false,
+    "recognition_signature": "8df9898c1df9e74f41973654e1666a46289e074c6d8c1a01e29a5fcf28d4996b"
+  },
+  "total_new_DET_REC_including_smoke": 1,
+  "controls_unchanged": 13,
+  "tests": {
+    "before": "5 failures /4 passes reproduce issue",
+    "main": "9 passed",
+    "integration": "9 passed"
+  },
+  "product_branches_packages_native_models_GT_UI_unchanged": true,
+  "limit": "Short U+FFFD and nested-Form controls establish render/selection/callback recovery; one synthetic ABCD PDF also passes actual Rapid DET/REC. No natural-document recognition improvement or benchmark CF/SF increase is claimed. RF/span/language policies and excluded feature5 unchanged."
+}

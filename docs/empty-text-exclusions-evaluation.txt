@@ -1,0 +1,36 @@
+평가 시점 기록: 아래의 미커밋/미푸시 문구는 평가 당시 상태임. 현재 리뷰 브랜치와 점수 해석은 README.md 및 docs/empty-text-exclusions-review.json을 참조함.
+
+빈 OCR 제외 목록 보정 / 2026-11-04
+
+수정
+- pymupdf4llm의 get_culled_pixmap.get_pixmap에서 if not rects를 if rects is None으로 변경했음. MuPDF 자체는 빈 사각형 목록을 받으면 원본 글리프를 보존함을 확인했음.
+- rects=[]는 제외 없음, rects=None/생략은 기존 전체 글리프 제외, 비어 있지 않은 목록은 기존 bbox 제외임. DPI/최대픽셀/빈이미지판정은 동일함.
+- 범용 렌더 API는 기존 PyMuPDF/MuPDF를 그대로 사용함. 결함이 있는4llm 호출 도우미만 보정했으며 PyMuPDF에 문서전용 짝브랜치를 만들지 않았음.
+- ocr/input-correction/empty-text-exclusions-20261104, fixed main 직접 분기의 로컬 격리 작업트리임. 아직 커밋/푸시/승인통합 병합하지 않았음.
+
+검증
+- 수정 전 새검증9개 중5개 실패로 문제 재현, 수정 후 main기반9개/승인통합기반9개 통과했음.
+- 정상/native, U+FFFD, 이미지전용, 기존숨김층, 중첩Form, 빈페이지, 정상/손상혼합, None/전체영역, DPI상한을 검사했음.
+- 별도 전후15조건 중 짧은4문자U+FFFD와 중첩Form2개만 바뀌었음. 두조건 모두 백지→글리프보존, IMF2선별False→True, 제어빈결과OCR콜백0→1회임. 실제 인식문자 정확도 검증이 아님.
+- 별도 짧은U+FFFD합성PDF1개에는 실제Rapid DET/REC를1회실행했음. 원래추출����→최종ABCD로복구됐고U+FFFD0개를확인했음. 자연문서개선이나전체벤치점수상승으로확대하지않음.
+- 문서의 Apple표6개/layout/list 포함13조건의 판정·입력·기존문자보존은 동일했음. 이미기호손상으로보호되는7개를새개선으로집계하지않음.
+
+동일통합본 CF/SF 전후
+- 기준CF 82.6712653%, SF 58.7090060%임.
+- 보정CF 82.6712653%, SF 58.7090060%임. 변화모두0pp임.
+- candidate507PDF509페이지 새공개API추출, 기존507문서Markdown/509판정tuple/모든관측선별입력·ROI/307Rapid입력동일함. 새DET/REC 0회, 정확RGB·모델·옵션검증 기존인식재생307회임.
+- 기준출력은 검증된Gitbaseline저장결과 재사용임. CF506/SF476중유효456, 공식scorer8c63e84임. 동일완전payload/case/scorer/scoreSHA 점수재사용을검증했으며 새worker0회임. 전량새OCR/새채점주장없음.
+- 같은GTv3 200페이지: TP99/FP10/FN1/TN90, P90.8257%/R99.0000%/F194.7368%로전후동일함.
+- main단독성적이나1.28.0신규채점이아님. 1.28.0은이번수정평가대상아님.
+
+판단
+- 빈 제외 목록의 잘못된 렌더 의미를 바로잡는 독립 오류 수정임. 현재CF/SF표본에서의점수상승근거는없으며회귀문서도없었음.
+- 이번에는 RF비가시행삭제·span판정·자동언어·손상우선선택을바꾸지않았음. 별도5번Unicode복원과V4교체후보는추가하지않았음.
+- 승인통합소스/설치본/native/모델/GT/뷰어유지임. wheel생성·배포없음. 새제품E2E속도벤치마크없음.
+
+재현
+- tests-before-fix.log,tests-main.log,tests-integration.log: 같은보호검증의 전후결과임.
+- controls-*.json:15조건픽셀/판정/제어콜백대조임.
+- outputs-candidate/outputs.jsonl,outputs-baseline:새추출/기존기준결과임.
+- score-report.json,scores-*/document-scores.jsonl:공식집계/정확점수재사용증거임.
+- protocol.json,empty-exclusions.patch:기준HEAD/소스SHA/수정범위임.

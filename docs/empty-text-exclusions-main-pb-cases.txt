@@ -1,0 +1,42 @@
+평가 시점 기록: 아래의 미커밋/미푸시 문구는 평가 당시 상태임. 현재 리뷰 브랜치와 점수 해석은 README.md 및 docs/empty-text-exclusions-review.json을 참조함.
+
+빈 OCR 제외 목록 오류의 원래 PB 사례 / 수정 없는 2.0 main / 2026-11-04
+
+기준
+- PyMuPDF main 1d34e04da00b7673a0b2c3f68b5a5246793a50b8, pymupdf4llm main 363f177ef50deb05f07db8bf2061e7b9c8102b07임.
+- 실행 PyMuPDF2.0/MuPDF1.28.5임. Git src를 직접내보내고 파일SHA를검증했음. 승인 통합본·IMF2·기호복원·CropBox·Form·쓰기보정은포함하지않았음.
+- 전후변경은 get_culled_pixmap의 if not rects→if rects is None 한조건뿐임. 동일Rapid3.10 고정DET/REC150DPI/기본use_ocr=True를사용했음.
+
+PB 전체 확인
+- 현재로컬공식JSONL등록2,078개파일(2,036PDF+42이미지),2,080페이지(2,038PDF페이지+42이미지)를조사했음. 읽기오류0개임.
+- OCR실행단계와동일한span플래그/분류에서 정상제외span0개이면서U+FFFD문제span이존재하는페이지는정확히7개임.
+- 표6개·layout1개이며, 이전CF/SF507문서와교집합0개임. 현재통합본의기호복원우회가이7개를이미보호한다는것과2.0원본의오류존재는동시에성립함.
+
+실제 사례
+- docs/layout/list.pdf p1: 손상span 135개, 실제Rapid영역 0→135개, 인식문자 0→4693자, MD공백단어 145→693개임.
+- docs/table/Tables - Apple Def 14a_page102.pdf p1: 손상span 105개, 실제Rapid영역 1→83개, 인식문자 1→2816자, MD공백단어 1→405개임.
+- docs/table/Tables - Apple Def 14a_page18.pdf p1: 손상span 39개, 실제Rapid영역 0→35개, 인식문자 0→1141자, MD공백단어 12→178개임.
+- docs/table/Tables - Apple Def 14a_page40.pdf p1: 손상span 92개, 실제Rapid영역 0→85개, 인식문자 0→3296자, MD공백단어 51→491개임.
+- docs/table/Tables - Apple Def 14a_page67.pdf p1: 손상span 52개, 실제Rapid영역 0→44개, 인식문자 0→1706자, MD공백단어 42→261개임.
+- docs/table/Tables - Apple Def 14a_page75.pdf p1: 손상span 57개, 실제Rapid영역 0→49개, 인식문자 0→2512자, MD공백단어 43→360개임.
+- docs/table/Tables - Apple Def 14a_page8.pdf p1: 손상span 41개, 실제Rapid영역 1→38개, 인식문자 15→1227자, MD공백단어 3→184개임.
+
+발생 순서
+- P2가7개모두chars_bad 사유로OCR필요True를반환함. 모델판정오류가아님.
+- OCR콜백에서정상span목록이비어rects=[]가됨. 원본도우미가이를페이지전체bbox로바꿔실제문자글리프를전부렌더에서제외함.
+- 배경과벡터괘선은남아7개모두empty=False이고실제Rapid도전후각1회실행됐음. 이실제사례들을'백지라OCR실행안됨'으로설명하면틀림. 문자가제거된잘못된입력을Rapid에제공하는오류임.
+- 한조건보정후7개모두OCR입력RGB가원본렌더와완전히같아졌음. 원래P2선별tuple은전후동일하고최종Markdown은7개모두변경됐음.
+- 실제공개API추출14건·실제Rapid파이프라인호출14회이며인식캐시재사용0개임. DET결과가없으면REC는생략될수있으므로REC모델14회실행을뜻하지않음. 입력SHA가앞선제어콜백진단과일치함을검증했음.
+
+해석
+- 원래PB실문서7개에서발생한오류가맞으며,합성전용문제로분류하면안됨.
+- 앞서통합CF/SF에서변화0이었던것은평가그룹과기호복원우회조건때문임. 수정없는2.0main의발생사례조사를먼저제시했어야했음.
+- 위인식영역/문자/MD단어수는입력복구와처리변화의증거이며정답재현율이나CF/SF/GTRM점수가아님. 공식새품질채점은이번에수행하지않았음.
+- 문서의과거Rapid3.9.2단어수와이번Rapid3.10단어수는다를수있음. 정본선별기/GT/제품/뷰어/원격브랜치/설치본은변경하지않았음.
+
+증적
+- protocol.json:원본2.0main SHA·소스SHA·후속엔진조건임.
+- inventory.json,scan-before.json:전체PB등록목록/원본파일SHA/전페이지span조사임.
+- scan-after.json,inputs/:원본과전후OCR입력PNG/픽셀SHA임.
+- targets-before.json,targets-after.json,outputs-*/:14개공개추출과실제인식결과·최종MD임.
+- report.json:전후검산·사례별추출정보임.
