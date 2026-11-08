@@ -7,3 +7,6 @@ def configure(runtime):
     from .independent_union import install as install_independent_union
     install_independent_union(runtime)
     runtime.installed_components.append('T05')
+    from .union_split_coherence import install as install_union_split_coherence
+    install_union_split_coherence(runtime)
+    runtime.installed_components.append('T06')
