@@ -10,3 +10,6 @@ def configure(runtime):
     from .union_split_coherence import install as install_union_split_coherence
     install_union_split_coherence(runtime)
     runtime.installed_components.append('T06')
+    from .header_band_split import install as install_header_band_split
+    install_header_band_split(runtime)
+    runtime.installed_components.append('T09')

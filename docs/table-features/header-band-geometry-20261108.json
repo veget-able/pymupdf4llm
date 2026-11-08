@@ -1,0 +1,18 @@
+{
+  "order": 6,
+  "feature_ids": "T09",
+  "stage": "refine",
+  "name": "첫 행 부모·하위 라벨 기하",
+  "branch": "table-experiements/header-band-geometry-20261108",
+  "repositories": [
+    "pymupdf4llm"
+  ],
+  "prerequisites": "C00 현재 격자·원문·기하 포트",
+  "atomic_scope": "H6 물리행 기하만; 앞단 의미 헤더 판정 복원 금지",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "refine",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "actual_repository": "pymupdf4llm",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately."
+}
