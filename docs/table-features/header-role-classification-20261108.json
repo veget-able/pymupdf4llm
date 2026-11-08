@@ -1,0 +1,18 @@
+{
+  "order": 9,
+  "feature_ids": "T11~T14",
+  "stage": "header",
+  "name": "헤더 역할 공급·보완",
+  "branch": "table-experiements/header-role-classification-20261108",
+  "repositories": [
+    "pymupdf4llm"
+  ],
+  "prerequisites": "C00 current-grid 자료/목적·실제 provider 상태·session 계약",
+  "atomic_scope": "R6·제목/section·cap·오태깅·leaf·연도 보완을 현 검증 조립의 한 제공 단위로 전달",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "refine",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "actual_repository": "pymupdf4llm",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately."
+}
