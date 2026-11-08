@@ -6,6 +6,9 @@ import os
 import tempfile
 import textwrap
 import threading
+from functools import wraps as _wraps
+from inspect import signature as _signature
+from dataclasses import dataclass
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -132,6 +135,53 @@ def wrap_table_for_tabulate(table, max_width=100, min_col_width=10):
     return wrapped_table
 
 
+_BBOX_PROVENANCE_FIELDS = (
+    "bbox_source", "grid_source", "bbox_operation", "source_gnn_indices",
+    "parent_bbox_source", "parent_bbox", "table_id", "layout_operation",
+    "bbox_owner_table_id",
+    "grid_sources", "recovery_steps", "recovery_revision",
+    "recovery_parent_bbox", "recovery_base_bbox", "recovery_source_bboxes",
+)
+
+
+def _bbox_provenance(value):
+    metadata = value if isinstance(value, dict) else getattr(value, "bbox_provenance", {})
+    return {key: metadata[key] for key in _BBOX_PROVENANCE_FIELDS if key in metadata}
+
+
+class _LayoutEntry(tuple):
+    """Retain bbox ownership through normalization and reading-order sorting."""
+
+    def __new__(cls, values, provenance):
+        entry = super().__new__(cls, values)
+        entry.bbox_provenance = dict(provenance)
+        return entry
+
+
+def _raw_gnn_table_metadata(layout_information) -> List[Dict]:
+    """Serialize table groups before find_tables / reading-order normalization."""
+    tables = []
+    for raw_index, item in enumerate(layout_information or []):
+        if not isinstance(item, dict) or item.get("class_name") != "table":
+            continue
+        bbox = item.get("group_bbox")
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            continue
+        tables.append(
+            {
+                "raw_index": raw_index,
+                "bbox": [float(value) for value in bbox],
+                "node_indices": [int(value) for value in item.get("indicies") or []],
+                "group_class": item.get("group_class"),
+                "tie_class": item.get("tie_class"),
+                "bbox_source": "gnn",
+                "bbox_operation": "gnn_detection",
+                "source_gnn_indices": [raw_index],
+            }
+        )
+    return tables
+
+
 def make_page_chunk(doc, page, text, string_lengths) -> Dict:
     """Create a page chunk dictionary for output.
 
@@ -153,19 +203,52 @@ def make_page_chunk(doc, page, text, string_lengths) -> Dict:
     }
 
     chunk["toc_items"] = page_tocs
+    trace = bool(getattr(page, '_table_trace_enabled', False))
+    if trace:
+        chunk["pred_source"] = page.pred_source
+        chunk["raw_gnn_tables"] = page.raw_gnn_tables
+        chunk["find_tables"] = page.find_tables
+        table_union_evidence = getattr(page, "table_union_evidence", None)
+        chunk["table_union_evidence"] = (
+            table_union_evidence if isinstance(table_union_evidence, dict) else {}
+        )
     page_boxes = []
     for i in range(len(page.boxes)):
         b = page.boxes[i]
         start = string_lengths[i - 1] if i > 0 else 0
         stop = string_lengths[i]
-        page_boxes.append(
-            {
-                "index": i,
-                "class": b.boxclass,
-                "bbox": tuple(pymupdf.IRect(b.x0, b.y0, b.x1, b.y1)),
-                "pos": (start, stop),
-            }
-        )
+        page_box = {
+            "index": i,
+            "class": b.boxclass,
+            "bbox": tuple(pymupdf.IRect(b.x0, b.y0, b.x1, b.y1)),
+            "pos": (start, stop),
+        }
+        if trace and b.boxclass == "table":
+            page_box.update(b.bbox_provenance or {"bbox_source": "unknown"})
+        if trace and b.boxclass == "table" and isinstance(b.table, dict):
+            # Text provenance is page-scoped because OCR is selected and run
+            # before layout/table detection. Repeat it on every prediction so
+            # artifact consumers do not need to infer it from a pipeline name.
+            page_box["pred_source"] = page.pred_source
+            # Preserve the individual find_tables() results after several of
+            # them have been assigned to one normalized layout bbox. Keep only
+            # localization / shape metadata here: HTML is already represented
+            # by this page_box's pos slice and cells can be very large.
+            html_tables = []
+            for item in b.table.get("html_tables") or []:
+                if not isinstance(item, dict) or not item.get("bbox"):
+                    continue
+                html_tables.append(
+                    {
+                        "bbox": list(item["bbox"]),
+                        "rows": item.get("rows"),
+                        "cols": item.get("cols"),
+                        **_bbox_provenance(item),
+                    }
+                )
+            if html_tables:
+                page_box["html_tables"] = html_tables
+        page_boxes.append(page_box)
     chunk["page_boxes"] = page_boxes
     chunk["text"] = text
     return chunk
@@ -753,53 +836,31 @@ def _html_table_meta(table_item) -> Dict:
         ),
         "cells": table_item[4] if len(table_item) > 4 else None,
         "extract": table_item[5] if len(table_item) > 5 else None,
+        **_bbox_provenance(table_item),
+        "cell_sources": list(getattr(table_item, "cell_sources", ())),
+        "external_content": list(getattr(table_item, "external_content", ())),
+        **({"unresolved_content": list(table_item.unresolved_content)}
+           if getattr(table_item, "unresolved_content", ()) else {}),
     }
 
 
-def _assign_html_tables_to_boxes(layout_boxes, html_tables, threshold: float = 0.5):
-    """Assign table_html output to layout table boxes, adding unmatched boxes."""
-    by_box: Dict[tuple, List[Dict]] = {}
-    if not html_tables:
-        return layout_boxes, by_box
-
-    table_boxes = [
-        (tuple(pymupdf.IRect(box[:4])), pymupdf.Rect(box[:4]))
-        for box in layout_boxes
-        if len(box) >= 5 and box[4] == "table"
-    ]
-    augmented_boxes = list(layout_boxes)
-
-    for table_item in html_tables:
-        meta = _html_table_meta(table_item)
-        table_rect = pymupdf.Rect(meta["bbox"])
-        table_area = _rect_area(table_rect)
-        best_key = None
-        best_score = 0.0
-        if table_area > 0:
-            for key, box_rect in table_boxes:
-                inter = table_rect & box_rect
-                if inter.is_empty:
-                    continue
-                score = _rect_area(inter) / table_area
-                if score > best_score:
-                    best_key = key
-                    best_score = score
-        if best_key is None or best_score < threshold:
-            synthetic = (
-                table_rect.x0,
-                table_rect.y0,
-                table_rect.x1,
-                table_rect.y1,
-                "table",
-            )
-            augmented_boxes.append(synthetic)
-            best_key = tuple(pymupdf.IRect(table_rect))
-            table_boxes.append((best_key, table_rect))
-        by_box.setdefault(best_key, []).append(meta)
-
-    for items in by_box.values():
-        items.sort(key=lambda item: (item["bbox"][1], item["bbox"][0]))
-    return augmented_boxes, by_box
+def _assign_html_tables_to_boxes(layout_boxes, html_tables, threshold=0.5):
+    """Deliver each accepted grid at its own geometry, without layout owners."""
+    by_box={}
+    # This is the input adapter boundary: detector table boxes were proposals,
+    # not output tables. All other original layout classes keep their meaning.
+    output=[box for box in layout_boxes if len(box)<5 or box[4]!='table']
+    for item in html_tables:
+        meta=_html_table_meta(item)
+        key=tuple(pymupdf.IRect(meta['bbox']))
+        by_box.setdefault(key,[]).append(meta)
+    for key,items in sorted(by_box.items()):
+        items.sort(key=lambda item:(item['bbox'][1],item['bbox'][0],item['table_id']))
+        b=pymupdf.Rect(key)
+        output.append(_LayoutEntry((b.x0,b.y0,b.x1,b.y1,'table'),
+            dict(layout_operation='native_table_payload',bbox_source='cell_geometry',
+                 bbox_owner_table_id=items[0]['table_id'])))
+    return output,by_box
 
 
 def _line_claimed_by_table(line_bbox, table_rects) -> bool:
@@ -877,72 +938,9 @@ def _split_text_box_around_tables(box, fulltext, table_rects):
 
 
 def normalize_layout_boxes(layout_boxes, html_tables, fulltext):
-    """Build opt-in HTML-table layout boxes before reading-order sorting."""
-    normalized_boxes, html_tables_by_box = _assign_html_tables_to_boxes(
-        layout_boxes,
-        html_tables,
-    )
-    if not html_tables_by_box:
-        return normalized_boxes, html_tables_by_box, {}
-
-    table_rects = [
-        pymupdf.Rect(item["bbox"])
-        for items in html_tables_by_box.values()
-        for item in items
-    ]
-    output_boxes = []
-    textlines_by_box = {}
-    for box in normalized_boxes:
-        if len(box) < 5 or box[4] in ("table", "picture", "formula"):
-            output_boxes.append(box)
-            continue
-        split_boxes, split_textlines = _split_text_box_around_tables(
-            box,
-            fulltext,
-            table_rects,
-        )
-        output_boxes.extend(split_boxes)
-        textlines_by_box.update(split_textlines)
-    return output_boxes, html_tables_by_box, textlines_by_box
-
-
-def _nested_table_regions(layout_information, container_clip, html_tables_by_box):
-    """Rects to exclude: table boxes in layout_information contained in
-    container_clip, preferring each one's assigned HTML table bbox (the
-    region actually emitted; see html_tables_by_box) over its own layout
-    box, which need not be the same rect."""
-    regions = []
-    for b in layout_information:
-        if len(b) < 5 or b[4] != "table":
-            continue
-        table_box = b[:4]
-        if not utils.bbox_in_bbox(table_box, container_clip):
-            continue
-        html_tables = html_tables_by_box.get(tuple(pymupdf.IRect(table_box)))
-        if html_tables:
-            regions.extend(pymupdf.Rect(item["bbox"]) for item in html_tables)
-        else:
-            regions.append(pymupdf.Rect(table_box))
-    return regions
-
-
-def _drop_spans_in_regions(lines, regions):
-    """Remove spans whose bbox centre falls inside an excluded region; drop
-    a line only once it has no spans left. Per-span (not per-line) so
-    unrelated text get_raw_lines joined onto a table's line survives."""
-    if not regions:
-        return lines
-    kept_lines = []
-    for line in lines:
-        kept_spans = []
-        for span in line["spans"]:
-            sx0, sy0, sx1, sy1 = span["bbox"]
-            cx, cy = (sx0 + sx1) / 2.0, (sy0 + sy1) / 2.0
-            if not any(r[0] <= cx <= r[2] and r[1] <= cy <= r[3] for r in regions):
-                kept_spans.append(span)
-        if kept_spans:
-            kept_lines.append({"bbox": line["bbox"], "spans": kept_spans})
-    return kept_lines
+    """Accepted cell payloads define table boxes; no detection threshold."""
+    output,by_box=_assign_html_tables_to_boxes(layout_boxes,html_tables)
+    return output,by_box,{}
 
 
 @dataclass
@@ -968,6 +966,8 @@ class LayoutBox:
 
     # if boxclass == 'table'
     table: Optional[Dict] = None
+    pred_source: Optional[str] = None
+    bbox_provenance: Optional[Dict] = None
 
     # text line information for text-type boxclasses
     max_fontsize: Optional[int] = None
@@ -982,9 +982,13 @@ class PageLayout:
     height: float
     boxes: List[LayoutBox]
     full_ocred: bool = False  # whether the page is an OCR'd page
+    pred_source: str = "native"  # native, existing_ocr, or OCR run by this parse
+    raw_gnn_tables: Optional[List[Dict]] = None
+    find_tables: Optional[List[Dict]] = None
     fulltext: Optional[List[Dict]] = None  # full page text in extractDICT format
     words: Optional[List[Dict]] = None  # list of words with bbox
     links: Optional[List[Dict]] = None
+    table_union_evidence: Optional[Dict] = None
 
 
 @dataclass
@@ -1111,6 +1115,8 @@ class ParsedDocument:
         # Serialize to JSON
         _ = show_progress
 
+        table_metadata = any(getattr(p, '_table_trace_enabled', False) for p in self.pages)
+
         class LayoutEncoder(json.JSONEncoder):
             def default(self, s):
                 if isinstance(s, (bytes, bytearray)):
@@ -1127,7 +1133,12 @@ class ParsedDocument:
                 ):
                     return list(s)
                 if hasattr(s, "__dict__"):
-                    return s.__dict__
+                    hidden = {'_table_trace_enabled'}
+                    if not table_metadata and isinstance(s, PageLayout):
+                        hidden.update(('pred_source', 'raw_gnn_tables', 'find_tables', 'table_union_evidence'))
+                    if not table_metadata and isinstance(s, LayoutBox):
+                        hidden.update(('pred_source', 'bbox_provenance'))
+                    return {k: v for k, v in s.__dict__.items() if k not in hidden}
                 return super().default(s)
 
         js = json.dumps(self, cls=LayoutEncoder, ensure_ascii=False)
@@ -1477,6 +1488,7 @@ def _parse_document_impl(
         OCR_SPANS = 0
         ONLY_TEXT = False
         needs_ocr, OCR_SPANS, ONLY_TEXT = make_ocr_decision(page, document.use_ocr)
+        pred_source = "ocr" if needs_ocr else "existing_ocr" if OCR_SPANS else "native"
 
         if needs_ocr:
             # execute OCR for the page replacing any previous OCR spans
@@ -1496,20 +1508,32 @@ def _parse_document_impl(
         if edge_threshold is not None:
             layout_kwargs["edge_threshold"] = edge_threshold
         get_layout_locked(page, **layout_kwargs)
+        raw_gnn_tables = _raw_gnn_table_metadata(page.layout_information)
 
         # Optionally render tables as HTML, reusing this raw GNN layout
         # (get_layout is guarded to reuse it, so no second GNN pass).
         # Save/restore layout_information so table_html's internal normalization
         # does not disturb the layout path below.
         page_html_tables_list = None
+        table_union_evidence = {}
         _render_html_tables = bool(render_html_tables)
         if _render_html_tables:
             _saved_raw_layout = page.layout_information
             try:
                 from pymupdf4llm.helpers.table_html import page_html_tables
 
-                page_html_tables_list = list(page_html_tables(page))
+                page_html_tables_list, table_union_evidence = page_html_tables(
+                    page, include_union_evidence=True
+                )
             except Exception as exc:
+                from pymupdf.layout import get_active_provider
+                _provider = get_active_provider()
+                if _provider is not None:
+                    _provider.record_error(page, exc)
+                from pymupdf._table_pipeline import current
+                runtime = current()
+                if runtime is not None:
+                    runtime.errors.append(f'HTML table output: {type(exc).__name__}: {exc}')
                 # HTML table rendering failed on this page -> fall back to the
                 # layout table path, but surface the reason (flushed to
                 # pymupdf.message at the end of parse_document) rather than
@@ -1520,8 +1544,38 @@ def _parse_document_impl(
                     file=INFO_MESSAGES,
                 )
                 page_html_tables_list = None
+                table_union_evidence = {}
             finally:
                 page.layout_information = _saved_raw_layout
+
+        # Preserve source identity before normalize_layout_boxes/get_raw_lines
+        # mutate span bboxes and join text. Reuse the RAWDICT already required
+        # by table extraction; pages without external delivery keep its timing.
+        table_blocks = None
+        word_geometry = None
+        picture_text_blocks = None
+        native_external = ()
+        needs_external_sources = bool(native_external) or any(
+            getattr(item, "external_content", ()) for item in page_html_tables_list or [])
+        if needs_external_sources:
+            table_blocks = [b for b in textpage.extractRAWDICT()["blocks"] if b["type"] == 0]
+            from .table_text_sources import attach_word_sources
+            word_geometry = attach_word_sources(
+                blocks, table_blocks, getattr(page, "_refine_words_cache", []))
+
+        find_tables_metadata = []
+        for table_item in page_html_tables_list or []:
+            meta = _html_table_meta(table_item)
+            find_tables_metadata.append(
+                {
+                    "bbox": meta["bbox"],
+                    "rows": meta["rows"],
+                    "cols": meta["cols"],
+                    **_bbox_provenance(meta),
+                    **({"unresolved_content": meta["unresolved_content"]}
+                       if meta.get("unresolved_content") else {}),
+                }
+            )
 
         # Dictionary with details for all tables. Key is the bounding box
         # tuple, value is the original Layout info per table.
@@ -1530,7 +1584,7 @@ def _parse_document_impl(
         textlines_by_box = {}
 
         new_layout_info = []  # will contain Layout boxes in non-"raw" format
-        for b in page.layout_information:
+        for raw_index, b in enumerate(page.layout_information):
             gbbox = list(b["group_bbox"])
             if gbbox[2] - gbbox[0] <= 2 or gbbox[3] - gbbox[1] <= 2:
                 # skip tiny boxes
@@ -1539,6 +1593,13 @@ def _parse_document_impl(
                 # table without a grid: skip it
                 continue
             bbox = tuple(gbbox + [b["class_name"]])
+            if _render_html_tables and b["class_name"] == "table":
+                bbox = _LayoutEntry(bbox, {
+                    "bbox_source": "gnn",
+                    "bbox_operation": "gnn_detection",
+                    "source_gnn_indices": [raw_index],
+                    "layout_operation": "gnn_box",
+                })
             new_layout_info.append(bbox)
 
             # store table info for later use in table extraction
@@ -1547,14 +1608,22 @@ def _parse_document_impl(
                 key = tuple(pymupdf.IRect(b["group_bbox"]))
                 table_infos[key] = b
 
-        if _render_html_tables and page_html_tables_list:
-            new_layout_info, html_tables_by_box, textlines_by_box = (
-                normalize_layout_boxes(
-                    new_layout_info,
-                    page_html_tables_list,
-                    fulltext=[b for b in blocks if b["type"] == 0],
-                )
-            )
+        if _render_html_tables and page_html_tables_list is not None:
+            # A source-owned view applies to every output class. Layout picture
+            # labels never decide whether text belongs to an accepted table.
+            if page_html_tables_list:
+                if table_blocks is None:
+                    table_blocks=[b for b in textpage.extractRAWDICT()['blocks'] if b['type']==0]
+                from .table_picture_content import prepare_picture_text
+                owned_view,_ = prepare_picture_text(
+                    [b for b in blocks if b['type']==0],table_blocks,
+                    getattr(page,'_refine_words_cache',[]),
+                    [_html_table_meta(item) for item in page_html_tables_list],
+                    word_geometry=word_geometry)
+                if owned_view is not None:
+                    blocks=[b for b in blocks if b['type']!=0]+owned_view
+            new_layout_info, html_tables_by_box, textlines_by_box = normalize_layout_boxes(
+                new_layout_info,page_html_tables_list,[b for b in blocks if b['type']==0])
 
         page.layout_information = new_layout_info
         # Determine if any tables are present after HTML-table normalization.
@@ -1572,14 +1641,14 @@ def _parse_document_impl(
             page.rect, blocks, page.layout_information
         )
         fulltext = [b for b in blocks if b["type"] == 0]
-        if tables_exist:
+        if tables_exist and table_blocks is None:
             table_blocks = [
                 b for b in textpage.extractRAWDICT()["blocks"] if b["type"] == 0
             ]
-        else:
-            table_blocks = None
 
-        words = []  # not yet activated
+        # Borrow the same post-OCR producer cache for physical span reuse.
+        # Only pages with external delivery need to transport this source list.
+        words = (getattr(page, "_refine_words_cache", []) if needs_external_sources else [])
         links = [l for l in page.get_links() if l["kind"] == pymupdf.LINK_URI]
         pagelayout = PageLayout(
             page_number=page.number + 1,
@@ -1587,12 +1656,21 @@ def _parse_document_impl(
             height=page.rect.height,
             boxes=[],
             full_ocred=page_full_ocred,
+            pred_source=pred_source,
+            raw_gnn_tables=raw_gnn_tables,
+            find_tables=find_tables_metadata,
+            table_union_evidence=table_union_evidence,
             fulltext=fulltext,
             words=words,
             links=links,
         )
+        if _render_html_tables:
+            pagelayout._table_trace_enabled = True
+            pagelayout.native_external_content = tuple(native_external)
         for box in page.layout_information:
             layoutbox = LayoutBox(*box)
+            if layoutbox.boxclass == "table":
+                layoutbox.bbox_provenance = _bbox_provenance(box)
             clip = pymupdf.Rect(box[:4])
 
             if layoutbox.boxclass in ("picture", "formula"):
@@ -1615,32 +1693,26 @@ def _parse_document_impl(
                     layoutbox.image = None
                 if layoutbox.boxclass in ("picture", "formula") and document.force_text:
                     # extract any text within the image box
-                    raw_lines = [
+                    # Only picture text excludes proven cell-owned glyphs.
+                    # Keep the graphics envelope, image rendering and formula
+                    # output unchanged. Each formatter gets its own mutable view.
+                    picture_blocks = pagelayout.fulltext
+                    if layoutbox.boxclass == "picture" and picture_text_blocks is not None:
+                        from copy import deepcopy
+                        picture_blocks = deepcopy(picture_text_blocks)
+                    layoutbox.textlines = [
                         {"bbox": l[0], "spans": l[1]}
                         for l in get_raw_lines(
                             textpage=None,
-                            blocks=pagelayout.fulltext,
+                            blocks=picture_blocks,
                             clip=clip,
                             ignore_invisible=False,
                             only_horizontal=False,
                         )
                     ]
-                    # get_raw_lines joins spans at the same vertical position
-                    # into one reconstructed line even across a large
-                    # horizontal gap (e.g. a caption beside a table). Only a
-                    # table nested in a "picture" box survives find_reading_order,
-                    # so any table box found here already emitted its own
-                    # text via the table branch below; drop just the spans
-                    # that fall inside it (not the whole joined line) so
-                    # unrelated text such as that caption still survives.
-                    layoutbox.textlines = _drop_spans_in_regions(
-                        raw_lines,
-                        _nested_table_regions(
-                            page.layout_information, clip, html_tables_by_box
-                        ),
-                    )
 
             elif layoutbox.boxclass == "table":
+                layoutbox.pred_source = pred_source
                 search_key = (layoutbox.x0, layoutbox.y0, layoutbox.x1, layoutbox.y1)
                 html_tables = html_tables_by_box.get(tuple(pymupdf.IRect(clip)), [])
 
@@ -1734,6 +1806,9 @@ def _parse_document_impl(
                     layoutbox.max_fontsize = max_fontsize
 
             pagelayout.boxes.append(layoutbox)
+        if page_html_tables_list:
+            from .table_external_text import validate_table_delivery
+            validate_table_delivery(pagelayout)
         document.pages.append(pagelayout)
     if mydoc != doc:
         mydoc.close()
@@ -1749,6 +1824,21 @@ def _parse_document_impl(
     return document
 
 
+_PARSE_SIGNATURE = _signature(_parse_document_impl)
+
+
+@_wraps(_parse_document_impl)
+def parse_document(*args, **kwargs):
+    # The same entry is used by to_markdown and to_json. Keep non-HTML callers
+    # free of model initialization and import the structured runtime lazily.
+    bound = _PARSE_SIGNATURE.bind(*args, **kwargs)
+    if bound.arguments.get("render_html_tables"):
+        from pymupdf4llm._table_pipeline.runtime import structured_tables
+        with structured_tables():
+            return _parse_document_impl(*args, **kwargs)
+    return _parse_document_impl(*args, **kwargs)
+
+
 if __name__ == "__main__":
     # Example usage
     import sys
@@ -1760,18 +1850,3 @@ if __name__ == "__main__":
     # Path(filename).with_suffix(".txt").write_text(pdoc.to_text(footer=False))
     md = pdoc.to_markdown(write_images=False, header=False, footer=False)
     Path(filename).with_suffix(".md").write_text(md)
-
-
-from functools import wraps as _wraps
-from inspect import signature as _signature
-_PARSE_SIGNATURE = _signature(_parse_document_impl)
-
-
-@_wraps(_parse_document_impl)
-def parse_document(*args, **kwargs):
-    bound = _PARSE_SIGNATURE.bind(*args, **kwargs)
-    if bound.arguments.get("render_html_tables"):
-        from pymupdf4llm._table_pipeline.runtime import structured_tables
-        with structured_tables():
-            return _parse_document_impl(*args, **kwargs)
-    return _parse_document_impl(*args, **kwargs)
