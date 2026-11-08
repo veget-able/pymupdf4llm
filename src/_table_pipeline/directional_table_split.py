@@ -1,4 +1,5 @@
 """Directional placement split with mandatory immediate/final rollback."""
+from collections import Counter
 from dataclasses import dataclass
 from types import MethodType
 import pymupdf
