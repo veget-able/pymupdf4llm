@@ -1,0 +1,18 @@
+{
+  "order": 2,
+  "feature_ids": "T02+I-B",
+  "stage": "input",
+  "name": "래스터 괘선·원본 이미지",
+  "branch": "table-experiements/raster-ruling-20261108",
+  "repositories": [
+    "pymupdf4llm"
+  ],
+  "prerequisites": "C00 이미지·괘선 입력 계약",
+  "atomic_scope": "래스터 추출과 실제 pre-OCR 원본 전달을 묶음; I-A 제외",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "input",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "actual_repository": "pymupdf4llm",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately."
+}
