@@ -1,0 +1,67 @@
+테이블 기능 분리·통합 브랜치 인계 / 2026-11-08
+
+- 최종 검토 브랜치: table-experiements/table-integration-20261108임.
+- PyMuPDF/pymupdf4llm 양 저장소에서 같은 이름을 사용함. 기능16묶음의 실제 변경 저장소 ref는17개임.
+- 기능 브랜치는 선택 적용 검토용이며 최종 구성은 위 통합 한 쌍임. 원격 푸시와 운영 배포는 실행하지 않았음.
+
+실행 구성과 의존
+
+- 동결 main PM1d34e04/LL363f177에서 공통 계약과 기능별 커밋을 분리했음. 필요한 기능만 명시적으로 조립함.
+- 공통은 native 입력·source/placement·역할/출력 검증·세션 재사용·실제 선택 기록 계약임. 공유 의미 판정 helper는 소비 기능 구성으로 명시함.
+- 실제 역할 공급 기본값은 native이며 T11~14를 설치한 통합에서는 기존 R6를 사용함.
+- layout 지원 revision016d8f50b058846734fbba8e8fc4457c805098d1의 get_active_model/get_active_provider/use_provider 포트가 필요함. 추가 모델 세션·가짜 provider가 아님.
+- draft2.0_c native backend/고정 모델 자산을 재사용했음. 이번 작업은 Python 제품 소스 조립 검증이며 native 재컴파일 검증은 아님.
+- 기본 RF+IMF1/V4와 비교용 명시 CNN4GNN/V5를 구분함. OCR OFF, Sourcefont OFF, ONNX1 thread 조건임.
+
+포함 기능
+
+- input: T01 벡터 괘선, T02+I-B 래스터 괘선·원본 이미지 전달임.
+- union: T04 실제 격자/소속 선택, T05 독립 표 추가 승인, T06 부모·자식 일관성임.
+- refine: T09 물리행·셀 기하, T10 cmap 기호/실제 glyph-word 추가 귀속의 별도 두 정책임.
+- refine/header: T11~14 역할 공급, T15 행 보정, T17 반복 표 분리, T18 병합셀 보정임.
+- 후속 split/header refine: T19 방향별 분할·필수 보존 rollback, T20 실제 원구조 대안 채택, T23 괘선 누락 첫 행 복원임.
+- serialize: T25 표 원문 소속·그림 내 표·최종 전달 계약임.
+- T19 rollback은 T20 채택과 독립임. T20은 native union의 실제 선택과 immutable 원격자 callback을 사용함. T23은 전용 source/역할 gate를 유지함.
+
+동등 이식 검증
+
+- PB-RF: API {'ok': 503}; TP729/FP102/FN164; bbox F1 84.570766%; GTRM 78.006552%임.
+- PB-CNN: API {'ok': 503}; TP748/FP138/FN145; bbox F1 84.092187%; GTRM 78.559331%임.
+- DL-RF: API {'ok': 6488, 'engine_failed': 1}; TP1799/FP337/FN470; bbox F1 81.679909%; 구조 점수 미측정임.
+- DL-CNN: API {'ok': 6489}; TP1926/FP522/FN343; bbox F1 81.662073%; 구조 점수 미측정임.
+- PB503/DL6489 양 모델 총13,984건을 새로 실행했으며 정상 페이지 공개7필드·표 수·bbox·HTML/Markdown과 실제 ONNX 호출 수가 P02와 전부 동일했음.
+- PB 공식 채점은 양팔 각503페이지의 공식 입력 digest가 정확히 같아 같은 평가기의 저장 점수를 재사용했음. HTML 동일성만으로 점수를 대신하지 않았음.
+- single-GT 점수는 별도 summary에 있음. 위 표는 IoU>=0.60 일대일 매칭임.
+- RF DL 기존 b5c9 R6 준비 실패1건은 engine_failed/missing으로 보존했음. GT0이므로 bbox 집계의 자동 벌점이 없으며 정상 성공으로 집계하지 않았음.
+- TX173 T06의 기존 페이지 회귀는 사용자 승인 사항임. 이식에 의한 신규 회귀는 없음.
+- native 후보 반환을 원래 pair로 유지하는 보완은 전수 소스와1줄 차이이며 통합 T05 생산 경로와 분리됨. 보완판은 native/Markdown/HTML 회전·crop15조건과 RF/CNN 각8 출력·ONNX 출력 trace가 P02와 일치했음.
+- 별도 기능16묶음은 실제 RF/CNN 대표 각8페이지를 통과했음. 복원 계약53개 중 자체 포함 테스트52개를 T19/T20/T23 브랜치에 커밋했으며 저장DL격자1건은 별도 증적으로 보존했음.
+- 기능별 단독 PB32팔 전수는 불필요한 추가 범위로 신규 착수를 중단했음. 남은 기능의 독립 전수·독립 DL·성능 ABBA를 완료했다고 주장하지 않음.
+
+기능별 실제 브랜치와 커밋
+
+- T01 / pymupdf / table-experiements/vector-ruling-20261108 / 9760bd83820d4b661b71242ae2eb04d3ee3be454
+- T02+I-B / pymupdf4llm / table-experiements/raster-ruling-20261108 / 8ac1cd8f455d86b89c5adf84c3887787b7019338
+- T04 / pymupdf4llm / table-experiements/native-grid-union-20261108 / f6907c88c532b2609eb41f86b029ed33234e7ad4
+- T05 / pymupdf / table-experiements/standalone-table-approval-20261108 / c3fc3fa6727930092f6785d36c30ee902839fc72
+- T05 / pymupdf4llm / table-experiements/standalone-table-approval-20261108 / bcb8b874a16c6c881f4b3bb4cfd2e45b0be74fe5
+- T06 / pymupdf4llm / table-experiements/union-parent-coherence-20261108 / 674a1bdbccbf81a153f1492143830fd2122c0795
+- T09 / pymupdf4llm / table-experiements/header-band-geometry-20261108 / 8e325765b96d794a95ed655acb23a7a23a75f727
+- T10-cmap / pymupdf / table-experiements/cell-cmap-recovery-20261108 / 36ba5c10c91ab27357ad5b1bfff00778626f0375
+- T10-word-owner / pymupdf / table-experiements/cell-glyph-word-ownership-20261108 / c65e4cc719f4f6904f576d5441704f52ef1c800c
+- T11~T14 / pymupdf4llm / table-experiements/header-role-classification-20261108 / 2e92ac6f602462b1759a7a7753d402928c022fe4
+- T15 / pymupdf4llm / table-experiements/header-row-refinement-20261108 / d7b4ae7fbc6839be935d18e484ce6d1e095e41ca
+- T17 / pymupdf / table-experiements/repeated-header-split-20261108 / 6cbae9aeab9eef92c3865930d49214882d8979cc
+- T18 / pymupdf4llm / table-experiements/header-span-refinement-20261108 / f84c5183c2b4734c5e0b02e3059d51ef6c490a41
+- T19 / pymupdf4llm / table-experiements/directional-table-split-20261108 / b6e517b0c02cbeae1946c75dada9169a180ac669
+- T20 / pymupdf4llm / table-experiements/original-grid-restoration-20261108 / d1f5d72daf79bf4e25f1927857cdd2cb411eef38
+- T23 / pymupdf4llm / table-experiements/ruled-leading-row-20261108 / ddc8e802c4f331059eb658cb2d7cd779a5fad445
+- T25 / pymupdf4llm / table-experiements/table-output-ownership-20261108 / 43f9cec1c33a04f3e5da7af98ec1e23f0c6dc998
+
+검증 자료
+
+- 통합 소스/자산: runs/laura-table-branch-application-20261108/CLEAN-GIT-v2/source-contract.json
+- 최종 검산: runs/laura-table-branch-application-20261108/final-verification.json
+- 전수·공식 점수: 같은 폴더 FINAL-{PB,DL}-{RF,CNN}/observations.jsonl 및 scores-FINAL-{PB,DL}-{RF,CNN}/summary.json
+- 상세 기능 맵과 실행 범위: docs/experiments/table-branch-application-progress-20261108.txt
+- 실제 HEAD와 전체 ref 연결은 같은 폴더 final-handoff.json에서 확인함.
