@@ -22,3 +22,6 @@ def configure(runtime):
     from .header_span_policy import install as install_header_span_policy
     install_header_span_policy(runtime)
     runtime.installed_components.append('T18')
+    from .directional_table_split import install as install_directional_table_split
+    install_directional_table_split(runtime)
+    runtime.installed_components.append('T19')
