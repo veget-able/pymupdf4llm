@@ -16,3 +16,6 @@ def configure(runtime):
     from .header_provider import install as install_header_provider
     install_header_provider(runtime)
     runtime.installed_components.append('T11~T14')
+    from .header_row_policy import install as install_header_row_policy
+    install_header_row_policy(runtime)
+    runtime.installed_components.append('T15')
