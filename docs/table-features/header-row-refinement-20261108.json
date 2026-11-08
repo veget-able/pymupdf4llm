@@ -1,0 +1,18 @@
+{
+  "order": 10,
+  "feature_ids": "T15",
+  "stage": "header refine",
+  "name": "헤더 기반 행 보정",
+  "branch": "table-experiements/header-row-refinement-20261108",
+  "repositories": [
+    "pymupdf4llm"
+  ],
+  "prerequisites": "실제 현재격자 역할 공급(T11~14 제공 단위)·native 행 보정",
+  "atomic_scope": "추가 shared/empty 보호와 소비 검사 포함; 기본 native 행 생산 유지",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "refine",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "actual_repository": "pymupdf4llm",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately."
+}
