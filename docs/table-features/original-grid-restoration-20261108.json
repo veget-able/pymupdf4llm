@@ -1,0 +1,17 @@
+{
+  "order": 14,
+  "feature_ids": "T20",
+  "stage": "header refine",
+  "name": "실제 원구조 대안 채택",
+  "branch": "table-experiements/original-grid-restoration-20261108",
+  "repositories": [
+    "pymupdf4llm"
+  ],
+  "prerequisites": "C00 immutable actual trial/원격자 refine 콜백·역할; T04 union trial 등록",
+  "atomic_scope": "등록→family→eligible→콜백→source/ID/역할 채택 검증을 한 단위로 유지; T19 필수 아님",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "없음*",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "boundary_review": "restoration-branch-boundary.json / ea3e236551ff85a85f4a67db413771411b1f4a36f111ca75878b03d59651fa9c"
+}
