@@ -1,0 +1,19 @@
+{
+  "order": 4,
+  "feature_ids": "T05",
+  "stage": "union",
+  "name": "독립 표 추가 승인",
+  "branch": "table-experiements/standalone-table-approval-20261108",
+  "repositories": [
+    "pymupdf",
+    "pymupdf4llm"
+  ],
+  "prerequisites": "C00 실제 unowned 후보·원문/도형; T04 배선과 소비 계약 확인 필요",
+  "atomic_scope": "추가 승인·오탐 억제와 전용 판정 부속을 한 단위로 유지; T06을 필수 활성으로 끌어오지 않음",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "union",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "actual_repository": "pymupdf4llm",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately."
+}
