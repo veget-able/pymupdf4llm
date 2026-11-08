@@ -19,3 +19,6 @@ def configure(runtime):
     from .header_row_policy import install as install_header_row_policy
     install_header_row_policy(runtime)
     runtime.installed_components.append('T15')
+    from .header_span_policy import install as install_header_span_policy
+    install_header_span_policy(runtime)
+    runtime.installed_components.append('T18')

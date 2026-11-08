@@ -1,0 +1,18 @@
+{
+  "order": 12,
+  "feature_ids": "T18",
+  "stage": "header refine",
+  "name": "헤더 기반 병합셀 보정",
+  "branch": "table-experiements/header-span-refinement-20261108",
+  "repositories": [
+    "pymupdf4llm"
+  ],
+  "prerequisites": "실제 현재 조각 역할 공급(T11~14 제공 단위)·native strict span",
+  "atomic_scope": "추가 parent-merge 판정·구절/기하 조건; 기본 span 생산과 보호 검증 유지",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "refine",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "actual_repository": "pymupdf4llm",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately."
+}
