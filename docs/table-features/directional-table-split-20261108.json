@@ -1,0 +1,17 @@
+{
+  "order": 13,
+  "feature_ids": "T19",
+  "stage": "split",
+  "name": "방향별 분할·자식 복원",
+  "branch": "table-experiements/directional-table-split-20261108",
+  "repositories": [
+    "pymupdf4llm"
+  ],
+  "prerequisites": "C00 현재 placements·실제 cut/원문·역할 공급",
+  "atomic_scope": "제안→partition→자식 역할 소비+즉시/최종 보존 rollback을 한 단위로 유지",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "없음*",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "boundary_review": "restoration-branch-boundary.json / ea3e236551ff85a85f4a67db413771411b1f4a36f111ca75878b03d59651fa9c"
+}
