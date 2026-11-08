@@ -203,7 +203,18 @@ class TableRuntime:
         try:
             if self.union_consumer is not None:
                 return self.union_consumer(self, page, existing, candidates, **kwargs)
-            return union._union_replace_append_base(list(existing), candidates, page=page, **kwargs)
+            selection = None
+            if self.union_selection_consumer is not None:
+                from .selection_material import StructureSelection
+                selection = StructureSelection()
+            covered = None
+            if self.parent_coherence is not None:
+                covered = lambda original, children, live_page: self.parent_coherence(original, children, live_page, union)
+            entries = union._union_replace_append_base(list(existing), candidates, page=page,
+                _selection=selection, _partition_covered=covered, **kwargs)
+            if selection is not None:
+                self.union_selection_consumer(self, page, selection)
+            return entries
         except Exception as exc:
             self.errors.append(str(exc))
             raise
