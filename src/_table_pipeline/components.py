@@ -28,3 +28,6 @@ def configure(runtime):
     from .original_grid_restoration import install as install_original_grid_restoration
     install_original_grid_restoration(runtime)
     runtime.installed_components.append('T20')
+    from .ruled_leading_row_policy import install as install_ruled_leading_row_policy
+    install_ruled_leading_row_policy(runtime)
+    runtime.installed_components.append('T23')
