@@ -1,5 +1,4 @@
-"""Explicit source-branch assembly of installed table consumers."""
+"""Explicit assembly of the integrated, feature-owned consumers."""
 
 def configure(runtime):
-    """The native foundation has no optional table policy installed."""
     return

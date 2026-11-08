@@ -8,6 +8,7 @@ union=True, refine=True)``.
 """
 import pymupdf
 from .core import html_document
+from .raster_lines import detect_raster_table_lines
 
 
 class TablePayload(tuple):
@@ -117,7 +118,7 @@ def to_html(pdf, page_index=0):
     try:
         page = doc[page_index]
         page.remove_rotation()
-        raster_lines = None
+        raster_lines = detect_raster_table_lines(page)
         tf = page.find_tables(
             use_layout=True,
             union=True,
@@ -156,7 +157,7 @@ def page_html_tables(
     shared Page: core caches word/vector extraction as attributes on the given
     ``page``, so concurrent calls must each use their own ``pymupdf.Page``.
     """
-    raster_lines = None
+    raster_lines = detect_raster_table_lines(page)
     tf = page.find_tables(
         use_layout=True,
         union=True,
