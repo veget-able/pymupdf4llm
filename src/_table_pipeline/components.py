@@ -13,3 +13,6 @@ def configure(runtime):
     from .header_band_split import install as install_header_band_split
     install_header_band_split(runtime)
     runtime.installed_components.append('T09')
+    from .header_provider import install as install_header_provider
+    install_header_provider(runtime)
+    runtime.installed_components.append('T11~T14')
