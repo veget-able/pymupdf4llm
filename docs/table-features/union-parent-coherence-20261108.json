@@ -1,0 +1,18 @@
+{
+  "order": 5,
+  "feature_ids": "T06",
+  "stage": "union",
+  "name": "부모·자식 일관성 보호",
+  "branch": "table-experiements/union-parent-coherence-20261108",
+  "repositories": [
+    "pymupdf4llm"
+  ],
+  "prerequisites": "실제 owned split 제안; 현행 피복 검사 유지; T04 선택 포트",
+  "atomic_scope": "coherence veto만 소유; 피복50% 삭제와 혼동 금지; TX173 회귀 허용",
+  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "baseline_stage": "union",
+  "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
+  "actual_repository": "pymupdf4llm",
+  "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
+  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately."
+}
