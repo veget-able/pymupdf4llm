@@ -9,10 +9,22 @@
   ],
   "prerequisites": "C00 최종 표/word-glyph 원문 대응·ID/HTML·reading order 계약",
   "atomic_scope": "표 소유 원문 중복 억제와 그림 속 표 출력; T24 잔여 Text 생산 복원 금지",
-  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "status": "SOURCE_PORTED_COMMITTED_REPRESENTATIVE_API_PASS",
   "baseline_stage": "serialize",
   "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
   "actual_repository": "pymupdf4llm",
   "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
-  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately."
+  "scope_note": "Functional body port from frozen P02; composition/independent API validation recorded separately.",
+  "qualification": {
+    "scope": "Separate common+single feature compositions; no claim of universal non-regression",
+    "RF_representative_PDFs": 8,
+    "CNN_representative_PDFs": 8,
+    "PDF_OCR": false,
+    "guards": "Actual source/placement/current-grid role/table ID/HTML checks retained",
+    "known_source": "P02 frozen policies",
+    "report": "docs/experiments/table-branch-application-progress-20261108.txt",
+    "evidence_root": "/home/meta/projects/pb_table/runs/laura-table-branch-application-20261108",
+    "optional_feature_PB_full": "Additional runs preserved, not required for source separation qualification",
+    "independent_DL_ablation": "NOT_RUN"
+  }
 }
