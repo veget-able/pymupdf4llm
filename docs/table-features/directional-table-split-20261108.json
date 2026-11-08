@@ -9,9 +9,22 @@
   ],
   "prerequisites": "C00 현재 placements·실제 cut/원문·역할 공급",
   "atomic_scope": "제안→partition→자식 역할 소비+즉시/최종 보존 rollback을 한 단위로 유지",
-  "status": "SOURCE_PORTED_VALIDATION_PENDING",
+  "status": "SOURCE_PORTED_COMMITTED_REPRESENTATIVE_API_PASS",
   "baseline_stage": "없음*",
   "common_base": "bd348570af9846581ca17248cc0c11130d29bbcb",
   "reference_source_map_SHA": "75a0f81025e20db3ca52b96ea3e879b19afa863f08626b71741e847afbcaf752",
-  "boundary_review": "restoration-branch-boundary.json / ea3e236551ff85a85f4a67db413771411b1f4a36f111ca75878b03d59651fa9c"
+  "boundary_review": "restoration-branch-boundary.json / ea3e236551ff85a85f4a67db413771411b1f4a36f111ca75878b03d59651fa9c",
+  "qualification": {
+    "scope": "Separate common+single feature compositions; no claim of universal non-regression",
+    "RF_representative_PDFs": 8,
+    "CNN_representative_PDFs": 8,
+    "PDF_OCR": false,
+    "guards": "Actual source/placement/current-grid role/table ID/HTML checks retained",
+    "known_source": "P02 frozen policies",
+    "report": "docs/experiments/table-branch-application-progress-20261108.txt",
+    "evidence_root": "/home/meta/projects/pb_table/runs/laura-table-branch-application-20261108",
+    "optional_feature_PB_full": "Additional runs preserved, not required for source separation qualification",
+    "independent_DL_ablation": "NOT_RUN",
+    "portable_fixture_tests": 20
+  }
 }
