@@ -25,3 +25,6 @@ def configure(runtime):
     from .directional_table_split import install as install_directional_table_split
     install_directional_table_split(runtime)
     runtime.installed_components.append('T19')
+    from .original_grid_restoration import install as install_original_grid_restoration
+    install_original_grid_restoration(runtime)
+    runtime.installed_components.append('T20')
