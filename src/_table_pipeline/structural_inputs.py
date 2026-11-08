@@ -1,8 +1,7 @@
 """Shared current-grid/source inputs; no row or span policy installed."""
 from collections import Counter
 from contextlib import contextmanager
-from pymupdf import table, _table_refine as refine, _table_spans as spans
-from . import vg_rule_primitives as graphics
+from pymupdf import table, _table_refine as refine, _table_spans as spans, _table_geometry as graphics
 
 def graphic_segments(paths,context,spans):
     # Reuse native stroke and filled-quadrilateral conversion. Rectangles need
