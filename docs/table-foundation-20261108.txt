@@ -1,0 +1,9 @@
+Native table material and consumer foundation / 2026-11-08
+
+Supply actual word/vertical/glyph identities, retained RAWDICT occurrences, ruling provenance and call-scoped raster material. Complete the existing mixed-direction cell producer before publishing actual CellContent refs and claims. Keep native union, row, span and role producers as explicit defaults.
+
+Optional approval, geometric correction, R6, split, restoration and output-ownership policies are installed by their feature branches. The common components assembly installs none. NativePreparation delegates to actual native producers and does not claim R6/ONNX decisions.
+
+Validation: four unchanged native-material tests pass. Fifteen native/Markdown/HTML/rotation/crop surface conditions match the frozen main baseline. Eight real OCR-OFF documents match all six public fields and every actual ONNX output trace against a fresh main execution. This is representative validation, not a new full-corpus neutrality claim.
+
+Package source and native/model assets are declared separately; existing native wheels are reused, not rebuilt. The benchmark P02 source and previous branches remain unchanged.

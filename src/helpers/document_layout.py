@@ -1334,7 +1334,7 @@ def make_ocr_decision(page, use_ocr):
     return needs_ocr, ocr_spans, only_text
 
 
-def parse_document(
+def _parse_document_impl(
     doc,
     filename="",
     image_dpi=150,
@@ -1760,3 +1760,18 @@ if __name__ == "__main__":
     # Path(filename).with_suffix(".txt").write_text(pdoc.to_text(footer=False))
     md = pdoc.to_markdown(write_images=False, header=False, footer=False)
     Path(filename).with_suffix(".md").write_text(md)
+
+
+from functools import wraps as _wraps
+from inspect import signature as _signature
+_PARSE_SIGNATURE = _signature(_parse_document_impl)
+
+
+@_wraps(_parse_document_impl)
+def parse_document(*args, **kwargs):
+    bound = _PARSE_SIGNATURE.bind(*args, **kwargs)
+    if bound.arguments.get("render_html_tables"):
+        from pymupdf4llm._table_pipeline.runtime import structured_tables
+        with structured_tables():
+            return _parse_document_impl(*args, **kwargs)
+    return _parse_document_impl(*args, **kwargs)
