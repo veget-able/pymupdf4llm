@@ -7,7 +7,6 @@ Builds the per-page table payload consumed by the markdown/JSON renderers
 union=True, refine=True)``.
 """
 import pymupdf
-from pymupdf._table_raster import detect_raster_table_lines
 from .core import html_document
 
 
@@ -71,8 +70,7 @@ def to_html(pdf, page_index=0):
     try:
         page = doc[page_index]
         page.remove_rotation()
-        raster_lines = detect_raster_table_lines(page)
-        tf = page.find_tables(use_layout=True, union=True, refine=True, add_lines=raster_lines)
+        tf = page.find_tables(use_layout=True, union=True, refine=True)
         tables = [tab.to_html() for tab in (getattr(tf, "tables", None) or [])]
     finally:
         if owns_doc:
@@ -80,7 +78,7 @@ def to_html(pdf, page_index=0):
     return html_document([{"html": h} for h in tables])
 
 
-def page_html_tables(page: pymupdf.Page, *, ruling_source=None, textpage=None, image_boxes=None) -> list[tuple[pymupdf.Rect, str, int, int, list, list]]:
+def page_html_tables(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, str, int, int, list, list]]:
     """Reconstruct one already-open page's tables as payload tuples.
 
     Returns one ``(bbox, html, rows, cols, cells, extract)`` tuple per table, in
@@ -98,8 +96,7 @@ def page_html_tables(page: pymupdf.Page, *, ruling_source=None, textpage=None, i
     shared Page: core caches word/vector extraction as attributes on the given
     ``page``, so concurrent calls must each use their own ``pymupdf.Page``.
     """
-    raster_lines = detect_raster_table_lines(page, source=ruling_source, textpage=textpage, image_boxes=image_boxes)
-    tf = page.find_tables(use_layout=True, union=True, refine=True, add_lines=raster_lines)
+    tf = page.find_tables(use_layout=True, union=True, refine=True)
     result = []
     for tab in (getattr(tf, "tables", None) or []):
         row_count, col_count, cells, extract = _placement_grid_matrices(tab.placements)
