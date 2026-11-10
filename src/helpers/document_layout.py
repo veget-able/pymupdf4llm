@@ -1479,7 +1479,10 @@ def parse_document(
         ONLY_TEXT = False
         needs_ocr, OCR_SPANS, ONLY_TEXT = make_ocr_decision(page, document.use_ocr)
 
+        ruling_source = None
         if needs_ocr:
+            if render_html_tables:
+                ruling_source = page.get_displaylist()
             # execute OCR for the page replacing any previous OCR spans
             ocr_function(
                 page,
@@ -1509,7 +1512,7 @@ def parse_document(
             try:
                 from pymupdf4llm.helpers.table_html import page_html_tables
 
-                page_html_tables_list = list(page_html_tables(page))
+                page_html_tables_list = list(page_html_tables(page, ruling_source=ruling_source, textpage=textpage, image_boxes=[b["bbox"] for b in blocks if b["type"] == 1]))
             except Exception as exc:
                 # HTML table rendering failed on this page -> fall back to the
                 # layout table path, but surface the reason (flushed to
@@ -1523,6 +1526,7 @@ def parse_document(
                 page_html_tables_list = None
             finally:
                 page.layout_information = _saved_raw_layout
+                ruling_source = None
 
         # Dictionary with details for all tables. Key is the bounding box
         # tuple, value is the original Layout info per table.
